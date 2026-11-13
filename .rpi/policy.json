@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "integration_branch": "develop",
+  "remote": "origin",
+  "verification_command": [
+    "python3",
+    ".rpi/scripts/rpi-verify.py"
+  ],
+  "verification_checks": [
+    {
+      "name": "whitespace",
+      "argv": [
+        "git",
+        "diff",
+        "--check",
+        "30e0dfbf2cfbef01b8c462bfec2452b3c0295a61"
+      ]
+    },
+    {
+      "name": "rpi-installation",
+      "argv": [
+        "python3",
+        ".rpi/scripts/rpi-distribution.py",
+        "check",
+        "--source",
+        "/Users/juan/code/cc-rpi",
+        "--target",
+        ".",
+        "--harness",
+        "both",
+        "--route",
+        "direct"
+      ]
+    },
+    {
+      "name": "macos-build",
+      "argv": [
+        "env",
+        "DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer",
+        "xcodebuild",
+        "-project",
+        "Sotto.xcodeproj",
+        "-scheme",
+        "Sotto",
+        "-configuration",
+        "Debug",
+        "-derivedDataPath",
+        ".local/setup/DerivedData",
+        "CODE_SIGNING_ALLOWED=NO",
+        "build"
+      ]
+    }
+  ],
+  "production_branches": [
+    "main"
+  ],
+  "require_verification_receipt": false
+}

@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "project": "captalo",
+  "release_ready": false,
+  "stage": "workspace-bootstrap",
+  "integration_branch": "develop",
+  "production_branch": "main",
+  "release_procedure": "docs/release/release-playbook.md",
+  "setup_suite_is_release_evidence": false,
+  "waves": {
+    "A": "required",
+    "B": "required-for-runtime-releases-only",
+    "C": "not-selected",
+    "D": "not-selected",
+    "E": "not-selected",
+    "F": "not-selected",
+    "G": "not-selected",
+    "H": "not-selected"
+  },
+  "required_before_first_app_release": [
+    "executable-application-tests",
+    "candidate-bound-evidence-analyzer",
+    "real-mac-selection-and-playback-evidence",
+    "offline-and-privacy-evidence",
+    "permission-recovery-evidence",
+    "accepted-voice-audition",
+    "artifact-identity-and-distribution-decision"
+  ],
+  "required_after_ocr_ships": [
+    "region-capture-and-ocr-evidence"
+  ],
+  "current_gaps": [
+    "no-application-test-target",
+    "no-release-evidence-analyzer",
+    "no-runtime-acceptance-evidence",
+    "no-captalo-signing-or-distribution-pipeline"
+  ],
+  "invariants": [
+    "passing-check-count-greater-than-zero",
+    "required-failure-or-skip-blocks",
+    "candidate-and-artifact-identities-match",
+    "cleanup-or-retained-resource-handoff-present",
+    "tag-last-after-evidence-and-authorization"
+  ]
+}

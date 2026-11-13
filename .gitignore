@@ -7,3 +7,13 @@ xcuserdata/
 
 # Xcode resolves this locally from Package.resolved.
 SourcePackages/
+
+# Cáptalo local workspace, evidence, and generated index (added 2026-11-13).
+.local/
+.rpi/local/
+logs/
+docs/agents/
+graphify-out
+.env
+.env.*
+!.env.example

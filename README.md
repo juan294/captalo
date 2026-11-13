@@ -1,104 +1,43 @@
-<p align="center">
-  <img src="assets/sotto-logo.png" width="112" height="112" alt="Sotto icon">
-</p>
+# Cáptalo
 
-<h1 align="center">Sotto</h1>
+Hear visible text and understand it with less effort. Cáptalo is a local macOS read-aloud utility derived from [Shreysid/Sotto](https://github.com/Shreysid/Sotto).
 
-<p align="center">
-  Select text in any macOS app, use your shortcut, and hear it read aloud.<br>
-  Expressive local text-to-speech with <a href="https://github.com/FluidInference/FluidAudio">FluidAudio</a> and <a href="https://huggingface.co/hexgrad/Kokoro-82M">Kokoro</a>.<br>
-  Runs quietly from your menu bar.
-</p>
+**Status:** development fork. Workspace and workflow configuration are installed; no Cáptalo release is available. The inherited Xcode project, executable, bundle identifier and interface still use Sotto names. Screen-region OCR and the quieter interface are proposed work, not shipped features.
 
-<p align="center">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="License: Apache-2.0"></a>
-  <img src="https://img.shields.io/badge/platform-macOS%2015%2B-lightgrey" alt="macOS 15+">
-  <img src="https://img.shields.io/badge/voice-local%20Kokoro-4d6bfe" alt="Local Kokoro voice">
-</p>
+## Intended experience
 
-<p align="center">
-  
+Select text and use a shortcut to hear it. For text that cannot be selected, the planned second action is a shortcut plus a dragged screen rectangle, recognized locally. Speech and OCR stay on the Mac. No cloud voice service, floating transcript, subscription or paid reader dependency.
 
-https://github.com/user-attachments/assets/9f9b7768-730d-4af3-a025-86fc9086daa0
+The existing foundation supplies Accessibility selection capture with a clipboard fallback, local Kokoro speech through FluidAudio, and playback controls. Voice quality, application compatibility and offline behavior still require runtime acceptance testing.
 
+## Start here
 
-</p>
+- [Project briefing](docs/briefing.md): accepted requirements, fork decision, source baseline and next-session scope.
+- [Setup handoff](docs/setup-handoff.md): verification evidence, local integrations and next steps.
+- [Design brief](docs/research/2026-11-13-captalo-brief.md): product goals and acceptance criteria.
+- [Agent instructions](AGENTS.md): native Claude and Codex RPI workflows and project commands.
+- [Release procedure](docs/release/release-playbook.md): evidence and publication boundaries.
+- [Upstream README](docs/upstream/Sotto-README.md): original installation and usage information for Sotto, not Cáptalo releases.
 
-<p align="center">
-  <a href="https://www.producthunt.com/products/sotto-7?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-sotto-3fb008d4-a845-4f83-9a4f-f5d1a9b03474" target="_blank" rel="noopener noreferrer"><img alt="Sotto - Local read-aloud for selected text on macOS | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1199240&amp;theme=light&amp;t=1784368812677"></a>
-</p>
+## Development
 
----
+Requires macOS 15+, Apple silicon for the intended local inference path, and Xcode 26 or later. Swift Package Manager resolves the pinned FluidAudio dependency. Dependencies and model assets require initial downloads; listening is intended to operate offline afterward.
 
-## Requirements
-
-- macOS 15 or later
-- Apple silicon Mac recommended
-- Xcode 26 or later to build from source
-- Internet access for the first FluidAudio dependency resolution and Kokoro download
-
-## Install with Homebrew
-
-```bash
-brew install --cask shreysid/tap/sotto
-sudo xattr -dr com.apple.quarantine /Applications/Sotto.app
-open /Applications/Sotto.app
+```sh
+open Sotto.xcodeproj
+xcodebuild -project Sotto.xcodeproj -scheme Sotto -configuration Debug \
+  -destination 'platform=macOS' -derivedDataPath .local/build/DerivedData \
+  CODE_SIGNING_ALLOWED=NO build
 ```
 
-The current Homebrew release is an unsigned Apple-silicon preview. The `xattr` command removes macOS quarantine so Gatekeeper does not show the misleading damaged-app warning on first launch.
+When the global developer directory selects Command Line Tools, set `DEVELOPER_DIR` for that command to the installed Xcode developer directory. Do not change the machine-wide developer selection just for this project. A local build is not a signed or distributable release.
 
-## Build from source
+The integration branch is `develop`; `main` is reserved for explicitly authorized releases. Keep implementation branches local. `origin` is the Cáptalo fork and `upstream` is the original project, retained for reviewed upstream updates.
 
-1. Clone Sotto:
+The project includes a `.summon` configuration for the locally installed `opus-codex-shell` layout. After registration, launch with `summon captalo`.
 
-   ```bash
-   git clone https://github.com/Shreysid/Sotto.git
-   cd Sotto
-   ```
+## Attribution and license
 
-2. Open the project:
+Cáptalo is based on Sotto by Shreysid. This README was rewritten for the Cáptalo fork on 2026-11-13; the original is preserved under `docs/upstream/`. Upstream application source and assets remain unchanged during workspace setup.
 
-   ```bash
-   open Sotto.xcodeproj
-   ```
-
-3. In Xcode, select the `Sotto` scheme and `My Mac` as the run destination.
-4. Press `Cmd+R` to build and run. Xcode resolves FluidAudio through Swift Package Manager on the first build.
-
-## First use
-
-Sotto appears as a waveform in the menu bar. On first launch it asks for Accessibility access, which lets it read the active text selection and respond to your global shortcut.
-
-1. Choose **Open Accessibility Settings** in Sotto's prompt and enable **Sotto**.
-2. Download Kokoro from Sotto's first-run prompt.
-3. Select text in any app, then press the configured shortcut to start speaking.
-4. Use the shortcut again with no selection, or use the stop control, to stop playback.
-
-Kokoro downloads once, stays outside the app bundle, and is loaded locally. Sotto warms it after startup so the first real selection can begin sooner.
-
-## Controls
-
-Click the menu-bar waveform to open playback controls and **Sotto Studio**.
-
-| Setting | What it does |
-|---|---|
-| **Playback speed** | Uses stepped speed values from `0.75x` to `1.35x`; changes apply during playback. |
-| **Global shortcut** | Records the shortcut you want to use for speaking selected text. |
-| **Pronunciation** | Replaces a word or phrase with a preferred spoken form before Kokoro synthesizes it. |
-| **Pause for voice apps** | Stops Sotto when a supported calling or voice app becomes active. |
-| **Stats** | Tracks locally spoken words and total playback time. |
-
-## Privacy
-
-Selected text and generated audio remain on-device. Sotto contacts the model host only to download Kokoro and its supporting assets.
-
-## Credits
-
-- [FluidAudio](https://github.com/FluidInference/FluidAudio) provides the local Apple Silicon inference and model-management layer.
-- [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M) provides Sotto's expressive text-to-speech model.
-
-FluidAudio and Kokoro-82M are both licensed under Apache-2.0. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for attribution details.
-
-## License
-
-[Apache License 2.0](LICENSE)
+The [Apache License 2.0](LICENSE) and [third-party notices](THIRD_PARTY_NOTICES.md) are preserved. FluidAudio and Kokoro supply the inference foundation. Cáptalo is an independent fork and does not imply endorsement by upstream authors.
