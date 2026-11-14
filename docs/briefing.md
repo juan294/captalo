@@ -35,6 +35,27 @@ Use native RPI skills: `$rpi-plan` in Codex or `/rpi-plan` in Claude, then the o
 
 Archy enrollment is local fleet/tracking integration. It does not authorize hosted graph export, deployment, or changes to Sutura-owned CI routing. Graphify must be queried through this repository's own `graphify-out` link after indexing; absent/stale graph evidence falls back to source and must be reported.
 
+## Research and owner decisions of 2026-11-14
+
+Read these before planning. Where they differ from the sections above or from the 2026-11-13 design brief, the newer documents govern.
+
+- [Inherited baseline](research/2026-11-14-inherited-baseline-for-initial-plan.md): what the Sotto code does today, with `file:line` evidence.
+- [Clean-eyes re-evaluation](research/2026-11-14-clean-eyes-reevaluation-assessment.md): every inherited choice reassessed, the owner's answers, the distribution decision, the development method and the speech engine decisions.
+- [Qwen3-TTS research](research/2026-11-14-qwen3-tts-single-engine.md): measurements and owner listening verdicts behind the own-voice engine.
+- [Own-voice design brief](research/2026-11-14-own-voice-brief.md): the optional "read in my own voice" feature.
+
+Decisions in force:
+
+- Built-in voices: Kokoro v1.0 through an upgraded FluidAudio, bundled in the app, English only.
+- Own voice: optional, local clone with Qwen3-TTS 1.7B Base 4-bit as a one-time user-initiated download. No cloud voice service.
+- Interface: background app with no Dock icon, no menu-bar item and no popover; one small settings window; user-chosen shortcuts; silence when nothing is selected; Pronunciation and Stats screens removed.
+- Capture: layered Accessibility reader, then the app's own Copy menu item, then synthetic copy as last resort; a per-app probe comes first. Screen-region OCR with ScreenCaptureKit and `RecognizeDocumentsRequest`.
+- Platform and distribution: macOS 26 minimum; direct download from the owner's site, Developer ID signed and notarized; no App Store or TestFlight; not sandboxed.
+- Identity: own name, team and bundle ID. Recommended `com.thecreativetoken.captalo`; the owner has not yet confirmed the exact string.
+- Development method: Makefile wrapping `xcodebuild` with `xcbeautify`, signed build installed at one fixed path, unit tests first, local Apple documentation, "no fallbacks without approval".
+
+Still open for the plan: bundle ID confirmation; the Swift build of Qwen3-TTS and its behaviour on an ordinary Mac; FluidAudio v0.18.3 not compiling unmodified with Xcode 27.0 beta; whether the Xcode 27 JSON project format is usable for the rename.
+
 ## Next session
 
 Start with `$rpi-plan` or `/rpi-plan` here. Read this briefing, AGENTS.md, the [design brief](research/2026-11-13-captalo-brief.md), and the [setup handoff](setup-handoff.md). Verify actual refs and setup evidence before using them. Plan from the inherited behavior and reproduce relevant gaps before proposing repairs. Make local voice acceptance and cross-app capture validation early decisions, include the accepted rectangle/OCR interaction and minimal interface, and preserve the all-local constraint. Stop after the reviewed product plan; this setup does not authorize product implementation or release.
