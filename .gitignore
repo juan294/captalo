@@ -17,3 +17,6 @@ graphify-out
 .env
 .env.*
 !.env.example
+
+# Local hook event log (machine-specific; ignored across the fleet).
+.claude/metrics/
