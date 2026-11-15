@@ -32,9 +32,10 @@ public actor OCRSlot {
     public var isReserved: Bool { reserved }
 }
 
-/// Region OCR (plan phase 5, unit 5B). The caller waits at most `timeout`;
-/// the worker that owns the image and the Vision call ends on its own time,
-/// and the slot stays held until it does.
+/// Region OCR (plan phase 5, unit 5B). The caller waits at most `timeout`,
+/// screenshot acquisition included; the worker that owns the capture, the
+/// image and the Vision call ends on its own time, and the slot stays held
+/// until it does.
 public final class RegionReader: Sendable {
     public static let defaultTimeout = Duration.seconds(10)
 
@@ -74,47 +75,37 @@ public final class RegionReader: Sendable {
     private func recognizeRegion(_ token: InputToken, _ selection: RegionSelection) async -> CaptureOutcome {
         // 1. Reserve the slot before anything awaits.
         guard await slot.reserve() else { return .failed(.ocrBusy) }
-        // 2. Capture; a failure or cancellation releases the slot.
-        let image: CGImage
-        do {
-            image = try await capturer.capture(selection)
-        } catch {
-            await slot.release()
-            // A capture cut short by a newer input is a cancel, not an OCR failure.
-            return Task.isCancelled ? .cancelled : .failed(.ocrFailed)
-        }
-        // 2a. A newer input superseded this one: drop the image, never start Vision.
-        guard await isCurrent(token) else {
-            await slot.release()
-            return .cancelled
-        }
-        // 2b, 4. The worker owns the image and the reservation; it releases the
-        // slot when the native call has returned or thrown.
-        let slot = self.slot
-        let recognizer = self.recognizer
-        let worker = Task { () -> Result<[TranscriptItem], any Error> in
-            let result: Result<[TranscriptItem], any Error>
+        // 2, 4. The worker owns the capture, the image and the reservation; it
+        // releases the slot only when the capture and any Vision call have ended.
+        let (slot, capturer, recognizer, isCurrent) = (self.slot, self.capturer, self.recognizer, self.isCurrent)
+        let worker = Task { () -> Result<[TranscriptItem], any Error>? in
+            let result: Result<[TranscriptItem], any Error>?
             do {
-                result = .success(try await recognizer.recognize(image))
+                let image = try await capturer.capture(selection)
+                // 2a. The caller gave up (timeout, cancel) or a newer input
+                // superseded this one: drop the image, never start Vision.
+                let current = await isCurrent(token)
+                result = current && !Task.isCancelled ? .success(try await recognizer.recognize(image)) : nil
             } catch {
                 result = .failure(error)
             }
             await slot.release()
             return result
         }
-        // 3. The caller waits up to `timeout`, then cancels the worker and
-        // returns. A task group would wait for the worker; this race does not.
-        let first = await Self.race(worker, timeout: timeout)
-        guard let first else {
+        // 3. The caller waits up to `timeout` across capture and recognition,
+        // then cancels the worker and returns. A task group would wait for the
+        // worker; this race does not.
+        guard let finished = await Self.race(worker, timeout: timeout) else {
             worker.cancel()
             // A cancelled caller (newer press, quit) is a cancel, never a timeout.
             return Task.isCancelled ? .cancelled : .failed(.ocrTimedOut)
         }
-        // 5. Deliver only to a current input.
-        guard await isCurrent(token) else { return .cancelled }
-        switch first {
+        // 5. Deliver only to a current input; a dropped image is a cancel.
+        guard let recognized = finished, await isCurrent(token) else { return .cancelled }
+        switch recognized {
         case .failure:
-            return .failed(.ocrFailed)
+            // A capture cut short by a newer input is a cancel, not an OCR failure.
+            return Task.isCancelled ? .cancelled : .failed(.ocrFailed)
         case let .success(items):
             let blocks = DocumentTranscript.blocks(items)
             guard TextPreparer.hasSpeakableText(.document(blocks)) else { return .nothingSelected }

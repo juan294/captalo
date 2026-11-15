@@ -96,6 +96,8 @@ let words = [TranscriptItem(.paragraph("Read this region."), bounds: CGRect(x: 0
         read.cancel()
         await capturer.gate.open()
         #expect(await read.value == .cancelled)
+        // The worker releases the slot when the capture ends, not when the caller returns.
+        await eventually { await !slot.isReserved }
         #expect(await !slot.isReserved)
     }
 
@@ -113,6 +115,56 @@ let words = [TranscriptItem(.paragraph("Read this region."), bounds: CGRect(x: 0
         #expect(await slot.isReserved)
         await recognizer.gate.open()
         await eventually { await !slot.isReserved }
+    }
+
+    /// VAL-09: the caller deadline covers screenshot acquisition. A blocked capture
+    /// times the caller out on schedule; the slot stays held until the capture
+    /// ends, and an image that arrives after the caller gave up never reaches Vision.
+    @Test func callerDeadlineCoversBlockedCapture() async {
+        let capturer = BlockedCapturer(blocked: true)
+        let recognizer = BlockedRecognizer(items: words)
+        let slot = OCRSlot()
+        let read = Task { await reader(capturer, recognizer, slot: slot, timeout: .milliseconds(50)).read(regionToken, selection) }
+        await eventually { capturer.calls.withLock { $0 } == 1 }
+        let watchdog = Self.openAfterTwoSeconds(capturer.gate) // a regression fails instead of hanging
+        defer { watchdog.cancel() }
+        let started = ContinuousClock.now
+        let outcome = await read.value
+        #expect(outcome == .failed(.ocrTimedOut))
+        #expect(started.duration(to: .now) < .seconds(1))
+        #expect(await slot.isReserved) // the capture is still running
+        await capturer.gate.open()
+        await eventually { await !slot.isReserved }
+        #expect(await !slot.isReserved)
+        #expect(recognizer.calls.withLock { $0 } == 0)
+    }
+
+    /// VAL-09: cancelling the caller during a blocked capture ends the wait at
+    /// once; the slot stays held until the capture ends, and Vision never starts.
+    @Test func callerCancellationCoversBlockedCapture() async {
+        let capturer = BlockedCapturer(blocked: true)
+        let recognizer = BlockedRecognizer(items: words)
+        let slot = OCRSlot()
+        let read = Task { await reader(capturer, recognizer, slot: slot, timeout: .seconds(60)).read(regionToken, selection) }
+        await eventually { capturer.calls.withLock { $0 } == 1 }
+        let watchdog = Self.openAfterTwoSeconds(capturer.gate) // a regression fails instead of hanging
+        defer { watchdog.cancel() }
+        let cancelled = ContinuousClock.now
+        read.cancel()
+        #expect(await read.value == .cancelled)
+        #expect(cancelled.duration(to: .now) < .seconds(1))
+        #expect(await slot.isReserved) // the capture is still running
+        await capturer.gate.open()
+        await eventually { await !slot.isReserved }
+        #expect(await !slot.isReserved)
+        #expect(recognizer.calls.withLock { $0 } == 0)
+    }
+
+    static func openAfterTwoSeconds(_ gate: Gate) -> Task<Void, Never> {
+        Task {
+            guard (try? await Task.sleep(for: .seconds(2))) != nil else { return }
+            await gate.open()
+        }
     }
 
     /// A caller already cancelled before the race starts never waits.
