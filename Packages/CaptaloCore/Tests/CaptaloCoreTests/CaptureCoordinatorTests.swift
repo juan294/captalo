@@ -86,14 +86,14 @@ final class FakeFocus: FocusEnvironment, @unchecked Sendable {
         board.releaseGlobally()
     }
 
-    func coordinator(current: Bool = true) -> CaptureCoordinator {
+    func coordinator(current: Bool = true, menu: (any MenuCopyAccess)? = nil) -> CaptureCoordinator {
         let board = self.board
         var limits = ClipboardTransaction.Limits()
         limits.copyWindow = .milliseconds(100)
         limits.pollInterval = .milliseconds(5)
         let lock = AsyncSerialLock()
         return CaptureCoordinator(
-            ax: ax, menu: menu, keys: keys, focus: focus,
+            ax: ax, menu: menu ?? self.menu, keys: keys, focus: focus,
             transaction: { ClipboardTransaction(pasteboard: SystemPasteboard(board), lock: lock, limits: limits) },
             isCurrent: { _ in current },
             sleep: { _ in }

@@ -29,6 +29,12 @@ public struct InputSource: Hashable, Sendable {
     }
 }
 
+/// A press's place in shortcut order, reserved when the shortcut fires,
+/// before the source lookup (VAL-01).
+public struct PressTicket: Hashable, Sendable {
+    public let inputGeneration: UInt64
+}
+
 public struct InputToken: Hashable, Sendable {
     public let inputGeneration: UInt64
     public let kind: InputKind
@@ -66,6 +72,8 @@ public enum CaptureFailure: String, Sendable {
     case ocrFailed
     /// A region press while the OCR slot is held: silent.
     case ocrBusy
+    /// The region overlay could not install its Esc tap, so it was not shown.
+    case overlayUnavailable
 }
 
 /// What a committed reading speaks: selected (or app-provided) text, or the

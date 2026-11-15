@@ -20,16 +20,29 @@ extension CaptaloAppState {
         let overlay = RegionOverlayController()
         let accessibility = self.accessibility
         let requests = self.requests
+        // Ordered at the press, before the source lookup (VAL-01).
+        let ticket = requests.reservePress()
         Task.detached {
             let source = accessibility.currentSourceOrNone()
-            await requests.submit(kind: .region, source: source) { token in
+            await requests.submit(ticket, kind: .region, source: source) { token in
                 // A newer press cancels this input: the overlay closes as a cancel.
-                let selection = await withTaskCancellationHandler {
+                let result = await withTaskCancellationHandler {
                     await overlay.select()
                 } onCancel: {
                     Task { @MainActor in overlay.cancel() }
                 }
-                guard let selection else { return .cancelled }
+                let selection: RegionSelection
+                switch result {
+                case let .selected(selected): selection = selected
+                case .cancelled: return .cancelled
+                case .escapeUnavailable:
+                    // The tap needs Accessibility: a revoked grant is the likely cause.
+                    await MainActor.run {
+                        CaptaloAppState.shared.refreshAccessibilityPermission()
+                        CaptaloAppState.shared.requireSetup()
+                    }
+                    return .failed(.overlayUnavailable)
+                }
                 let outcome = await reader.read(token, selection)
                 await MainActor.run { CaptaloAppState.shared.recordRegionOutcome(outcome) }
                 return outcome

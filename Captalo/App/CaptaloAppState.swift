@@ -64,7 +64,7 @@ final class CaptaloAppState: ObservableObject {
         accessibility: AccessibilityAdapter, requests: RequestCoordinator, lock: AsyncSerialLock
     ) -> CaptureCoordinator {
         CaptureCoordinator(
-            ax: accessibility, menu: MenuCopyAdapter(), keys: KeyEventAdapter(), focus: accessibility,
+            ax: accessibility, menu: MenuCopyFinder(tree: AXMenuTree()), keys: KeyEventAdapter(), focus: accessibility,
             transaction: { ClipboardTransaction(pasteboard: SystemPasteboard(), lock: lock) },
             isCurrent: { await requests.isCurrent($0) },
             sleep: { try? await Task.sleep(for: $0) }
