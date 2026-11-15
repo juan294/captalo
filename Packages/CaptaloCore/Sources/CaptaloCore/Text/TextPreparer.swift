@@ -20,7 +20,7 @@ public enum TextSource: String, Sendable {
 /// boundaries. A cleaned block is split into sentences on demand, one at a
 /// time, so a very large paragraph is never segmented ahead of the reading (VAL-05).
 public struct Paragraph: Equatable, Sendable {
-    private enum Content: Sendable {
+    private enum Content: Equatable, Sendable {
         case sentences([String])
         /// Cleaned, whitespace-collapsed block text.
         case text(String)
@@ -49,13 +49,9 @@ public struct Paragraph: Equatable, Sendable {
 
     func makeSentenceIterator() -> SentenceIterator {
         switch content {
-        case let .sentences(sentences): SentenceIterator(list: sentences)
-        case let .text(text): SentenceIterator(text: text)
+        case let .sentences(sentences): .list(sentences.makeIterator())
+        case let .text(text): .tokens(TokenizedSentences(text: text))
         }
-    }
-
-    public static func == (lhs: Paragraph, rhs: Paragraph) -> Bool {
-        lhs.sentences == rhs.sentences
     }
 }
 
@@ -69,34 +65,38 @@ final class SegmentationCounter: Sendable {
     var value: Int { count.withLock { $0 } }
 }
 
-/// Sentences of one paragraph, produced on demand. Cleaned text goes through
-/// NLTokenizer one sentence at a time (step 6); when it finds no sentence, the
-/// whole text is one.
-struct SentenceIterator: IteratorProtocol {
-    private var list: IndexingIterator<[String]>?
+/// Sentences of one paragraph, produced on demand.
+enum SentenceIterator: IteratorProtocol {
+    case list(IndexingIterator<[String]>)
+    case tokens(TokenizedSentences)
+
+    mutating func next() -> String? {
+        switch self {
+        case var .list(iterator):
+            defer { self = .list(iterator) }
+            return iterator.next()
+        case var .tokens(iterator):
+            defer { self = .tokens(iterator) }
+            return iterator.next()
+        }
+    }
+}
+
+/// Cleaned text through NLTokenizer one sentence at a time (step 6); when it
+/// finds no sentence, the whole text is one.
+struct TokenizedSentences: IteratorProtocol {
     private let text: String
-    private let tokenizer: NLTokenizer?
+    private let tokenizer = NLTokenizer(unit: .sentence)
     private var position: String.Index
     private var producedAny = false
 
-    init(list: [String]) {
-        self.list = list.makeIterator()
-        text = ""
-        tokenizer = nil
-        position = text.endIndex
-    }
-
     init(text: String) {
         self.text = text
-        let tokenizer = NLTokenizer(unit: .sentence)
         tokenizer.string = text
-        self.tokenizer = tokenizer
         position = text.startIndex
     }
 
     mutating func next() -> String? {
-        if list != nil { return list?.next() }
-        guard let tokenizer else { return nil }
         while position < text.endIndex {
             let range = tokenizer.tokenRange(at: position)
             // A position outside every sentence advances by one character.
@@ -140,10 +140,10 @@ public enum TextPreparer {
         AnyIterator(unitIterator(for: content))
     }
 
-    typealias Units = UnitChunker<LazyFilterSequence<LazyMapSequence<AnySequence<Block>, Paragraph>>>.Iterator
-
     /// The iterator behind `units(for:)`, with its preparation counters (tests).
-    static func unitIterator(for content: ReadingContent) -> Units {
+    static func unitIterator(
+        for content: ReadingContent
+    ) -> UnitChunker<LazyFilterSequence<LazyMapSequence<AnySequence<Block>, Paragraph>>>.Iterator {
         let (blocks, source): (AnySequence<Block>, TextSource) = switch content {
         case let .text(text): (AnySequence(blocks(fromSelection: text)), .selection)
         case let .document(blocks): (AnySequence(blocks), .ocr)
@@ -204,26 +204,12 @@ public enum TextPreparer {
         return result
     }
 
-    /// Step 3: ANSI sequences, box-drawing runs and separator runs.
-    /// True when `text` holds a CR, NBSP or zero-width scalar. Exact: UTF-8
-    /// lead bytes (0x0D, 0xC2, 0xE2, 0xEF) never occur inside another scalar.
+    /// True when `text` holds a scalar that `normalizeCharacters` replaces or drops.
     static func needsNormalizing(_ text: String) -> Bool {
-        let bytes = Array(text.utf8)
-        for index in bytes.indices {
-            switch bytes[index] {
-            case 0x0D: return true
-            case 0xC2 where index + 1 < bytes.count && bytes[index + 1] == 0xA0: return true // U+00A0
-            case 0xE2 where index + 2 < bytes.count:
-                if bytes[index + 1] == 0x80, (0x8B...0x8D).contains(bytes[index + 2]) { return true } // U+200B-D
-                if bytes[index + 1] == 0x81, bytes[index + 2] == 0xA0 { return true } // U+2060
-            case 0xEF where index + 2 < bytes.count && bytes[index + 1] == 0xBB && bytes[index + 2] == 0xBF:
-                return true // U+FEFF
-            default: break
-            }
-        }
-        return false
+        text.unicodeScalars.contains { $0 == "\r" || $0 == "\u{00A0}" || ($0.value >= 0x200B && zeroWidth.contains($0)) }
     }
 
+    /// Step 3: ANSI sequences, box-drawing runs and separator runs.
     static func removeNoise(_ text: String) -> String {
         var result = Pattern.ansi.replace(text, "")
         result = Pattern.boxDrawing.replace(result, " ")
