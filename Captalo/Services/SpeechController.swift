@@ -1,9 +1,8 @@
 @preconcurrency import AVFoundation
 import FluidAudio
-import os
+import CaptaloCore
 
 actor SpeechController {
-    let logger = Logger(subsystem: "com.thecreativetoken.captalo", category: "Speech")
     var kokoro = KokoroAneManager(defaultVoice: "af_heart")
     let engine = AVAudioEngine()
     let player = AVAudioPlayerNode()
@@ -121,5 +120,11 @@ actor SpeechController {
         if !engine.isRunning { try engine.start() }
         try await playKokoro(from: target, request: request, started: .now,
                              onFirstAudio: onFirstAudio, onError: onError)
+    }
+}
+
+extension SpeechController {
+    var accelerator: PrivacyEvent.Accelerator {
+        kokoroUsingFallback ? .cpuAndGPU : .neuralEngine
     }
 }

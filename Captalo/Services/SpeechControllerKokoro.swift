@@ -1,6 +1,6 @@
 import FluidAudio
 import Foundation
-import os
+import CaptaloCore
 
 extension SpeechController {
     func isKokoroInstalled() -> Bool {
@@ -75,7 +75,6 @@ extension SpeechController {
             _ = try await kokoro.synthesizeDetailed(text: "Ready.")
         }
         isPrepared = true
-        let accelerator = kokoroUsingFallback ? "CPU/GPU fallback" : "ANE"
-        logger.info("Kokoro pre-warmed using \(accelerator, privacy: .public)")
+        PrivacyLog.record(.voicePrewarmed(accelerator: accelerator))
     }
 }

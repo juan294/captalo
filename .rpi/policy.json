@@ -33,21 +33,45 @@
       ]
     },
     {
-      "name": "macos-build",
+      "name": "core-test-debug",
       "argv": [
-        "env",
-        "DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer",
-        "xcodebuild",
-        "-project",
-        "Sotto.xcodeproj",
-        "-scheme",
-        "Sotto",
-        "-configuration",
-        "Debug",
-        "-derivedDataPath",
-        ".local/setup/DerivedData",
-        "CODE_SIGNING_ALLOWED=NO",
-        "build"
+        "make",
+        "test-core-debug"
+      ]
+    },
+    {
+      "name": "core-test-release",
+      "argv": [
+        "make",
+        "test-core-release"
+      ]
+    },
+    {
+      "name": "app-build-debug",
+      "argv": [
+        "make",
+        "build-unsigned-debug"
+      ]
+    },
+    {
+      "name": "app-build-release",
+      "argv": [
+        "make",
+        "build-unsigned-release"
+      ]
+    },
+    {
+      "name": "log-audit",
+      "argv": [
+        "make",
+        "log-audit"
+      ]
+    },
+    {
+      "name": "script-test",
+      "argv": [
+        "make",
+        "script-test"
       ]
     }
   ],

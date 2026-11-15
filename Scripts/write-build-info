@@ -1,0 +1,11 @@
+#!/bin/sh
+# Xcode Run Script phase: writes build-info.json into the app's Resources
+# before Xcode signs the bundle. Inputs come from the build environment.
+set -eu
+out="${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/build-info.json"
+commit=$(git -C "$SRCROOT" rev-parse HEAD 2>/dev/null || echo unknown)
+if [ -n "$(git -C "$SRCROOT" status --porcelain 2>/dev/null)" ]; then dirty=true; else dirty=false; fi
+built=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+mkdir -p "$(dirname "$out")"
+printf '{\n  "commit": "%s",\n  "dirty": %s,\n  "configuration": "%s",\n  "built_at": "%s"\n}\n' \
+  "$commit" "$dirty" "$CONFIGURATION" "$built" > "$out"

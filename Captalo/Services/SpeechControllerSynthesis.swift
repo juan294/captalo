@@ -1,6 +1,6 @@
 import FluidAudio
 import Foundation
-import os
+import CaptaloCore
 
 extension SpeechController {
     func speakKokoro(
@@ -32,9 +32,7 @@ extension SpeechController {
             schedule(samples: result.samples, request: request)
             if !isPaused { playPlayer() }
             let firstAudio = started.duration(to: .now)
-            logger.info(
-                "First audio: \(firstChunk.count) chars in \(firstAudio.seconds, format: .fixed(precision: 2)) s using \(self.kokoroUsingFallback ? "CPU/GPU fallback" : "ANE", privacy: .public)"
-            )
+            PrivacyLog.record(.firstAudio(characters: firstChunk.count, elapsed: firstAudio, accelerator: accelerator))
             onFirstAudio(firstAudio)
 
             let remaining = Array(sections.dropFirst(index + 1))

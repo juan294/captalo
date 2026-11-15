@@ -1,0 +1,2 @@
+  1) FEDCBA9876543210FEDCBA9876543210FEDCBA98 "Developer ID Application: Example (ZZZZZ99999)"
+     1 valid identities found

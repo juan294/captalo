@@ -1,0 +1,50 @@
+#!/usr/bin/env python3
+"""Print the SHA-1 of the first valid Apple Development code-signing identity.
+
+Reads `security find-identity -v -p codesigning`, or a file of captured output
+given with --input (used by tests). Exits 2 with setup instructions when no
+Apple Development identity exists.
+"""
+import argparse
+import re
+import subprocess
+import sys
+
+MESSAGE = (
+    "No Apple Development identity. Add your Apple Account in Xcode > Settings > Accounts, "
+    "run make signing-setup once, then run make install again."
+)
+LINE = re.compile(r'^\s*\d+\)\s+([0-9A-F]{40})\s+"(Apple Development: [^"]+)"\s*$')
+
+
+def parse(output):
+    for line in output.splitlines():
+        match = LINE.match(line)
+        if match:
+            return match.group(1), match.group(2)
+    return None
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--input", help="file with captured find-identity output")
+    parser.add_argument("--name", action="store_true", help="print the identity name instead of its hash")
+    args = parser.parse_args(argv)
+    if args.input:
+        with open(args.input, encoding="utf-8") as handle:
+            output = handle.read()
+    else:
+        output = subprocess.run(
+            ["security", "find-identity", "-v", "-p", "codesigning"],
+            capture_output=True, text=True, check=False,
+        ).stdout
+    found = parse(output)
+    if found is None:
+        print(MESSAGE, file=sys.stderr)
+        return 2
+    print(found[1] if args.name else found[0])
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

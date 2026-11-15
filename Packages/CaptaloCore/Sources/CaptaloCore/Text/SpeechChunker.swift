@@ -1,7 +1,7 @@
 import Foundation
 import NaturalLanguage
 
-enum SpeechChunker {
+public enum SpeechChunker {
     // A Kokoro request is capped by phonemes, not characters. These bounds
     // remain safely below that cap for ordinary English while keeping enough
     // queued audio for the next chunk to render during playback.
@@ -10,7 +10,7 @@ enum SpeechChunker {
     nonisolated private static let firstChunkMinimumLength = 45
     nonisolated private static let firstChunkHardLength = 110
 
-    nonisolated static func chunks(from text: String) -> [String] {
+    nonisolated public static func chunks(from text: String) -> [String] {
         let normalized = normalize(text)
         let sentences = sentenceRanges(in: normalized)
         var chunks: [String] = []

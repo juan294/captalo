@@ -6,18 +6,17 @@ Start with [the briefing](docs/briefing.md) and [the accepted design brief](docs
 
 ## Current state and authority
 
-This is a public fork of `Shreysid/Sotto`, based on `30e0dfbf2cfbef01b8c462bfec2452b3c0295a61`. Keep upstream attribution, `LICENSE`, and `THIRD_PARTY_NOTICES.md`. Product sources, Xcode project, scheme, app identity, and bundled artwork currently retain the upstream Sotto names. OCR, Cáptalo app branding, and a fully unobtrusive UI are proposed work, not implemented features.
+This is a public fork of `Shreysid/Sotto`, based on `30e0dfbf2cfbef01b8c462bfec2452b3c0295a61`. Keep upstream attribution, `LICENSE`, and `THIRD_PARTY_NOTICES.md`. The app is renamed Cáptalo (project `Captalo.xcodeproj`, scheme `Captalo`, bundle ID `com.thecreativetoken.captalo`, macOS 26 minimum). Bundled artwork is still upstream. The core reader plan (`docs/plans/2026-11-15-captalo-core-reader.md`) defines the remaining work; OCR and the unobtrusive shell are not complete until its phases are accepted.
 
 Shared instructions live here; `CLAUDE.md` imports this file. Do not introduce an import cycle. Use the installed native RPI skill for the requested phase, reading its full instructions and references. Codex invokes `$rpi-plan`, `$rpi-implement`, and other `$rpi-*` skills; Claude invokes `/rpi-plan`, `/rpi-implement`, and other `/rpi-*` skills. Native `/plan` and `/status` are not RPI workflows. Planning and product implementation belong in this workspace, with the normal phase acceptance boundaries.
 
 ## Stack and source map
 
-- Swift, SwiftUI, AppKit, AVFoundation, and macOS Accessibility; macOS 15 or newer.
-- Xcode project `Sotto.xcodeproj`, scheme `Sotto`; Swift Package Manager pins FluidAudio in `Sotto.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved`.
-- `Sotto/App/`: application lifecycle, settings and playback coordination.
-- `Sotto/Services/`: selection capture, chunking, local Kokoro synthesis and audio playback.
-- `Sotto/UI/`: menu-bar controls and upstream Studio UI.
-- `Sotto/Models/`: shortcut and installation state.
+- Swift, SwiftUI, AppKit, AVFoundation, and macOS Accessibility; macOS 26 or newer.
+- Xcode project `Captalo.xcodeproj`, shared scheme `Captalo`; Swift Package Manager pins FluidAudio in `Captalo.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved`.
+- `Packages/CaptaloCore/`: pure logic and its Swift Testing suite (no AppKit UI, no FluidAudio). `PrivacyLog` is the only logging API for app code.
+- `Captalo/App/`, `Captalo/Services/`, `Captalo/UI/`, `Captalo/Models/`: AppKit and system adapters, speech and the inherited UI.
+- `Scripts/`: signing identity, install, log audit and build-info helpers, with tests in `Scripts/tests/`.
 - No application database, backend, cloud runtime, Supabase, Docker stack, or listening service is required.
 
 ## Verification
@@ -25,14 +24,19 @@ Shared instructions live here; `CLAUDE.md` imports this file. Do not introduce a
 Run checks sequentially and preserve the first failure evidence. A compiler/build pass does not prove capture, speech quality, offline behavior, or permission recovery.
 
 ```sh
-git diff --check
-python3 .rpi/scripts/rpi-distribution.py check --source /Users/juan/code/cc-rpi --target "$PWD" --harness both --route direct
-DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer xcodebuild -project Sotto.xcodeproj -scheme Sotto -configuration Debug -derivedDataPath .local/setup/DerivedData CODE_SIGNING_ALLOWED=NO build
+make verify    # the sequential suite listed in .rpi/policy.json, via rpi-verify.py
+make test      # CaptaloCore tests, debug and release
+make build-unsigned
 ```
 
-On Juan's current Mac the full Xcode installation is `/Applications/Xcode-beta.app`; set `DEVELOPER_DIR` per process instead of changing the machine's developer selection. Other contributors use their installed full Xcode. Package resolution may download pinned build dependencies. Never claim that it proves offline runtime behavior.
+The Makefile sets `DEVELOPER_DIR` to `/Applications/Xcode-beta.app/Contents/Developer` (override per command); never change the machine's developer selection. Every `xcodebuild` call pipes through `xcbeautify` (`brew install xcbeautify`). Builds use `.local/build/DerivedData`. Package resolution may download pinned build dependencies; that never proves offline runtime behavior. Each phase that adds a verification step updates `make verify`'s policy list in the same commit.
 
-The inherited project has no XCTest target or automated application test suite. Coverage is unavailable, not zero-failure evidence. Add meaningful regression coverage with behavioral changes. Runtime voice/capture validation and signed distribution are separate from setup verification. The authoritative release procedure is [docs/release/release-playbook.md](docs/release/release-playbook.md).
+Signed installs: `make signing-setup` once, then `make install [CONFIG=Release]`. Only the integration owner runs `make install`; worktree implementers run tests and unsigned builds only. The fixed path is `/Applications/Captalo.app`; the install record is `.local/build/install-record.json` and the rollback copy `.local/build/install-previous/`. The install quits only the recorded process.
+
+- No fallbacks without approval. One code path per action. A new fallback layer needs an owner decision recorded in a plan. The capture layers approved in the core reader plan are not ad-hoc fallbacks.
+- Apple documentation: use https://sosumi.ai through web fetch; send only public API names.
+
+Runtime voice/capture validation and signed distribution are separate from these checks. The authoritative release procedure is [docs/release/release-playbook.md](docs/release/release-playbook.md).
 
 ## Git and publication
 
