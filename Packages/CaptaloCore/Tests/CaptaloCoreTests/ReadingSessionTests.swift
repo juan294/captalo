@@ -276,6 +276,61 @@ final class Events: Sendable {
         #expect(events.played == Array(0..<8))
     }
 
+    /// The outcome if the reading ends within about a second; nil while it is still stuck.
+    func boundedOutcome(_ reading: ReadingSession) async -> ReadingOutcome? {
+        let result = Mutex<ReadingOutcome?>(nil)
+        Task { let outcome = await reading.outcome(); result.withLock { $0 = outcome } }
+        await eventually { result.withLock { $0 } != nil }
+        return result.withLock { $0 }
+    }
+
+    /// VAL-03: the restarted engine refuses the audible unit. Nothing is left
+    /// to play, so the reading ends at once with a voice error and keeps no buffers.
+    @Test func deviceRecoveryFirstBufferFailureEndsWithVoiceError() async {
+        let events = Events()
+        let sink = FakeSink(autoplay: false)
+        let reading = session(sentences(10), FakeSynthesizer(), sink, events: events)
+        await reading.start()
+        await eventually { sink.pendingCount == 4 }
+        sink.failAfter.withLock { $0 = 0 }
+        await reading.deviceChanged()
+        let outcome = await boundedOutcome(reading)
+        let retained = await reading.retainedBuffers
+        #expect(outcome == .voiceError)
+        #expect(retained == 0)
+        #expect(events.played.isEmpty)
+        #expect(sink.pendingCount == 0)
+    }
+
+    /// VAL-03: the restarted engine takes the audible unit, then refuses the
+    /// next one. Only the rescheduled audio plays (no gap, no later unit out
+    /// of order); the unit synthesized during recovery is discarded.
+    @Test func deviceRecoveryLaterBufferFailurePlaysScheduledAudioThenVoiceError() async {
+        let events = Events()
+        let sink = FakeSink(autoplay: false)
+        let synth = HoldingSynthesizer(holdFrom: 4)
+        let reading = ReadingSession(units: sentences(10), synthesizer: synth, sink: sink, voice: "af_heart", speed: 1) {
+            events.append($0)
+        }
+        await reading.start()
+        await eventually { sink.pendingCount == 4 }
+        sink.playNext() // unit 0 played; unit 1 is audible
+        await synth.arrival(4) // unit 4 is in flight
+        sink.failAfter.withLock { $0 = 1 }
+        await reading.deviceChanged()
+        #expect(events.list.withLock { $0.contains(.replayed(unitID: 1)) })
+        #expect(sink.pendingCount == 1) // only unit 1 was rescheduled
+        synth.releaseAll() // the in-flight result returns after the failure: discarded
+        sink.playNext()
+        let outcome = await boundedOutcome(reading)
+        let retained = await reading.retainedBuffers
+        #expect(outcome == .voiceError)
+        #expect(events.played == [0, 1])
+        #expect(retained == 0)
+        #expect(sink.pendingCount == 0)
+        #expect(!events.scheduled.contains { if case .scheduled(4, _, _, _, _) = $0 { true } else { false } })
+    }
+
     @Test func oversizeResultNeverEnqueued() async {
         let sink = FakeSink(autoplay: true)
         let synth = FakeSynthesizer { $0.count > 150 ? 40 : 5 }

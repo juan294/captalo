@@ -106,3 +106,48 @@ import Testing
         #expect(iterator.paragraphsPulled == 4)
     }
 }
+
+/// VAL-05: preparation stays lazy within one very large paragraph, through
+/// the production chain `TextPreparer.units(for:)`.
+@Suite struct LargeParagraphPreparationTests {
+    static let sentenceCount = 20_000
+    /// About 0.7 MB in a single paragraph (no blank line).
+    static let paragraph = (0..<sentenceCount).map { "Sentence number \($0) reads aloud." }.joined(separator: " ")
+
+    @Test func firstUnitAfterBoundedWork() {
+        let units = TextPreparer.units(for: .text(Self.paragraph))
+        #expect(units.next()?.text == "Sentence number 0 reads aloud.")
+        #expect(units.next()?.text == "Sentence number 1 reads aloud.")
+
+        var iterator = TextPreparer.unitIterator(for: .text(Self.paragraph))
+        #expect(iterator.next()?.text == "Sentence number 0 reads aloud.")
+        // One sentence, plus at most one looked ahead, and one unit: not the whole paragraph.
+        #expect(iterator.sentencesPulled <= 2)
+        #expect(iterator.unitsMade == 1)
+    }
+
+    @Test func stoppingMidwayStopsPreparation() {
+        var iterator = TextPreparer.unitIterator(for: .text(Self.paragraph))
+        for _ in 0..<4 { _ = iterator.next() } // the audible unit plus the lookahead, then stop
+        #expect(iterator.sentencesPulled <= 5)
+        #expect(iterator.unitsMade == 4)
+    }
+
+    @Test func oneHugeSentenceIsCutOnDemand() {
+        // 200,000 characters with no sentence end: 500 units of at most 400 characters.
+        let sentence = Array(repeating: "word", count: 40_000).joined(separator: " ")
+        var iterator = TextPreparer.unitIterator(for: .text(sentence))
+        let first = iterator.next()
+        #expect(first.map { $0.text.count <= UnitChunker<[Paragraph]>.firstMaxLength } == true)
+        #expect(first?.endsSentence == false)
+        #expect(iterator.unitsMade == 1)
+    }
+
+    @Test func lazyUnitsMatchTheWholeParagraph() {
+        let all = Array(AnySequence { TextPreparer.units(for: .text(Self.paragraph)) })
+        #expect(all.count == Self.sentenceCount)
+        #expect(all.map(\.id) == Array(0..<Self.sentenceCount))
+        #expect(all.last?.endsParagraph == true)
+        #expect(all.dropLast().allSatisfy { !$0.endsParagraph && $0.endsSentence })
+    }
+}

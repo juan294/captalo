@@ -145,6 +145,9 @@ public final class ModelStore: Sendable {
     public var consumerLockURL: URL { root.appendingPathComponent(".consumer.lock") }
     private var currentURL: URL { root.appendingPathComponent("current") }
     private var previousURL: URL { root.appendingPathComponent("previous") }
+    /// One manifest per installed version (`<hash>.json`), so an outgoing
+    /// version can be validated before it becomes the rollback version.
+    private var manifestsURL: URL { root.appendingPathComponent(".manifests", isDirectory: true) }
 
     public func directory(for hash: String) -> URL {
         root.appendingPathComponent(hash, isDirectory: true)
@@ -172,6 +175,7 @@ public final class ModelStore: Sendable {
         // (one validation pass per launch).
         if FileManager.default.fileExists(atPath: target.path),
            ManifestValidator.validate(target, against: manifest) == nil {
+            try recordManifest(manifest)
             try setCurrent(hash)
             reclaim(keeping: hash)
             return target
@@ -224,6 +228,7 @@ public final class ModelStore: Sendable {
                 throw StoreError.activationFailed("activation move failed")
             }
         }
+        try recordManifest(manifest)
         try setCurrent(hash)
         reclaim(keeping: hash)
         return target
@@ -257,14 +262,40 @@ public final class ModelStore: Sendable {
             if isVersion, name == current || name == previous || leases.isLeased(entry) { continue }
             try? FileManager.default.removeItem(at: entry)
         }
+        // A manifest record goes with its version.
+        let records = (try? FileManager.default.contentsOfDirectory(at: manifestsURL, includingPropertiesForKeys: nil)) ?? []
+        for record in records where !FileManager.default.fileExists(atPath: directory(for: record.deletingPathExtension().lastPathComponent).path) {
+            try? FileManager.default.removeItem(at: record)
+        }
     }
 
+    /// The outgoing current becomes the rollback version only when it still
+    /// validates against its recorded manifest; otherwise the last valid
+    /// previous version stays (VAL-07).
     private func setCurrent(_ hash: String) throws {
-        let old = readMarker(currentURL)
-        if let old, old != hash, FileManager.default.fileExists(atPath: directory(for: old).path) {
+        if let old = readMarker(currentURL), old != hash, isValidVersion(old) {
             try writeMarker(old, to: previousURL)
         }
         try writeMarker(hash, to: currentURL)
+    }
+
+    private func manifestRecordURL(_ hash: String) -> URL {
+        manifestsURL.appendingPathComponent("\(hash).json")
+    }
+
+    private func recordManifest(_ manifest: ModelManifest) throws {
+        let url = manifestRecordURL(manifest.contentHash)
+        guard !FileManager.default.fileExists(atPath: url.path) else { return }
+        try FileManager.default.createDirectory(at: manifestsURL, withIntermediateDirectories: true)
+        try manifest.encoded().write(to: url, options: .atomic)
+    }
+
+    /// True when `hash` has a recorded manifest of that hash and its directory validates against it.
+    private func isValidVersion(_ hash: String) -> Bool {
+        guard let manifest = try? ModelManifest.load(from: manifestRecordURL(hash)), manifest.contentHash == hash else {
+            return false
+        }
+        return ManifestValidator.validate(directory(for: hash), against: manifest) == nil
     }
 
     private func writeMarker(_ value: String, to url: URL) throws {
