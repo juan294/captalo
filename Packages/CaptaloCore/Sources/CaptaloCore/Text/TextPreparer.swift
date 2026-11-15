@@ -173,6 +173,8 @@ public enum TextPreparer {
     }
 
     static func cleanProse(_ raw: String, source: TextSource) -> String {
+        // Not redundant for selection text: normalization is not idempotent
+        // (an NBSP or CR joined to a zero-width scalar survives one pass).
         var text = normalizeCharacters(raw)
         if source == .ocr {
             text = Pattern.ocrHyphenBreak.replace(text, "$1$2")
@@ -192,8 +194,10 @@ public enum TextPreparer {
         return collapseWhitespace(text)
     }
 
-    /// Step 1: line endings, NBSP and zero-width characters.
+    /// Step 1: line endings, NBSP and zero-width characters. Text with none
+    /// of them is returned as it is (every replacement would be a no-op).
     static func normalizeCharacters(_ text: String) -> String {
+        guard needsNormalizing(text) else { return text }
         var result = text.replacingOccurrences(of: "\r\n", with: "\n").replacingOccurrences(of: "\r", with: "\n")
         result = result.replacingOccurrences(of: "\u{00A0}", with: " ")
         result.unicodeScalars.removeAll { zeroWidth.contains($0) }
@@ -201,6 +205,25 @@ public enum TextPreparer {
     }
 
     /// Step 3: ANSI sequences, box-drawing runs and separator runs.
+    /// True when `text` holds a CR, NBSP or zero-width scalar. Exact: UTF-8
+    /// lead bytes (0x0D, 0xC2, 0xE2, 0xEF) never occur inside another scalar.
+    static func needsNormalizing(_ text: String) -> Bool {
+        let bytes = Array(text.utf8)
+        for index in bytes.indices {
+            switch bytes[index] {
+            case 0x0D: return true
+            case 0xC2 where index + 1 < bytes.count && bytes[index + 1] == 0xA0: return true // U+00A0
+            case 0xE2 where index + 2 < bytes.count:
+                if bytes[index + 1] == 0x80, (0x8B...0x8D).contains(bytes[index + 2]) { return true } // U+200B-D
+                if bytes[index + 1] == 0x81, bytes[index + 2] == 0xA0 { return true } // U+2060
+            case 0xEF where index + 2 < bytes.count && bytes[index + 1] == 0xBB && bytes[index + 2] == 0xBF:
+                return true // U+FEFF
+            default: break
+            }
+        }
+        return false
+    }
+
     static func removeNoise(_ text: String) -> String {
         var result = Pattern.ansi.replace(text, "")
         result = Pattern.boxDrawing.replace(result, " ")
@@ -262,13 +285,23 @@ public struct SelectionBlocks: Sequence {
     }
 
     /// The text's lines, found one at a time (the same lines as splitting
-    /// on every newline, empty ones included).
+    /// on every newline, empty ones included). A byte search finds them: an
+    /// LF byte is a whole "\n" character unless a CR precedes it (CR LF is one
+    /// character, which is not a line break here).
     struct Lines {
         var rest: Substring?
 
         var first: Substring? {
             guard let rest else { return nil }
-            return rest[..<(rest.firstIndex(of: "\n") ?? rest.endIndex)]
+            let bytes = rest.utf8
+            var index = bytes.startIndex
+            while let newline = bytes[index...].firstIndex(of: 0x0A) {
+                if newline == bytes.startIndex || bytes[bytes.index(before: newline)] != 0x0D {
+                    return rest[..<newline]
+                }
+                index = bytes.index(after: newline)
+            }
+            return rest
         }
 
         mutating func popFirst() -> Substring? {
