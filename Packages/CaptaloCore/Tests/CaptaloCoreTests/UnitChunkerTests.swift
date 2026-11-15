@@ -126,6 +126,22 @@ import Testing
         #expect(iterator.unitsMade == 1)
     }
 
+    /// N1: the tokenizer itself runs on demand. Segmenting the whole
+    /// paragraph up front (even behind a lazy chunker) fails this test.
+    @Test func paragraphIsSegmentedOnDemand() {
+        let counter = SegmentationCounter()
+        SegmentationCounter.$current.withValue(counter) {
+            var iterator = TextPreparer.unitIterator(for: .text(Self.paragraph))
+            _ = iterator.next()
+            #expect(counter.value <= 2) // the first sentence and one looked ahead
+            for _ in 0..<3 { _ = iterator.next() }
+            #expect(counter.value <= 5)
+        }
+        let whole = SegmentationCounter()
+        SegmentationCounter.$current.withValue(whole) { _ = Paragraph(text: Self.paragraph).sentences }
+        #expect(whole.value == Self.sentenceCount) // the counter sees every tokenized sentence
+    }
+
     @Test func stoppingMidwayStopsPreparation() {
         var iterator = TextPreparer.unitIterator(for: .text(Self.paragraph))
         for _ in 0..<4 { _ = iterator.next() } // the audible unit plus the lookahead, then stop

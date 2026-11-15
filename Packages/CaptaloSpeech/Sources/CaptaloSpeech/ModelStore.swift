@@ -283,9 +283,11 @@ public final class ModelStore: Sendable {
         manifestsURL.appendingPathComponent("\(hash).json")
     }
 
+    /// Writes the record unless an identical one is already there (a missing,
+    /// unreadable or different record is replaced).
     private func recordManifest(_ manifest: ModelManifest) throws {
         let url = manifestRecordURL(manifest.contentHash)
-        guard !FileManager.default.fileExists(atPath: url.path) else { return }
+        if (try? ModelManifest.load(from: url)) == manifest { return }
         try FileManager.default.createDirectory(at: manifestsURL, withIntermediateDirectories: true)
         try manifest.encoded().write(to: url, options: .atomic)
     }
