@@ -2,7 +2,7 @@
 
 Hear visible text and understand it with less effort. Cáptalo is a local macOS read-aloud utility derived from [Shreysid/Sotto](https://github.com/Shreysid/Sotto).
 
-**Status:** development fork. Workspace and workflow configuration are installed; no Cáptalo release is available. The app identity is Cáptalo; the inherited interface is still being replaced. Screen-region OCR and the quieter interface are proposed work, not shipped features.
+**Status:** development fork. Workspace and workflow configuration are installed; no Cáptalo release is available. The app identity is Cáptalo. The core reader (selection reading, the quiet agent-app shell and screen-region OCR) is built on `develop` and passes its automated checks; runtime acceptance on a signed install is still pending, so none of it is a shipped feature.
 
 ## Intended experience
 

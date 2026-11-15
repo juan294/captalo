@@ -92,14 +92,14 @@ risk: if gate 0 shows Vision ignores cancellation, the image lives until the nat
 
 ### Automated (`make verify`, including `ocr-probe`)
 
-- [ ] `RegionGeometryTests`, `RegionOverlayTests.screenChangeCancels` and `DocumentTranscriptTests` pass, including `tableRowsStayRowBlocksInOrder` and `twoColumnsLeftColumnFirst`.
-- [ ] `RegionReaderTests` (deterministic blocked capturer and blocked recognizer that return only when released by the test): `slotReservedBeforeCaptureAwaits`, `overlappingPressesCannotBothReserve`, `captureFailureReleasesSlot`, `staleCaptureCompletingAfterNewerInputNeverStartsVision`, `everyExitPathTearsDown` (success, no text, error, cancel), `callerTimesOutAt10sWhileWorkerStillRuns`, `slotHeldUntilBlockedWorkerReturns`, `secondPressWhileSlotHeldIsSilent`, `lateWorkerResultAfterTimeoutIsDiscarded`, `supersededTokenDropsResult`, `oversizeRectIsBoundedToDisplayScale`.
-- [ ] `RegionPendingTests` (with the phase 2 seam session): `cancelAfterLookaheadLeavesSessionComplete` (overlay open longer than the 3-unit lookahead, then cancel: every unit still plays once), `emptyOcrLeavesSession`, `timeoutLeavesSession`, `successfulOcrReplacesSession`, `selectionPressSupersedesPendingRegion`.
-- [ ] `OcrFailureCounterTests`: `threeConsecutiveFailuresSurfaceCategory`, `emptyRegionDoesNotCount`, `successResetsCounter`.
-- [ ] Gate 0 records the native cancellation result. `make ocr-probe` also cancels one recognition mid-run and checks that the slot is freed within the time gate 0 measured.
-- [ ] `SetupStateTests.screenRecordingIsOptionalButRequestedOnRegionPress`.
-- [ ] `make ocr-probe` matches the expected block order for both fixtures.
-- [ ] Code search: no `CGWindowListCreateImage`, and no image write (`write(to:`, `pngData`, `CGImageDestination`) in `Captalo/Services/OCR`.
+- [x] `RegionGeometryTests`, `RegionOverlayTests.screenChangeCancels` and `DocumentTranscriptTests` pass, including `tableRowsStayRowBlocksInOrder` and `twoColumnsLeftColumnFirst`.
+- [x] `RegionReaderTests` (deterministic blocked capturer and blocked recognizer that return only when released by the test): `slotReservedBeforeCaptureAwaits`, `overlappingPressesCannotBothReserve`, `captureFailureReleasesSlot`, `staleCaptureCompletingAfterNewerInputNeverStartsVision`, `everyExitPathTearsDown` (success, no text, error, cancel), `callerTimesOutAt10sWhileWorkerStillRuns`, `slotHeldUntilBlockedWorkerReturns`, `secondPressWhileSlotHeldIsSilent`, `lateWorkerResultAfterTimeoutIsDiscarded`, `supersededTokenDropsResult`, `oversizeRectIsBoundedToDisplayScale`.
+- [x] `RegionPendingTests` (with the phase 2 seam session): `cancelAfterLookaheadLeavesSessionComplete` (overlay open longer than the 3-unit lookahead, then cancel: every unit still plays once), `emptyOcrLeavesSession`, `timeoutLeavesSession`, `successfulOcrReplacesSession`, `selectionPressSupersedesPendingRegion`.
+- [x] `OcrFailureCounterTests`: `threeConsecutiveFailuresSurfaceCategory`, `emptyRegionDoesNotCount`, `successResetsCounter`.
+- [x] Gate 0 records the native cancellation result. `make ocr-probe` also cancels one recognition mid-run and checks that the slot is freed within the time gate 0 measured.
+- [x] `SetupStateTests.screenRecordingIsOptionalButRequestedOnRegionPress`.
+- [x] `make ocr-probe` matches the expected block order for both fixtures.
+- [x] Code search: no `CGWindowListCreateImage`, and no image write (`write(to:`, `pngData`, `CGImageDestination`) in `Captalo/Services/OCR`.
 
 ### Manual (owner)
 
