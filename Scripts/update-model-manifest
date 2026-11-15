@@ -1,0 +1,21 @@
+#!/bin/sh
+# Reviewed manifest update: rescans .local/models, shows the diff, and writes
+# Models.manifest.json plus the Xcode copy-phase file lists.
+# Usage: Scripts/update-model-manifest [voice,voice,...]
+set -eu
+ROOT=$(cd "$(dirname "$0")/.." && pwd)
+PROBE=$("$ROOT/Scripts/model-tool")
+VOICES=${1:-$(python3 -c 'import json,sys; print(",".join(json.load(open(sys.argv[1]))["voices"]))' "$ROOT/Models.manifest.json")}
+TMP=$(mktemp)
+"$PROBE" manifest --models "$ROOT/.local/models" --voices "$VOICES" --out "$TMP"
+diff -u "$ROOT/Models.manifest.json" "$TMP" || true
+mv "$TMP" "$ROOT/Models.manifest.json"
+python3 - "$ROOT" <<'PY'
+import json, sys
+root = sys.argv[1]
+files = [f["path"] for f in json.load(open(f"{root}/Models.manifest.json"))["files"]]
+open(f"{root}/Scripts/models-input.xcfilelist", "w").write("".join(f"$(SRCROOT)/.local/models/{p}\n" for p in files))
+open(f"{root}/Scripts/models-output.xcfilelist", "w").write(
+    "".join(f"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/Models/{p}\n" for p in files))
+print(f"{len(files)} files in the copy-phase lists")
+PY

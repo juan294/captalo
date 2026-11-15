@@ -9,7 +9,8 @@ extension CaptaloAppState {
     func setSpeed(_ value: Float) {
         let nearest = Self.speedSteps.min { abs($0 - value) < abs($1 - value) } ?? 1.0
         speed = nearest
-        Task { await speech.setSpeed(nearest) }
+        // Kokoro's own speed, fixed per reading: applies from the next reading.
+        readingSettings.set(voice: voice, speed: nearest)
     }
 
     func setShortcut(_ shortcut: GlobalShortcut) {

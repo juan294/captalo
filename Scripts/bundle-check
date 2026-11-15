@@ -1,0 +1,20 @@
+#!/bin/sh
+# Validates Resources/Models of the built Debug and Release apps (and the
+# installed app, when present) against Models.manifest.json.
+set -eu
+ROOT=$(cd "$(dirname "$0")/.." && pwd)
+PROBE=$("$ROOT/Scripts/model-tool")
+status=0
+checked=0
+for app in "$ROOT/.local/build/DerivedData/Build/Products/Debug/Captalo.app" \
+           "$ROOT/.local/build/DerivedData/Build/Products/Release/Captalo.app" \
+           /Applications/Captalo.app; do
+  [ -d "$app" ] || continue
+  checked=$((checked + 1))
+  if ! cmp -s "$app/Contents/Resources/Models.manifest.json" "$ROOT/Models.manifest.json"; then
+    echo "bundle-check: $app carries a different manifest" >&2; status=1; continue
+  fi
+  "$PROBE" verify --models "$app/Contents/Resources/Models" --manifest "$ROOT/Models.manifest.json" || status=1
+done
+[ "$checked" -gt 0 ] || { echo "bundle-check: no built app found; run make build-unsigned" >&2; exit 1; }
+exit $status

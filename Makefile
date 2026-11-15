@@ -11,6 +11,8 @@ LOGS := .local/build/logs
 STAMP := $(shell date -u +%Y%m%dT%H%M%SZ)
 XCODEBUILD ?= xcodebuild
 CORE := Packages/CaptaloCore
+SPEECH := Packages/CaptaloSpeech
+RELEASE_MODELS := $(DERIVED)/Build/Products/Release/Captalo.app/Contents/Resources/Models
 TEAM_ARG = $(if $(TEAM),DEVELOPMENT_TEAM=$(TEAM),)
 # build-info.json inputs, passed as build settings so the Run Script phase stays sandboxed.
 COMMIT := $(shell git rev-parse HEAD 2>/dev/null || echo unknown)
@@ -25,10 +27,12 @@ PROJECT_TEAM = $(shell sed -n 's/.*DEVELOPMENT_TEAM = "*\([A-Z0-9]*\)"*;.*/\1/p'
 
 .PHONY: help xcbeautify-check signing-check build build-unsigned build-unsigned-debug build-unsigned-release \
 	test test-core-debug test-core-release script-test log-audit verify install run signing-setup \
-	clipboard-sentinel capture-pdf
+	clipboard-sentinel capture-pdf vendor fetch-models update-model-manifest bundle-check offline-test \
+	completeness-test test-speech-debug test-speech-release prepare
 
 help:
 	@echo "make build [CONFIG=Debug|Release] | build-unsigned | test | log-audit | script-test | verify"
+	@echo "make fetch-models | bundle-check | offline-test | completeness-test | update-model-manifest [VOICES=a,b]"
 	@echo "make signing-setup [TEAM=<team id>]   one-time Apple Development certificate setup"
 	@echo "make install [CONFIG=Debug|Release]    integration owner only: fixed install at /Applications/Captalo.app"
 
@@ -41,12 +45,24 @@ signing-check:
 $(LOGS):
 	@mkdir -p $(LOGS)
 
-build: xcbeautify-check | $(LOGS)
+# The pinned, patched FluidAudio and the verified voice files every app build needs.
+prepare: vendor fetch-models
+
+vendor:
+	Scripts/prepare-fluidaudio
+
+fetch-models: vendor
+	Scripts/fetch-models
+
+update-model-manifest: vendor
+	Scripts/update-model-manifest $(VOICES)
+
+build: xcbeautify-check prepare | $(LOGS)
 	$(call xcb,build-$(CONFIG),-configuration $(CONFIG) build $(TEAM_ARG))
 
 build-unsigned: build-unsigned-debug build-unsigned-release
 
-build-unsigned-debug build-unsigned-release: build-unsigned-%: xcbeautify-check | $(LOGS)
+build-unsigned-debug build-unsigned-release: build-unsigned-%: xcbeautify-check prepare | $(LOGS)
 	$(call xcb,build-unsigned-$*,-configuration $(if $(filter debug,$*),Debug,Release) CODE_SIGNING_ALLOWED=NO build)
 
 test: test-core-debug test-core-release
@@ -56,6 +72,21 @@ test-core-debug:
 
 test-core-release:
 	swift test --package-path $(CORE) -c release
+
+test-speech-debug: vendor
+	swift test --package-path $(SPEECH)
+
+test-speech-release: vendor
+	swift test --package-path $(SPEECH) -c release
+
+bundle-check: vendor
+	Scripts/bundle-check
+
+offline-test: vendor
+	Scripts/offline-test --probe "$$(Scripts/model-tool)" --bundle $(RELEASE_MODELS)
+
+completeness-test: vendor
+	Scripts/completeness-test $(RELEASE_MODELS)
 
 script-test:
 	python3 -m unittest discover -s Scripts/tests

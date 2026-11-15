@@ -25,6 +25,8 @@ public enum PrivacyEvent: Sendable, Equatable {
     )
     /// Clipboard transaction snapshot: item count, bytes and materialization time.
     case clipboardSnapshot(items: Int, bytes: Int, elapsed: Duration)
+    /// A second Cáptalo instance found the store's consumer lock held and exits.
+    case secondInstance
     /// Debug-only silent playback seam (phase 2).
     case seamSession(state: SeamState)
 
@@ -63,6 +65,8 @@ public enum PrivacyEvent: Sendable, Equatable {
             "probe result=\(result.rawValue) layer=\(layer?.rawValue ?? "none") expectedLength=\(expectedLength) capturedLength=\(capturedLength) clipboardIntact=\(clipboardIntact) focusKept=\(focusKept) elapsedMs=\(PrivacyEvent.milliseconds(elapsed)) changeDelta=\(changeDelta)"
         case let .clipboardSnapshot(items, bytes, elapsed):
             "clipboardSnapshot items=\(items) bytes=\(bytes) elapsedMs=\(PrivacyEvent.milliseconds(elapsed))"
+        case .secondInstance:
+            "secondInstance"
         case let .seamSession(state):
             "seamSession state=\(state.rawValue)"
         }

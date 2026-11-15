@@ -31,27 +31,14 @@ struct CaptaloMenuBarView: View {
             }
 
             Button(action: primaryAction) {
-                Label(state.kokoroInstallationState.actionTitle, systemImage: primaryActionSymbol)
+                Label("Speak Selection", systemImage: "play.fill")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
-            .disabled(
-                state.kokoroInstallationState == .checking
-                    || state.kokoroInstallationState == .loading
-                    || state.kokoroInstallationState.isDownloading
-            )
+            .disabled(!state.canSpeak)
 
             HStack(spacing: 10) {
-                transportButton("backward.end.fill", help: "Previous section") {
-                    state.jumpSection(by: -1)
-                }
-                transportButton(state.isPaused ? "play.fill" : "pause.fill", help: state.isPaused ? "Resume" : "Pause") {
-                    state.togglePause()
-                }
-                transportButton("forward.end.fill", help: "Next section") {
-                    state.jumpSection(by: 1)
-                }
                 transportButton("stop.fill", help: "Stop speaking") {
                     state.stopSpeaking()
                 }
@@ -92,16 +79,8 @@ struct CaptaloMenuBarView: View {
         )
     }
 
-    private var primaryActionSymbol: String {
-        state.canSpeak ? "play.fill" : "arrow.down.circle.fill"
-    }
-
     private func primaryAction() {
-        if state.canSpeak {
-            state.speakSelection()
-        } else {
-            state.downloadKokoro()
-        }
+        state.speakSelection()
     }
 
     private func transportButton(

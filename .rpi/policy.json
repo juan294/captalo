@@ -47,6 +47,20 @@
       ]
     },
     {
+      "name": "speech-test-debug",
+      "argv": [
+        "make",
+        "test-speech-debug"
+      ]
+    },
+    {
+      "name": "speech-test-release",
+      "argv": [
+        "make",
+        "test-speech-release"
+      ]
+    },
+    {
       "name": "app-build-debug",
       "argv": [
         "make",
@@ -58,6 +72,27 @@
       "argv": [
         "make",
         "build-unsigned-release"
+      ]
+    },
+    {
+      "name": "bundle-check",
+      "argv": [
+        "make",
+        "bundle-check"
+      ]
+    },
+    {
+      "name": "offline-test",
+      "argv": [
+        "make",
+        "offline-test"
+      ]
+    },
+    {
+      "name": "completeness-test",
+      "argv": [
+        "make",
+        "completeness-test"
       ]
     },
     {

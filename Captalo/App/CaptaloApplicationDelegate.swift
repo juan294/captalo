@@ -8,7 +8,6 @@ final class CaptaloApplicationDelegate: NSObject, NSApplicationDelegate {
     private var hotKey: EventHotKeyRef?
     private var hotKeyHandler: EventHandlerRef?
     private var studioWindowController: CaptaloStudioWindowController?
-    private var hasPresentedKokoroDownloadPrompt = false
     private var hasPresentedAccessibilityPrompt = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -20,10 +19,10 @@ final class CaptaloApplicationDelegate: NSObject, NSApplicationDelegate {
             self?.presentAccessibilityPermissionPrompt()
         }
         CaptaloAppState.shared.requestAccessibilityPermission()
-        CaptaloAppState.shared.onKokoroDownloadRequired = { [weak self] in
-            self?.presentKokoroDownloadPrompt()
+        CaptaloAppState.shared.onVoiceAttentionRequired = { [weak self] in
+            self?.openStudio()
         }
-        CaptaloAppState.shared.checkKokoroInstallation()
+        CaptaloAppState.shared.prepareVoice()
     }
 
     /// Quit lets an open clipboard transaction finish its cleanup first (plan phase 2).
@@ -80,26 +79,6 @@ final class CaptaloApplicationDelegate: NSObject, NSApplicationDelegate {
         alert.beginSheetModal(for: window) { response in
             if response == .alertFirstButtonReturn {
                 CaptaloAppState.shared.openAccessibilitySettings()
-            }
-        }
-    }
-
-    private func presentKokoroDownloadPrompt() {
-        guard !hasPresentedKokoroDownloadPrompt else { return }
-        hasPresentedKokoroDownloadPrompt = true
-
-        openStudio()
-        guard let window = studioWindowController?.window else { return }
-
-        let alert = NSAlert()
-        alert.messageText = "Download Kokoro voice?"
-        alert.informativeText = "Cáptalo is installed, but its private local voice is separate. Download Kokoro (about 170 MB) to start reading selected text offline."
-        alert.addButton(withTitle: "Download Kokoro")
-        alert.addButton(withTitle: "Not Now")
-        alert.alertStyle = .informational
-        alert.beginSheetModal(for: window) { response in
-            if response == .alertFirstButtonReturn {
-                CaptaloAppState.shared.downloadKokoro()
             }
         }
     }

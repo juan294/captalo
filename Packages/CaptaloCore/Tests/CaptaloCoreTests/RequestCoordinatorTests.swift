@@ -124,6 +124,14 @@ import Testing
         #expect(await coordinator.currentSession == nil)
     }
 
+    @Test func sampleAlwaysReplacesAndNeverStops() async {
+        let log = EventLog()
+        let coordinator = makeCoordinator(log: log)
+        await coordinator.playText("Sample.")
+        await coordinator.playText("Sample.")
+        #expect(log.events == ["start 1:Sample.", "stop 1:Sample.", "start 2:Sample."])
+    }
+
     @Test func manualStopStopsOnlyTheSession() async {
         let log = EventLog()
         let coordinator = makeCoordinator(log: log)

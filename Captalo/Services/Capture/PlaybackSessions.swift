@@ -2,24 +2,6 @@ import CaptaloCore
 import Foundation
 import Synchronization
 
-/// Phase 2 adapter from a committed reading to the inherited speech
-/// controller. Phase 3 replaces it with `ReadingSession`.
-nonisolated struct SpeechPlaybackSession: PlaybackSession {
-    let token: SessionToken
-    let text: String
-    let speech: SpeechController
-    let finished: @Sendable () async -> Bool
-    let begin: @MainActor @Sendable (SpeechPlaybackSession) -> Void
-
-    func start() async {
-        await begin(self)
-    }
-
-    func stop() async {
-        await speech.stop(session: token.sessionGeneration)
-    }
-}
-
 #if DEBUG
 /// Debug-only playback seam for the phase 2 matrix: a silent "reading" of a
 /// fixed 30 s that logs its state transitions. Labelled as a seam in all evidence.

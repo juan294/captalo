@@ -66,6 +66,38 @@ Plan: `2026-11-15-captalo-core-reader.md` (revision 4, accepted 2026-11-15). Imp
 - Chose: after the write, re-query the focused element up to 5 times, 40 ms apart (200 ms bound), and probe it each time.
 - Why: Chromium builds its tree asynchronously; the element captured before the write may not expose the selection (phase 2 review, finding 4, inferred). The once-per-PID rule is unchanged.
 
+### D9. FluidAudio pin: local patched branch instead of a pushed fork (phase 3, unit 3B)
+
+- Plan said (owner decision 2): if upstream `v0.18.3` does not build as an app dependency, fork to `juan294/FluidAudio`, branch `captalo/v0.18.3-xcode27` from the tag, patch only the CoreAI failure, push, and pin by exact revision; the fork write needs the owner's confirmation in the session.
+- Found: reproduced as an app dependency with Xcode 27.0 (27A5218g): two errors, both in LFM3Audio CoreAI files: `LFM3AudioCoreAIBackbone.swift:228` (`NDArray.MutableRawView` has no `withUnsafeMutableBytes`) and `LFM3AudioCoreAIDepthDecoder.swift:76` (mutating `withUnsafeMutablePointer` on an immutable view). The SDK's `MutableRawView.mutableBytes` (`MutableRawSpan`) and a `var` view fix both; no Kokoro file changes.
+- Chose: the same branch and patch, built locally and reproducibly: `Patches/fluidaudio-v0.18.3-xcode27.patch` (committed), `Scripts/prepare-fluidaudio` (clones the tag, checks `c8b41f98`, applies the patch, commits with a fixed author and date), pinned commit `6fe650eb55641f408b2369ac792a3255de2789e3` recorded in `Patches/fluidaudio-v0.18.3-xcode27.commit`. `Packages/CaptaloSpeech` depends on `.local/vendor/FluidAudio` by path; the app no longer depends on FluidAudio directly.
+- Why: the push to a new GitHub fork is an outward-facing write that was not confirmed in this session. The local route keeps the exact patch and revision reviewable. Moving to the fork later: create `juan294/FluidAudio`, push `.local/vendor/FluidAudio` branch `captalo/v0.18.3-xcode27` (same commit hash), and change the CaptaloSpeech dependency to `.package(url: …, revision: "6fe650eb…")`. Owner decision needed.
+
+### D10. Pronunciation rules and word statistics are no longer applied (phase 3)
+
+- Plan said: phase 4 deletes the pronunciation and Stats code.
+- Chose: phase 3 no longer applies pronunciation rules to speech or counts words; the inherited screens remain until phase 4 deletes them.
+- Why: the reading pipeline is built off the main actor from the captured text; the inherited rules live in main-actor UI state that phase 4 removes. Carrying them for one phase would add a second text path.
+
+### D11. Speech-recognition calibration not run (phase 3, unit 3D)
+
+- Plan said: the test-only recognizer download needs its own approval after its size is shown; without it, the check is recorded as not run.
+- Chose: not requested in this autonomous run; `make completeness-test` records `"recognition": "not run"`. The listening audit is the completeness gate.
+
+### D12. Model copy phase overwrites declared outputs only
+
+- Found: with script sandboxing on, the copy phase cannot delete the `Resources/Models` directory before copying.
+- Chose: copy each manifest file to its declared output (input and output xcfilelists generated with the manifest). A file from an older manifest could remain in a reused DerivedData build; `bundle-check` validates every manifest file and the manifest copy itself.
+
+### D13. Audio sink calls are synchronous
+
+- Found (TDD): with an async `schedule`, a device-change replay could interleave with a newly synthesized unit, so audio order broke and one callback was ignored (hang in `deviceChangeReplaysCurrentUnitOnly`). Separately, playback callbacks reach the session through separate tasks and can arrive out of order (intermittent hang in `playedBuffersAreReleased`).
+- Chose: `AudioSink.schedule` and `stop` are synchronous (AVAudioPlayerNode scheduling is immediate), so stop and reschedule run on the session actor with no suspension; each scheduled buffer carries a sequence number, callbacks mark buffers played, and the leading played buffers are released in order. Regression test `outOfOrderPlaybackCallbacksReleaseInOrder`.
+
+### D14. Voice sample input kind
+
+- Chose: `InputKind.sample` and `RequestCoordinator.playText` for the settings window's sample button: it replaces any reading and is never a stop gesture.
+
 ## Phase 1 handoff (2026-11-15)
 
 - Candidate: branch `feat/core-reader`, commits `a000427` (rename), `7f7737a` (cc-rpi v2.2.0), `6eb0b4a` (foundation), `556c148` (review repairs) and the simplify commit that carries this note. `make verify` (8 checks: whitespace, rpi-installation, core tests debug and release, unsigned Debug and Release builds, log-audit, script-test) passed on the simplify candidate; evidence in the worktree's ignored `.rpi/local/verification.json`.

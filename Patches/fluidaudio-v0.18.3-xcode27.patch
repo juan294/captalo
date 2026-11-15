@@ -1,0 +1,40 @@
+diff --git a/Sources/FluidAudio/ASR/LFM3Audio/LFM3AudioCoreAIBackbone.swift b/Sources/FluidAudio/ASR/LFM3Audio/LFM3AudioCoreAIBackbone.swift
+index b0bda22f..85fd51ef 100644
+--- a/Sources/FluidAudio/ASR/LFM3Audio/LFM3AudioCoreAIBackbone.swift
++++ b/Sources/FluidAudio/ASR/LFM3Audio/LFM3AudioCoreAIBackbone.swift
+@@ -220,14 +220,12 @@ actor LFM3AudioCoreAIBackbone: LFM3AudioLanguageModel {
+ 
+     /// Zero the whole buffer, row padding included (NDArray rows are padded to 64 bytes).
+     private static func zero(_ array: inout NDArray) {
+-        let width: Int
+-        switch array.scalarType {
+-        case .float32, .int32: width = 4
+-        default: width = 2
+-        }
+-        array.mutableRawView().withUnsafeMutableBytes { pointer, shape, strides in
+-            let elements = shape.count > 0 && strides.count > 0 ? shape[0] * strides[0] : 0
+-            _ = memset(pointer, 0, max(elements, 1) * width)
++        // Xcode 27 SDK: MutableRawView exposes its whole storage as a MutableRawSpan.
++        var view = array.mutableRawView()
++        var bytes = view.mutableBytes
++        bytes.withUnsafeMutableBytes { buffer in
++            guard let base = buffer.baseAddress else { return }
++            _ = memset(base, 0, buffer.count)
+         }
+     }
+ }
+diff --git a/Sources/FluidAudio/TTS/LFM3Audio/LFM3AudioCoreAIDepthDecoder.swift b/Sources/FluidAudio/TTS/LFM3Audio/LFM3AudioCoreAIDepthDecoder.swift
+index 42edd3db..17c5aa4a 100644
+--- a/Sources/FluidAudio/TTS/LFM3Audio/LFM3AudioCoreAIDepthDecoder.swift
++++ b/Sources/FluidAudio/TTS/LFM3Audio/LFM3AudioCoreAIDepthDecoder.swift
+@@ -73,7 +73,9 @@ actor LFM3AudioCoreAIDepthDecoder: LFM3AudioDepthModel {
+         let rowStride = array.strides.count == 2 ? array.strides[0] : columns
+         values.withUnsafeBufferPointer { src in
+             guard let base = src.baseAddress else { return }
+-            array.mutableView(as: Float16.self).withUnsafeMutablePointer { dst, _, _ in
++            // Xcode 27 SDK: withUnsafeMutablePointer is mutating, so the view must be a variable.
++            var view = array.mutableView(as: Float16.self)
++            view.withUnsafeMutablePointer { dst, _, _ in
+                 for r in 0..<rows { (dst + r * rowStride).update(from: base + r * columns, count: columns) }
+             }
+         }

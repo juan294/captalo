@@ -1,3 +1,4 @@
+import CaptaloCore
 import SwiftUI
 
 struct StudioSettingsView: View {
@@ -23,24 +24,30 @@ struct StudioSettingsView: View {
     }
 
     private var voiceEngineRow: some View {
-        StudioSettingRow("Voice engine", detail: "Kokoro is the local voice engine for this version of Cáptalo.") {
+        StudioSettingRow("Voice", detail: "Kokoro voices bundled with Cáptalo. Everything runs on this Mac.") {
             VStack(alignment: .trailing, spacing: 7) {
-                Text(state.status)
+                Text(state.voiceState.statusText)
                     .foregroundStyle(.secondary)
-                if let progress = state.kokoroInstallationState.downloadProgress {
-                    ProgressView(value: progress) {
-                        Text("\(Int((progress * 100).rounded()))% downloaded")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                if let error = state.lastReadingError {
+                    Text(error).foregroundStyle(.orange)
+                }
+                switch state.voiceState {
+                case .checking:
+                    ProgressView().controlSize(.small)
+                case .damaged, .failed:
+                    Button("Reinstall voice", action: state.reinstallVoice)
+                case .installFailed:
+                    Button("Retry", action: state.reinstallVoice)
+                case .bundleInvalid:
+                    EmptyView()
+                case .ready:
+                    HStack {
+                        Picker("Voice", selection: Binding(get: { state.voice }, set: state.setVoice)) {
+                            ForEach(state.speechService.voices, id: \.self) { Text($0).tag($0) }
+                        }
+                        .labelsHidden()
+                        Button("Play sample") { state.playSample(state.voice) }
                     }
-                    .controlSize(.small)
-                } else if state.kokoroInstallationState == .loading {
-                    ProgressView("Loading")
-                        .controlSize(.small)
-                } else if state.canSpeak {
-                    Button("Delete Kokoro Model", role: .destructive, action: state.deleteKokoro)
-                } else if !state.canSpeak {
-                    Button(state.kokoroInstallationState.actionTitle, action: state.downloadKokoro)
                 }
             }
         }
@@ -61,7 +68,7 @@ struct StudioSettingsView: View {
     }
 
     private var playbackSpeedRow: some View {
-        StudioSettingRow("Playback speed", detail: "Used for new selections and applied immediately during playback.") {
+        StudioSettingRow("Playback speed", detail: "Applies from the next reading.") {
             VStack(alignment: .trailing, spacing: 5) {
                 Slider(value: speedIndex, in: 0...Double(CaptaloAppState.speedSteps.count - 1), step: 1)
                 Text("\(state.speed, specifier: "%.2f")x")

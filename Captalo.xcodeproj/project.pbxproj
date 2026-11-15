@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		F10000000000000000000001 /* FluidAudio in Frameworks */ = {isa = PBXBuildFile; productRef = F10000000000000000000002 /* FluidAudio */; };
+		F10000000000000000000001 /* CaptaloSpeech in Frameworks */ = {isa = PBXBuildFile; productRef = F10000000000000000000002 /* CaptaloSpeech */; };
 		F10000000000000000000011 /* CaptaloCore in Frameworks */ = {isa = PBXBuildFile; productRef = F10000000000000000000012 /* CaptaloCore */; };
 /* End PBXBuildFile section */
 
@@ -28,7 +28,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F10000000000000000000001 /* FluidAudio in Frameworks */,
+				F10000000000000000000001 /* CaptaloSpeech in Frameworks */,
 				F10000000000000000000011 /* CaptaloCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -64,6 +64,7 @@
 				0BBB61B730081CE200D9E3A3 /* Resources */,
 				F10000000000000000000021 /* Write build-info.json */,
 				F10000000000000000000022 /* Embed capture probe fixture */,
+				F10000000000000000000023 /* Copy voice models */,
 			);
 			buildRules = (
 			);
@@ -74,7 +75,7 @@
 			);
 			name = Captalo;
 			packageProductDependencies = (
-				F10000000000000000000002 /* FluidAudio */,
+				F10000000000000000000002 /* CaptaloSpeech */,
 				F10000000000000000000012 /* CaptaloCore */,
 			);
 			productName = Captalo;
@@ -106,7 +107,7 @@
 			mainGroup = 0BBB61B030081CE200D9E3A3;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				F10000000000000000000003 /* XCRemoteSwiftPackageReference "FluidAudio" */,
+				F10000000000000000000003 /* XCLocalSwiftPackageReference "Packages/CaptaloSpeech" */,
 				F10000000000000000000013 /* XCLocalSwiftPackageReference "Packages/CaptaloCore" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -172,6 +173,29 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "\"$SRCROOT/Scripts/embed-probe-fixture\"\n";
+		};
+		F10000000000000000000023 /* Copy voice models */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+				"$(SRCROOT)/Scripts/models-input.xcfilelist",
+			);
+			inputPaths = (
+				"$(SRCROOT)/Scripts/copy-models",
+				"$(SRCROOT)/Models.manifest.json",
+			);
+			name = "Copy voice models";
+			outputFileListPaths = (
+				"$(SRCROOT)/Scripts/models-output.xcfilelist",
+			);
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/Models.manifest.json",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"$SRCROOT/Scripts/copy-models\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -424,18 +448,12 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/CaptaloCore;
 		};
+		F10000000000000000000003 /* XCLocalSwiftPackageReference "Packages/CaptaloSpeech" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/CaptaloSpeech;
+		};
 /* End XCLocalSwiftPackageReference section */
 
-/* Begin XCRemoteSwiftPackageReference section */
-		F10000000000000000000003 /* XCRemoteSwiftPackageReference "FluidAudio" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/FluidInference/FluidAudio.git";
-			requirement = {
-				kind = revision;
-				revision = 5fc19fcde8aff5970ab18c974b109891479384c2;
-			};
-		};
-/* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
 		F10000000000000000000012 /* CaptaloCore */ = {
@@ -443,10 +461,10 @@
 			package = F10000000000000000000013 /* XCLocalSwiftPackageReference "Packages/CaptaloCore" */;
 			productName = CaptaloCore;
 		};
-		F10000000000000000000002 /* FluidAudio */ = {
+		F10000000000000000000002 /* CaptaloSpeech */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = F10000000000000000000003 /* XCRemoteSwiftPackageReference "FluidAudio" */;
-			productName = FluidAudio;
+			package = F10000000000000000000003 /* XCLocalSwiftPackageReference "Packages/CaptaloSpeech" */;
+			productName = CaptaloSpeech;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

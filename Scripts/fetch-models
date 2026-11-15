@@ -1,0 +1,15 @@
+#!/bin/sh
+# Downloads the bundled voice files once into .local/models (HOME redirected,
+# so the shared ~/.cache is never touched) and verifies them against the
+# committed Models.manifest.json. It never writes hashes: a mismatch fails.
+set -eu
+ROOT=$(cd "$(dirname "$0")/.." && pwd)
+MODELS="$ROOT/.local/models"
+PROBE=$("$ROOT/Scripts/model-tool")
+if [ -d "$MODELS" ] && "$PROBE" verify --models "$MODELS" --manifest "$ROOT/Models.manifest.json"; then
+  exit 0
+fi
+VOICES=$(python3 -c 'import json,sys; print(",".join(json.load(open(sys.argv[1]))["voices"]))' "$ROOT/Models.manifest.json")
+mkdir -p "$ROOT/.local/fetch-home" "$MODELS"
+HOME="$ROOT/.local/fetch-home" "$PROBE" fetch --models "$MODELS" --voices "$VOICES"
+"$PROBE" verify --models "$MODELS" --manifest "$ROOT/Models.manifest.json"
