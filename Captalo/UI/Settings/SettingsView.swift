@@ -84,6 +84,7 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .frame(width: SettingsWindowController.width)
+        .frame(minHeight: SettingsWindowController.minHeight)
     }
 
     private var voiceRow: some View {

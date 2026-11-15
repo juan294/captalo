@@ -6,10 +6,13 @@ import SwiftUI
 @MainActor
 final class SettingsWindowController: NSWindowController {
     static let width: CGFloat = 480
+    /// A grouped Form is a scroll view with no minimum height, so without this
+    /// the hosting controller shrinks the window to its title bar.
+    static let minHeight: CGFloat = 600
 
     init(state: CaptaloAppState) {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: Self.width, height: 560),
+            contentRect: NSRect(x: 0, y: 0, width: Self.width, height: Self.minHeight),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
