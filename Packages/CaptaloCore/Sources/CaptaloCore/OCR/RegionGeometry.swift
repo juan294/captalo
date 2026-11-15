@@ -40,7 +40,7 @@ public enum RegionGeometry {
     /// The region between `start` and `end` (AppKit global points), clamped to
     /// the display that contains `start`. Nil for a cancel.
     public static func selection(from start: CGPoint, to end: CGPoint, displays: [DisplayInfo]) -> RegionSelection? {
-        guard let display = displays.first(where: { $0.frame.contains(start) }),
+        guard let display = display(containing: start, in: displays),
               let primary = displays.first(where: { $0.frame.origin == .zero }) ?? displays.first else { return nil }
         let raw = CGRect(x: min(start.x, end.x), y: min(start.y, end.y),
                          width: abs(end.x - start.x), height: abs(end.y - start.y))
@@ -53,6 +53,12 @@ public enum RegionGeometry {
             displayID: display.id, globalRect: global, localRect: local,
             pixelSize: CGSize(width: (clamped.width * display.scale).rounded(), height: (clamped.height * display.scale).rounded())
         )
+    }
+
+    /// The display under `point`, edges included: AppKit reports the top row
+    /// and right column as `y == maxY` and `x == maxX`.
+    public static func display(containing point: CGPoint, in displays: [DisplayInfo]) -> DisplayInfo? {
+        displays.first { (point.x >= $0.frame.minX && point.x <= $0.frame.maxX) && (point.y >= $0.frame.minY && point.y <= $0.frame.maxY) }
     }
 
     /// AppKit (bottom-left, y up) to CoreGraphics global (top-left, y down).

@@ -47,7 +47,8 @@ public enum DocumentTranscript {
             result += columns(band).flatMap { $0.sorted { $0.bounds.minY < $1.bounds.minY } }
             if let divider {
                 result.append(divider)
-                bandTop = divider.bounds.maxY
+                // Bands partition the page: narrow items beside a divider read after it.
+                bandTop = divider.bounds.minY
             }
         }
         return result

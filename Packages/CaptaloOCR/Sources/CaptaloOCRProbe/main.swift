@@ -7,7 +7,8 @@ import ImageIO
 /// captalo-ocr-probe <fixture.png> <expected.json>: runs the production
 /// recognition step (VisionRecognizer, then DocumentTranscript) on a
 /// committed synthetic fixture and checks block kinds, order and first words.
-/// `captalo-ocr-probe --cancel <fixture.png>` cancels one recognition mid-run
+/// `captalo-ocr-probe --cancel <fixture.png>` first cancels a direct Vision
+/// call mid-run (it must throw, not finish), then times out one recognition
 /// through RegionReader and checks that the slot is freed within 1 s.
 struct Expected: Decodable {
     struct Block: Decodable {
@@ -40,6 +41,36 @@ func fail(_ message: String) -> Never {
     exit(1)
 }
 
+/// The fixture tiled 2 × 2, so a full recognition runs long enough to cancel mid-run.
+func tiled(_ image: CGImage) -> CGImage {
+    let context = CGContext(data: nil, width: image.width * 2, height: image.height * 2, bitsPerComponent: 8, bytesPerRow: 0,
+                            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+    for x in 0..<2 { for y in 0..<2 {
+        context.draw(image, in: CGRect(x: x * image.width, y: y * image.height, width: image.width, height: image.height))
+    } }
+    return context.makeImage()!
+}
+
+/// Vision must honour cancellation: cancelled at a fifth of a full run, the call throws.
+func checkNativeCancellation(_ image: CGImage) async throws {
+    let large = tiled(image)
+    let fullStart = ContinuousClock.now
+    _ = try await VisionRecognizer().recognize(large)
+    let full = fullStart.duration(to: .now)
+    let cancelAfter = max(full / 5, .milliseconds(10))
+    let task = Task { try await VisionRecognizer().recognize(large) }
+    try await Task.sleep(for: cancelAfter)
+    let cancelled = ContinuousClock.now
+    task.cancel()
+    let result = await task.result
+    let returnedMs = Double(cancelled.duration(to: .now) / .microseconds(1)) / 1000
+    let fullMs = Int(full / .milliseconds(1)), afterMs = Int(cancelAfter / .milliseconds(1))
+    guard case .failure = result else {
+        fail("Vision finished instead of honouring a cancel \(afterMs) ms into a \(fullMs) ms run")
+    }
+    print("native cancel: threw \(returnedMs) ms after a cancel \(afterMs) ms into a \(fullMs) ms run")
+}
+
 struct FixedCapturer: RegionCapturer {
     let image: CGImage
     func capture(_ selection: RegionSelection) async throws -> CGImage { image }
@@ -49,6 +80,7 @@ let arguments = Array(CommandLine.arguments.dropFirst())
 do {
     if arguments.first == "--cancel", arguments.count == 2 {
         let image = try load(arguments[1])
+        try await checkNativeCancellation(image)
         let slot = OCRSlot()
         let reader = RegionReader(capturer: FixedCapturer(image: image), recognizer: VisionRecognizer(), slot: slot,
                                   isCurrent: { _ in true }, timeout: .milliseconds(50))

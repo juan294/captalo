@@ -14,7 +14,8 @@ import Testing
         .clipboardSnapshot(items: 2, bytes: 4_096, elapsed: .milliseconds(3)),
         .seamSession(state: .started),
         .secondInstance,
-        .ocr(outcome: .document, characters: 120, elapsed: .milliseconds(900)),
+        .ocr(outcome: .document, failure: nil, blocks: 4, characters: 120, elapsed: .milliseconds(900)),
+        .ocr(outcome: .failed, failure: .ocrBusy, blocks: 0, characters: 0, elapsed: .milliseconds(1)),
     ]
 
     @Test func eventsRenderOnlyEnumNamesAndNumbers() {
@@ -23,6 +24,7 @@ import Testing
         var enumValues = Set(["neuralEngine", "cpuAndGPU", "true", "false", "none", "started", "stopped", "finished"])
         enumValues.formUnion(["selection", "region", "text", "document", "nothingSelected", "unsupported", "permissionMissing", "cancelled", "failed"])
         enumValues.formUnion(["accessibility", "menuCopy", "syntheticCopy", "ocr", "pass", "fail"])
+        enumValues.formUnion(["ocrBusy", "ocrFailed", "ocrTimedOut"])
         for event in Self.allCases {
             let parts = event.rendered.split(separator: " ")
             #expect(!parts.isEmpty)
@@ -48,6 +50,11 @@ import Testing
 
     @Test func allCasesCoversEveryCase() {
         #expect(Set(Self.allCases.map(Self.name)).count == Self.caseCount)
+    }
+
+    @Test func ocrBusyIsDistinguishable() {
+        let event = PrivacyEvent.ocr(outcome: .failed, failure: .ocrBusy, blocks: 0, characters: 0, elapsed: .milliseconds(2))
+        #expect(event.rendered == "ocr outcome=failed failure=ocrBusy blocks=0 characters=0 elapsedMs=2")
     }
 
     @Test func firstAudioRendersMilliseconds() {

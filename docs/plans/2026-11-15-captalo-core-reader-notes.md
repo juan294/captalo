@@ -139,6 +139,13 @@ Plan: `2026-11-15-captalo-core-reader.md` (revision 4, accepted 2026-11-15). Imp
 - Chose: `VisionRecognizer` in a small `CaptaloOCR` package used by both the app and `captalo-ocr-probe`; the ScreenCaptureKit capturer stays in `Captalo/Services/OCR/`. The image-write code search covers both.
 - Why: the probe then tests the shipped recognition code, not a copy.
 
+### D22. The overlay controller has no automated test (phase 5, unit 5A)
+
+- Plan said: `RegionOverlayTests.screenChangeCancels` posts the notification to the controller and checks the result and the teardown.
+- Found: the controller is AppKit code in the app target, which has no test target; `CaptaloCore` holds no AppKit UI by design.
+- Chose: all selection logic lives in `RegionSelectionTracker` (CaptaloCore), which the test drives with `.screensChanged`; the controller only forwards events and tears down in one `tearDown`. The observer wiring, panel order-out, cursor pop and tap invalidation are owner checks (manual criteria 3 to 5).
+- Why: adding an app test target is new test infrastructure outside this plan's scope; the logic that decides the outcome is tested.
+
 ## Phase 1 handoff (2026-11-15)
 
 - Candidate: branch `feat/core-reader`, commits `a000427` (rename), `7f7737a` (cc-rpi v2.2.0), `6eb0b4a` (foundation), `556c148` (review repairs) and the simplify commit that carries this note. `make verify` (8 checks: whitespace, rpi-installation, core tests debug and release, unsigned Debug and Release builds, log-audit, script-test) passed on the simplify candidate; evidence in the worktree's ignored `.rpi/local/verification.json`.

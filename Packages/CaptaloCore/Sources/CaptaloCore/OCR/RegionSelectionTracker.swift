@@ -17,6 +17,7 @@ public final class RegionSelectionTracker {
     private let displays: [DisplayInfo]
     private var finish: ((RegionSelection?) -> Void)?
     private var start: CGPoint?
+    private var startFrame: CGRect?
     /// The rectangle to draw (AppKit global points), while dragging.
     public private(set) var dragRect: CGRect?
 
@@ -32,11 +33,15 @@ public final class RegionSelectionTracker {
         switch event {
         case let .mouseDown(point):
             start = point
+            startFrame = RegionGeometry.display(containing: point, in: displays)?.frame
             dragRect = CGRect(origin: point, size: .zero)
         case let .mouseDragged(point):
             guard let start else { return }
-            dragRect = CGRect(x: min(start.x, point.x), y: min(start.y, point.y),
-                              width: abs(point.x - start.x), height: abs(point.y - start.y))
+            let raw = CGRect(x: min(start.x, point.x), y: min(start.y, point.y),
+                             width: abs(point.x - start.x), height: abs(point.y - start.y))
+            // Drawn as captured: clamped to the display where the drag started.
+            let clamped = startFrame.map { raw.intersection($0) } ?? raw
+            dragRect = clamped.isNull ? nil : clamped
         case let .mouseUp(point):
             guard let start else { return complete(nil) }
             complete(RegionGeometry.selection(from: start, to: point, displays: displays))

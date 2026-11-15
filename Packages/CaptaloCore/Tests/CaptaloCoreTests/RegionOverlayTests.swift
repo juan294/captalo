@@ -32,6 +32,15 @@ import Testing
         #expect(results().first??.globalRect == CGRect(x: 100, y: 82, width: 200, height: 100))
     }
 
+    /// The drawn rectangle matches the capture: clamped to the start display.
+    @Test func dragRectIsClampedToStartDisplay() {
+        let external = DisplayInfo(id: 2, frame: CGRect(x: 1512, y: 0, width: 1920, height: 1080), scale: 1)
+        let tracker = RegionSelectionTracker(displays: [display, external]) { _ in }
+        tracker.handle(.mouseDown(CGPoint(x: 1400, y: 500)))
+        tracker.handle(.mouseDragged(CGPoint(x: 1800, y: 400)))
+        #expect(tracker.dragRect == CGRect(x: 1400, y: 400, width: 112, height: 100))
+    }
+
     @Test func escapeClickAndSupersededCancel() {
         for events: [RegionSelectionTracker.Event] in [
             [.mouseDown(CGPoint(x: 10, y: 10)), .escape],

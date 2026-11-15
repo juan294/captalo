@@ -99,6 +99,33 @@ let words = [TranscriptItem(.paragraph("Read this region."), bounds: CGRect(x: 0
         #expect(await !slot.isReserved)
     }
 
+    /// Cancelling the caller (a newer press, or quit) ends the wait at once as a
+    /// cancel; the worker still holds the slot until the native call returns.
+    @Test func callerCancellationEndsTheWaitButNotTheWorker() async {
+        let recognizer = BlockedRecognizer(items: words, blocked: true)
+        let slot = OCRSlot()
+        let read = Task { await reader(BlockedCapturer(), recognizer, slot: slot, timeout: .seconds(60)).read(regionToken, selection) }
+        await eventually { recognizer.calls.withLock { $0 } == 1 }
+        let cancelled = ContinuousClock.now
+        read.cancel()
+        #expect(await read.value == .cancelled)
+        #expect(cancelled.duration(to: .now) < .seconds(1))
+        #expect(await slot.isReserved)
+        await recognizer.gate.open()
+        await eventually { await !slot.isReserved }
+    }
+
+    /// A caller already cancelled before the race starts never waits.
+    @Test func raceStartedCancelledReturnsNil() async {
+        let worker = Task<Int, Never> { try? await Task.sleep(for: .seconds(60)); return 1 }
+        let started = ContinuousClock.now
+        let race = Task { await RegionReader.race(worker, timeout: .seconds(60)) }
+        race.cancel()
+        #expect(await race.value == nil)
+        #expect(started.duration(to: .now) < .seconds(1))
+        worker.cancel()
+    }
+
     @Test func staleCaptureCompletingAfterNewerInputNeverStartsVision() async {
         let capturer = BlockedCapturer(blocked: true)
         let recognizer = BlockedRecognizer(items: words)

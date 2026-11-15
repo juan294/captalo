@@ -37,6 +37,12 @@ import Testing
         #expect(plain.pixelSize == CGSize(width: 100, height: 50))
     }
 
+    /// The top row and right column of a display belong to it (AppKit reports y == maxY there).
+    @Test func dragFromTheTopEdgeIsInside() throws {
+        let selection = try #require(RegionGeometry.selection(from: CGPoint(x: 1512, y: 982), to: CGPoint(x: 1400, y: 900), displays: [primary]))
+        #expect(selection.globalRect == CGRect(x: 1400, y: 0, width: 112, height: 82))
+    }
+
     @Test func zeroSizeRectIsCancel() {
         #expect(RegionGeometry.selection(from: CGPoint(x: 50, y: 50), to: CGPoint(x: 50, y: 50), displays: [primary]) == nil)
         #expect(RegionGeometry.selection(from: CGPoint(x: 50, y: 50), to: CGPoint(x: 57, y: 300), displays: [primary]) == nil)

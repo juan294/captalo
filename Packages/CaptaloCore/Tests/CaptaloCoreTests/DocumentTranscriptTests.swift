@@ -21,6 +21,13 @@ import Testing
         #expect(DocumentTranscript.blocks(items) == [.paragraph("Title"), .paragraph("Left"), .paragraph("Right"), .paragraph("Footer")])
     }
 
+    /// A sidebar beside a wide paragraph is still read (after the paragraph).
+    @Test func narrowItemBesideWideItemIsKept() {
+        let body = paragraph("Body text.", 0.02, 0.2, 0.66, 0.3)
+        let side = paragraph("Sidebar.", 0.72, 0.3, 0.26, 0.05)
+        #expect(DocumentTranscript.blocks([side, body]) == [.paragraph("Body text."), .paragraph("Sidebar.")])
+    }
+
     @Test func tableRowsStayRowBlocksInOrder() {
         let table = TranscriptItem(.table([["Item", "Price"], ["Milk", "1.20"], ["Bread", "2.10"]]), bounds: CGRect(x: 0.1, y: 0.3, width: 0.5, height: 0.2))
         let items = [paragraph("Total due.", 0.1, 0.6), table, paragraph("Receipt", 0.1, 0.1)]

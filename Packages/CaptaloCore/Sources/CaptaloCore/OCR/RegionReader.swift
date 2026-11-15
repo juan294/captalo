@@ -61,7 +61,12 @@ public final class RegionReader: Sendable {
     public func read(_ token: InputToken, _ selection: RegionSelection) async -> CaptureOutcome {
         let started = ContinuousClock.now
         let outcome = await recognizeRegion(token, selection)
-        PrivacyLog.record(.ocr(outcome: .init(outcome), characters: outcome.capturedLength, elapsed: started.duration(to: .now)))
+        var failure: CaptureFailure?
+        var blocks = 0
+        if case let .failed(category) = outcome { failure = category }
+        if case let .document(recognized) = outcome { blocks = recognized.count }
+        PrivacyLog.record(.ocr(outcome: .init(outcome), failure: failure, blocks: blocks,
+                               characters: outcome.capturedLength, elapsed: started.duration(to: .now)))
         return outcome
     }
 
@@ -101,7 +106,8 @@ public final class RegionReader: Sendable {
         let first = await Self.race(worker, timeout: timeout)
         guard let first else {
             worker.cancel()
-            return .failed(.ocrTimedOut)
+            // A cancelled caller (newer press, quit) is a cancel, never a timeout.
+            return Task.isCancelled ? .cancelled : .failed(.ocrTimedOut)
         }
         // 5. Deliver only to a current input.
         guard await isCurrent(token) else { return .cancelled }
@@ -117,17 +123,22 @@ public final class RegionReader: Sendable {
 }
 
 extension RegionReader {
-    /// The worker's result, or nil when `timeout` passes first. Returns at
-    /// whichever comes first; the worker keeps running on its own.
+    /// The worker's result, or nil when `timeout` passes or the caller is
+    /// cancelled first. Returns at whichever comes first; the worker keeps
+    /// running on its own.
     static func race<Value: Sendable>(_ worker: Task<Value, Never>, timeout: Duration) async -> Value? {
         let race = Race<Value>()
-        let value: Value? = await withCheckedContinuation { continuation in
-            race.start(continuation)
-            Task { race.finish(await worker.value) }
-            race.setTimer(Task {
-                try? await Task.sleep(for: timeout)
-                race.finish(nil)
-            })
+        let value: Value? = await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                race.start(continuation)
+                Task { race.finish(await worker.value) }
+                race.setTimer(Task {
+                    try? await Task.sleep(for: timeout)
+                    race.finish(nil)
+                })
+            }
+        } onCancel: {
+            race.finish(nil)
         }
         race.cancelTimer()
         return value
@@ -139,8 +150,13 @@ private final class Race<Value: Sendable>: Sendable {
     private let state = Mutex<(continuation: CheckedContinuation<Value?, Never>?, done: Bool)>((nil, false))
     private let timer = Mutex<Task<Void, Never>?>(nil)
 
+    /// A race already finished (the caller was cancelled first) resumes at once.
     func start(_ continuation: CheckedContinuation<Value?, Never>) {
-        state.withLock { $0.continuation = continuation }
+        let finished = state.withLock { s -> Bool in
+            if !s.done { s.continuation = continuation }
+            return s.done
+        }
+        if finished { continuation.resume(returning: nil) }
     }
 
     func finish(_ value: Value?) {
