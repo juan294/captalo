@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 
 /// A committed reading. `start()` must return promptly; playback continues
 /// on its own until `stop()`.
@@ -32,7 +33,9 @@ public actor RequestCoordinator {
     }
 
     private let makeSession: SessionFactory
-    private var inputGeneration: UInt64 = 0
+    /// The newest reserved press. Reserved synchronously when a shortcut
+    /// fires, so the order of presses is the order of reservations.
+    private let reserved = Mutex<UInt64>(0)
     private var sessionGeneration: UInt64 = 0
     /// Owned input tasks by generation; the current generation's task is the pending input.
     private var inFlight: [UInt64: Task<Void, Never>] = [:]
@@ -46,28 +49,56 @@ public actor RequestCoordinator {
     public var currentSession: SessionToken? { playing?.token }
 
     public func isCurrent(_ token: InputToken) -> Bool {
-        !isShutDown && token.inputGeneration == inputGeneration
+        !isShutDown && token.inputGeneration == reserved.withLock { $0 }
     }
 
     public func isCurrent(_ token: SessionToken) -> Bool {
         playing?.token == token
     }
 
-    /// Starts a new pending input and cancels the older one. Never touches the session.
-    public func beginInput(kind: InputKind, source: InputSource) -> InputToken {
-        inFlight[inputGeneration]?.cancel()
-        inputGeneration += 1
-        return InputToken(inputGeneration: inputGeneration, kind: kind, source: source, startedAt: .now)
+    /// Takes the next place in press order. Call it synchronously when the
+    /// shortcut fires, before any source lookup: it supersedes the pending
+    /// input at once (`isCurrent` turns false for it).
+    public nonisolated func reservePress() -> PressTicket {
+        PressTicket(inputGeneration: reserved.withLock { $0 += 1; return $0 })
     }
 
-    /// Begins an input and runs `capture` in an owned task, then resolves it.
+    /// Starts a new pending input and cancels the older one. Never touches the session.
+    public func beginInput(kind: InputKind, source: InputSource) -> InputToken {
+        begin(reservePress(), kind: kind, source: source)
+    }
+
+    private func begin(_ ticket: PressTicket, kind: InputKind, source: InputSource) -> InputToken {
+        for (generation, task) in inFlight where generation < ticket.inputGeneration { task.cancel() }
+        return InputToken(inputGeneration: ticket.inputGeneration, kind: kind, source: source, startedAt: .now)
+    }
+
+    /// Begins the reserved press and runs `capture` in an owned task, then
+    /// resolves it. Returns nil, and never runs `capture`, when a newer press
+    /// was reserved meanwhile (or after quit): a late source lookup does no
+    /// Copy, speech or overlay work.
+    @discardableResult
+    public func submit(
+        _ ticket: PressTicket,
+        kind: InputKind,
+        source: InputSource,
+        capture: @escaping @Sendable (InputToken) async -> CaptureOutcome
+    ) -> InputToken? {
+        guard !isShutDown, ticket.inputGeneration == reserved.withLock({ $0 }) else { return nil }
+        return run(begin(ticket, kind: kind, source: source), capture)
+    }
+
+    /// Reserves and begins in one step, for a source known at press time (tests, probes).
     @discardableResult
     public func submit(
         kind: InputKind,
         source: InputSource,
         capture: @escaping @Sendable (InputToken) async -> CaptureOutcome
     ) -> InputToken {
-        let token = beginInput(kind: kind, source: source)
+        run(beginInput(kind: kind, source: source), capture)
+    }
+
+    private func run(_ token: InputToken, _ capture: @escaping @Sendable (InputToken) async -> CaptureOutcome) -> InputToken {
         let task = Task { [weak self] in
             let outcome = await capture(token)
             await self?.finish(token, outcome)
@@ -134,7 +165,7 @@ public actor RequestCoordinator {
     /// Quit: cancel the pending input, let every open cleanup finish, stop the session.
     public func shutdown() async {
         isShutDown = true
-        inFlight[inputGeneration]?.cancel()
+        inFlight.values.forEach { $0.cancel() }
         await waitForIdle()
         await stopPlaying()
     }
