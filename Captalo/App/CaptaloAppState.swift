@@ -81,7 +81,7 @@ final class CaptaloAppState: ObservableObject {
         return { token in
             let outcome = await capture.capture(token)
             // Text that cleanup removes completely is silence, like an empty selection.
-            if case let .text(text, _) = outcome, !TextPreparer.hasSpeakableText(text) { return .nothingSelected }
+            if case let .text(text, _) = outcome, !TextPreparer.hasSpeakableText(.text(text)) { return .nothingSelected }
             return outcome
         }
     }

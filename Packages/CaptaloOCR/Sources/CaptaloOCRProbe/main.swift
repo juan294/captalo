@@ -28,12 +28,13 @@ func load(_ path: String) throws -> CGImage {
 }
 
 func kind(_ block: Block) -> (String, String) {
-    switch block {
-    case let .paragraph(text): ("paragraph", text)
-    case let .listItem(text): ("listItem", text)
-    case let .tableRow(cells): ("tableRow", cells.joined(separator: " "))
-    case let .codeLine(text): ("codeLine", text)
+    let name = switch block {
+    case .paragraph: "paragraph"
+    case .listItem: "listItem"
+    case .tableRow: "tableRow"
+    case .codeLine: "codeLine"
     }
+    return (name, block.plainText)
 }
 
 func fail(_ message: String) -> Never {

@@ -41,26 +41,20 @@ public enum TextPreparer {
         SelectionBlocks(text: normalizeCharacters(text))
     }
 
-    /// The one text-to-units chain used by the app and the probe: blocks
-    /// (selection text is split; OCR text is one paragraph until phase 5),
-    /// cleanup, then units.
-    public static func units(for text: String, source: TextSource) -> AnyIterator<SynthesisUnit> {
-        let blocks = source == .selection ? Array(blocks(fromSelection: text)) : [Block.paragraph(text)]
+    /// The one text-to-units chain used by the app, the region reader and the
+    /// probe: selection text is split into blocks; OCR blocks go straight into
+    /// cleanup with the OCR rules; then units.
+    public static func units(for content: ReadingContent) -> AnyIterator<SynthesisUnit> {
+        let (blocks, source): ([Block], TextSource) = switch content {
+        case let .text(text): (Array(blocks(fromSelection: text)), .selection)
+        case let .document(blocks): (blocks, .ocr)
+        }
         return AnyIterator(UnitChunker(prepare(blocks, source: source)).makeIterator())
     }
 
-    /// Units for a committed reading: selection text is split into blocks;
-    /// OCR blocks go straight into cleanup with the OCR rules.
-    public static func units(for content: ReadingContent) -> AnyIterator<SynthesisUnit> {
-        switch content {
-        case let .text(text): units(for: text, source: .selection)
-        case let .document(blocks): AnyIterator(UnitChunker(prepare(blocks, source: .ocr)).makeIterator())
-        }
-    }
-
     /// False when cleanup leaves nothing to say: silence, like an empty selection.
-    public static func hasSpeakableText(_ text: String, source: TextSource = .selection) -> Bool {
-        units(for: text, source: source).next() != nil
+    public static func hasSpeakableText(_ content: ReadingContent) -> Bool {
+        units(for: content).next() != nil
     }
 
     // MARK: - Per-block cleanup

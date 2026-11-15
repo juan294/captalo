@@ -8,19 +8,11 @@ extension CaptaloAppState {
     /// pending input: it never touches the playing reading; only text that
     /// was recognized successfully replaces it.
     func readRegion() {
-        if voiceState == .checking { return }
-        if !voiceState.canSpeak || !accessibilityPermissionGranted {
-            refreshAccessibilityPermission()
-            requireSetup()
-            return
-        }
+        guard pressCanSpeak() else { return }
         refreshScreenRecording()
         if SetupState.regionPressRequirement(setupEnvironment) == .screenRecording {
             // Requested only from a region press or the settings row (owner decision 8).
-            if !screenRecordingRequested {
-                screenRecordingRequested = true
-                CGRequestScreenCaptureAccess()
-            }
+            if !screenRecordingRequested { requestScreenRecording() }
             onSetupRequired?()
             return
         }
@@ -29,7 +21,7 @@ extension CaptaloAppState {
         let accessibility = self.accessibility
         let requests = self.requests
         Task.detached {
-            let source = accessibility.currentSource() ?? InputSource(pid: 0, bundleID: nil, focusedElement: nil)
+            let source = accessibility.currentSourceOrNone()
             await requests.submit(kind: .region, source: source) { token in
                 // A newer press cancels this input: the overlay closes as a cancel.
                 let selection = await withTaskCancellationHandler {
@@ -77,7 +69,7 @@ extension CaptaloAppState {
         relaunch.executableURL = URL(fileURLWithPath: "/bin/sh")
         relaunch.arguments = ["-c", "sleep 1; /usr/bin/open \"$0\"", path]
         try? relaunch.run()
-        NSApplication.shared.terminate(nil)
+        quit()
     }
 
     nonisolated static func makeRegionReader(requests: RequestCoordinator) -> RegionReader {

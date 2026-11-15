@@ -84,7 +84,8 @@ public enum ReadingContent: Equatable, Sendable {
 }
 
 extension Block {
-    var plainText: String {
+    /// The block's words as one line (table cells joined by spaces).
+    public var plainText: String {
         switch self {
         case let .paragraph(text), let .listItem(text), let .codeLine(text): text
         case let .tableRow(cells): cells.joined(separator: " ")

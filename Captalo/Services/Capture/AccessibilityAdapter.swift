@@ -22,6 +22,12 @@ nonisolated final class AccessibilityAdapter: SelectionAccessibility, FocusEnvir
         return InputSource(pid: pid, bundleID: bundleID(pid), focusedElement: ElementRef(element))
     }
 
+    /// The press source, or an empty one without Accessibility trust; the
+    /// coordinator then returns `.permissionMissing` before any layer runs.
+    func currentSourceOrNone() -> InputSource {
+        currentSource() ?? InputSource(pid: 0, bundleID: nil, focusedElement: nil)
+    }
+
     func frontmostPID() -> Int32? {
         guard case let .value(app) = AX.element(AX.systemWide(), kAXFocusedApplicationAttribute) else { return nil }
         var pid: pid_t = 0

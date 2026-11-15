@@ -2,19 +2,23 @@ import CaptaloCore
 import Foundation
 
 extension CaptaloAppState {
+    /// The gate both shortcuts share. A press while the voice is still being
+    /// prepared at launch is ignored (not a failure). The shortcut fired, so it
+    /// is set: a failed press means the voice or the Accessibility permission.
+    func pressCanSpeak() -> Bool {
+        if voiceState == .checking { return false }
+        if !voiceState.canSpeak || !accessibilityPermissionGranted {
+            refreshAccessibilityPermission()
+            requireSetup()
+            return false
+        }
+        return true
+    }
+
     /// The read-selection shortcut (plan phase 2). The press records its
     /// source at once; trust, capture and the stop gesture run in the coordinators.
     func speakSelection() {
-        if !isCaptureProbeActive {
-            // The voice is still being prepared at launch: ignore the press (not a failure).
-            if voiceState == .checking { return }
-            // The shortcut fired, so it is set: a failed press means the voice or the permission.
-            if !voiceState.canSpeak || !accessibilityPermissionGranted {
-                refreshAccessibilityPermission()
-                requireSetup()
-                return
-            }
-        }
+        if !isCaptureProbeActive, !pressCanSpeak() { return }
         if lastReadingError != nil { lastReadingError = nil }
         let capture = selectionCapture
         let accessibility = self.accessibility
@@ -23,7 +27,7 @@ extension CaptaloAppState {
         // Without Accessibility trust there is no source; the coordinator then
         // returns .permissionMissing before any layer runs.
         Task.detached {
-            let source = accessibility.currentSource() ?? InputSource(pid: 0, bundleID: nil, focusedElement: nil)
+            let source = accessibility.currentSourceOrNone()
             await requests.submit(kind: .selection, source: source) { token in
                 let outcome = await capture(token)
                 if outcome == .permissionMissing {

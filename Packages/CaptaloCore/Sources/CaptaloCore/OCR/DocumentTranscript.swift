@@ -61,7 +61,8 @@ public enum DocumentTranscript {
             let range = item.bounds.minX...item.bounds.maxX
             if let index = groups.firstIndex(where: { $0.range.overlaps(range) }) {
                 let merged = min(groups[index].range.lowerBound, range.lowerBound)...max(groups[index].range.upperBound, range.upperBound)
-                groups[index] = (merged, groups[index].items + [item])
+                groups[index].range = merged
+                groups[index].items.append(item)
             } else {
                 groups.append((range, [item]))
             }

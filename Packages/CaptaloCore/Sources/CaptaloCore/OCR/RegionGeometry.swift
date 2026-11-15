@@ -42,9 +42,7 @@ public enum RegionGeometry {
     public static func selection(from start: CGPoint, to end: CGPoint, displays: [DisplayInfo]) -> RegionSelection? {
         guard let display = display(containing: start, in: displays),
               let primary = displays.first(where: { $0.frame.origin == .zero }) ?? displays.first else { return nil }
-        let raw = CGRect(x: min(start.x, end.x), y: min(start.y, end.y),
-                         width: abs(end.x - start.x), height: abs(end.y - start.y))
-        let clamped = raw.intersection(display.frame)
+        let clamped = rect(from: start, to: end, clampedTo: display.frame)
         guard !clamped.isNull, clamped.width >= minimumSide, clamped.height >= minimumSide else { return nil }
         let global = topLeft(clamped, primaryHeight: primary.frame.height)
         let displayTopLeft = topLeft(display.frame, primaryHeight: primary.frame.height)
@@ -53,6 +51,13 @@ public enum RegionGeometry {
             displayID: display.id, globalRect: global, localRect: local,
             pixelSize: CGSize(width: (clamped.width * display.scale).rounded(), height: (clamped.height * display.scale).rounded())
         )
+    }
+
+    /// The rectangle between two points, clamped to `frame` (null when outside).
+    /// The overlay draws and the capture uses this same rectangle.
+    public static func rect(from start: CGPoint, to end: CGPoint, clampedTo frame: CGRect) -> CGRect {
+        CGRect(x: min(start.x, end.x), y: min(start.y, end.y), width: abs(end.x - start.x), height: abs(end.y - start.y))
+            .intersection(frame)
     }
 
     /// The display under `point`, edges included: AppKit reports the top row

@@ -101,7 +101,7 @@ enum SynthesisProbe {
             let started = ContinuousClock.now
             let peak = PeakMemory()
             let session = ReadingSession(
-                units: { TextPreparer.units(for: fixture, source: .selection) },
+                units: { TextPreparer.units(for: .text(fixture)) },
                 synthesizer: recorder, sink: sink, voice: voice, speed: speed
             ) { event in log.withLock { $0.append(event) } }
 
@@ -142,7 +142,7 @@ enum SynthesisProbe {
 
             let events = log.withLock { $0 }
             let played = events.compactMap { if case let .played(id) = $0 { id } else { nil } }
-            let expectedUnits = Array(AnySequence { TextPreparer.units(for: fixture, source: .selection) })
+            let expectedUnits = Array(AnySequence { TextPreparer.units(for: .text(fixture)) })
             var calls = recorder.calls.withLock { $0 }[...]
             let scheduled = events.compactMap { event -> (unit: Int, sentence: Int, characters: Int, seconds: Double, queued: Double)? in
                 guard case let .scheduled(unit, sentence, characters, seconds, queued) = event else { return nil }

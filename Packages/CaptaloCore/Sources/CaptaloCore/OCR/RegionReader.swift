@@ -61,10 +61,11 @@ public final class RegionReader: Sendable {
     public func read(_ token: InputToken, _ selection: RegionSelection) async -> CaptureOutcome {
         let started = ContinuousClock.now
         let outcome = await recognizeRegion(token, selection)
-        var failure: CaptureFailure?
-        var blocks = 0
-        if case let .failed(category) = outcome { failure = category }
-        if case let .document(recognized) = outcome { blocks = recognized.count }
+        let (failure, blocks): (CaptureFailure?, Int) = switch outcome {
+        case let .failed(category): (category, 0)
+        case let .document(recognized): (nil, recognized.count)
+        default: (nil, 0)
+        }
         PrivacyLog.record(.ocr(outcome: .init(outcome), failure: failure, blocks: blocks,
                                characters: outcome.capturedLength, elapsed: started.duration(to: .now)))
         return outcome
@@ -116,7 +117,7 @@ public final class RegionReader: Sendable {
             return .failed(.ocrFailed)
         case let .success(items):
             let blocks = DocumentTranscript.blocks(items)
-            guard TextPreparer.prepare(blocks, source: .ocr).first(where: { _ in true }) != nil else { return .nothingSelected }
+            guard TextPreparer.hasSpeakableText(.document(blocks)) else { return .nothingSelected }
             return .document(blocks)
         }
     }
@@ -128,53 +129,43 @@ extension RegionReader {
     /// running on its own.
     static func race<Value: Sendable>(_ worker: Task<Value, Never>, timeout: Duration) async -> Value? {
         let race = Race<Value>()
-        let value: Value? = await withTaskCancellationHandler {
-            await withCheckedContinuation { continuation in
-                race.start(continuation)
-                Task { race.finish(await worker.value) }
-                race.setTimer(Task {
-                    try? await Task.sleep(for: timeout)
-                    race.finish(nil)
-                })
-            }
+        let timer = Task {
+            try? await Task.sleep(for: timeout)
+            race.finish(nil)
+        }
+        defer { timer.cancel() }
+        Task { race.finish(await worker.value) }
+        return await withTaskCancellationHandler {
+            await withCheckedContinuation { race.start($0) }
         } onCancel: {
             race.finish(nil)
         }
-        race.cancelTimer()
-        return value
     }
 }
 
-/// Resumes its continuation exactly once: with the worker's value or with nil at the timeout.
+/// Resumes its continuation exactly once: with the worker's value, or with nil
+/// at the timeout or on caller cancellation.
 private final class Race<Value: Sendable>: Sendable {
-    private let state = Mutex<(continuation: CheckedContinuation<Value?, Never>?, done: Bool)>((nil, false))
-    private let timer = Mutex<Task<Void, Never>?>(nil)
+    private let state = Mutex<(continuation: CheckedContinuation<Value?, Never>?, done: Bool, value: Value?)>((nil, false, nil))
 
-    /// A race already finished (the caller was cancelled first) resumes at once.
+    /// A race that finished before the caller waits resumes at once with that result.
     func start(_ continuation: CheckedContinuation<Value?, Never>) {
-        let finished = state.withLock { s -> Bool in
+        let finished = state.withLock { s -> (Bool, Value?) in
             if !s.done { s.continuation = continuation }
-            return s.done
+            return (s.done, s.value)
         }
-        if finished { continuation.resume(returning: nil) }
+        if finished.0 { continuation.resume(returning: finished.1) }
     }
 
     func finish(_ value: Value?) {
         let continuation = state.withLock { s -> CheckedContinuation<Value?, Never>? in
             guard !s.done else { return nil }
             s.done = true
+            s.value = value
             defer { s.continuation = nil }
             return s.continuation
         }
         continuation?.resume(returning: value)
-    }
-
-    func setTimer(_ task: Task<Void, Never>) {
-        timer.withLock { $0 = task }
-    }
-
-    func cancelTimer() {
-        timer.withLock { $0?.cancel() }
     }
 }
 

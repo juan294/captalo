@@ -37,10 +37,8 @@ public final class RegionSelectionTracker {
             dragRect = CGRect(origin: point, size: .zero)
         case let .mouseDragged(point):
             guard let start else { return }
-            let raw = CGRect(x: min(start.x, point.x), y: min(start.y, point.y),
-                             width: abs(point.x - start.x), height: abs(point.y - start.y))
             // Drawn as captured: clamped to the display where the drag started.
-            let clamped = startFrame.map { raw.intersection($0) } ?? raw
+            let clamped = RegionGeometry.rect(from: start, to: point, clampedTo: startFrame ?? .infinite)
             dragRect = clamped.isNull ? nil : clamped
         case let .mouseUp(point):
             guard let start else { return complete(nil) }

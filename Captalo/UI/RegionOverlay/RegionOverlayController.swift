@@ -106,7 +106,13 @@ final class RegionPanel: NSPanel {
 @MainActor
 final class RegionView: NSView {
     private let onEvent: (RegionSelectionTracker.Event) -> Void
-    var selection: CGRect? { didSet { needsDisplay = true } }
+    var selection: CGRect? {
+        didSet {
+            guard selection != oldValue else { return }
+            // Only the old and new rectangles need repainting, not the whole screen.
+            for rect in [oldValue, selection].compactMap({ $0 }) { setNeedsDisplay(rect.insetBy(dx: -2, dy: -2)) }
+        }
+    }
 
     init(onEvent: @escaping (RegionSelectionTracker.Event) -> Void) {
         self.onEvent = onEvent
@@ -135,7 +141,6 @@ final class RegionView: NSView {
 /// Swallows Esc while the overlay is visible, so the source app never sees it.
 @MainActor
 final class EscapeTap {
-    private var tap: CFMachPort?
     private var source: CFRunLoopSource?
     private let box: Box
 
@@ -162,7 +167,7 @@ final class EscapeTap {
             DispatchQueue.main.async { box.onEscape() }
             return nil
         }
-        tap = CGEvent.tapCreate(tap: .cgSessionEventTap, place: .headInsertEventTap, options: .defaultTap,
+        let tap = CGEvent.tapCreate(tap: .cgSessionEventTap, place: .headInsertEventTap, options: .defaultTap,
                                 eventsOfInterest: mask, callback: callback,
                                 userInfo: Unmanaged.passUnretained(box).toOpaque())
         box.tap = tap
@@ -174,9 +179,8 @@ final class EscapeTap {
     }
 
     func invalidate() {
-        if let tap { CGEvent.tapEnable(tap: tap, enable: false); CFMachPortInvalidate(tap) }
+        if let tap = box.tap { CGEvent.tapEnable(tap: tap, enable: false); CFMachPortInvalidate(tap) }
         if let source { CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes) }
-        tap = nil
         source = nil
         box.tap = nil
     }

@@ -25,7 +25,6 @@ public enum PrivacyEvent: Sendable, Equatable {
     )
     /// Clipboard transaction snapshot: item count, bytes and materialization time.
     case clipboardSnapshot(items: Int, bytes: Int, elapsed: Duration)
-    /// One region recognition: outcome, recognized characters and duration (no text).
     /// One region reading: the failure category (busy, error, timeout) and the block count, never text.
     case ocr(outcome: OutcomeKind, failure: CaptureFailure?, blocks: Int, characters: Int, elapsed: Duration)
     /// A second Cáptalo instance found the store's consumer lock held and exits.
