@@ -1,0 +1,20 @@
+#!/bin/sh
+# Phase 4 code search: the inherited shell is gone, and the built app is an agent app.
+set -eu
+ROOT=$(cd "$(dirname "$0")/.." && pwd)
+status=0
+for pattern in 'MenuBarExtra' 'setActivationPolicy(.regular)' 'RegisterEventHotKey' 'pronunciationRules' 'wordsSpoken' 'pauseForVoiceApps' 'Studio'; do
+  if grep -rnF "$pattern" "$ROOT/Captalo" --include='*.swift' >/dev/null; then
+    echo "shell-audit: found $pattern in Captalo/" >&2
+    grep -rnF "$pattern" "$ROOT/Captalo" --include='*.swift' >&2
+    status=1
+  fi
+done
+for config in Debug Release; do
+  plist="$ROOT/.local/build/DerivedData/Build/Products/$config/Captalo.app/Contents/Info.plist"
+  [ -f "$plist" ] || continue
+  value=$(/usr/libexec/PlistBuddy -c "Print :LSUIElement" "$plist" 2>/dev/null || echo missing)
+  [ "$value" = "true" ] || { echo "shell-audit: $config LSUIElement is $value" >&2; status=1; }
+done
+[ $status -eq 0 ] && echo "shell-audit: passed"
+exit $status

@@ -28,7 +28,7 @@ PROJECT_TEAM = $(shell sed -n 's/.*DEVELOPMENT_TEAM = "*\([A-Z0-9]*\)"*;.*/\1/p'
 .PHONY: help xcbeautify-check signing-check build build-unsigned build-unsigned-debug build-unsigned-release \
 	test test-core-debug test-core-release script-test log-audit verify install run signing-setup \
 	clipboard-sentinel capture-pdf vendor fetch-models update-model-manifest bundle-check offline-test \
-	completeness-test test-speech-debug test-speech-release prepare
+	completeness-test test-speech-debug test-speech-release prepare shell-audit defaults-backup defaults-restore
 
 help:
 	@echo "make build [CONFIG=Debug|Release] | build-unsigned | test | log-audit | script-test | verify"
@@ -95,6 +95,17 @@ offline-test: vendor
 
 completeness-test: vendor
 	Scripts/completeness-test $(RELEASE_MODELS)
+
+shell-audit:
+	Scripts/shell-audit
+
+# Fresh-state check on the fixed identity (phase 4, manual). Touches only the
+# com.thecreativetoken.captalo defaults domain; quit Cáptalo first.
+defaults-backup:
+	Scripts/defaults-backup
+
+defaults-restore:
+	Scripts/defaults-restore
 
 script-test:
 	python3 -m unittest discover -s Scripts/tests

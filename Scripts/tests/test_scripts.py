@@ -197,6 +197,46 @@ class FetchModelsTests(unittest.TestCase):
             self.assertEqual(manifest.read_text(), before)
 
 
+class DefaultsBackupTests(unittest.TestCase):
+    """Round trip on a disposable defaults domain, removed afterwards."""
+
+    def setUp(self):
+        import uuid
+        self.domain = f"com.thecreativetoken.captalo.scripttest-{uuid.uuid4().hex[:8]}"
+        self.tmp = tempfile.TemporaryDirectory()
+        self.env = dict(os.environ, CAPTALO_DEFAULTS_DOMAIN=self.domain, CAPTALO_DEFAULTS_DIR=self.tmp.name)
+
+    def tearDown(self):
+        subprocess.run(["defaults", "delete", self.domain], capture_output=True)
+        self.tmp.cleanup()
+
+    def run_script(self, name):
+        return subprocess.run([str(SCRIPTS / name)], env=self.env, capture_output=True, text=True, check=False)
+
+    def read(self, key):
+        return subprocess.run(["defaults", "read", self.domain, key], capture_output=True, text=True).stdout.strip()
+
+    def is_empty(self):
+        out = subprocess.run(["defaults", "export", self.domain, "-"], capture_output=True).stdout
+        return plistlib.loads(out) == {} if out else True
+
+    def test_present_domain_is_exported_deleted_and_restored(self):
+        subprocess.run(["defaults", "write", self.domain, "reading.voice", "af_bella"], check=True)
+        backup = self.run_script("defaults-backup")
+        self.assertEqual(backup.returncode, 0, backup.stderr)
+        self.assertTrue(self.is_empty())
+        restore = self.run_script("defaults-restore")
+        self.assertEqual(restore.returncode, 0, restore.stderr)
+        self.assertEqual(self.read("reading.voice"), "af_bella")
+        self.assertEqual(self.run_script("defaults-restore").returncode, 0)  # idempotent
+
+    def test_absent_domain_is_recorded_and_deleted_again(self):
+        self.assertEqual(self.run_script("defaults-backup").returncode, 0)
+        subprocess.run(["defaults", "write", self.domain, "reading.speed", "-float", "1.2"], check=True)
+        self.assertEqual(self.run_script("defaults-restore").returncode, 0)
+        self.assertTrue(self.is_empty())
+
+
 class MakefileTests(unittest.TestCase):
     def test_failed_xcodebuild_fails_the_piped_recipe(self):
         result = subprocess.run(["make", "-s", "build-unsigned-debug", "XCODEBUILD=false"],

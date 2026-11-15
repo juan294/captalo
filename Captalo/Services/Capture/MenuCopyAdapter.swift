@@ -1,12 +1,14 @@
 import ApplicationServices
 import CaptaloCore
-import Synchronization
+import Foundation
 
 /// Finds the app's own Copy menu item (Cmd+C, no other modifiers) through
 /// Accessibility. Language-independent: it matches the key equivalent, not the title.
-nonisolated final class MenuCopyAdapter: MenuCopyAccess, Sendable {
+nonisolated final class MenuCopyAdapter: MenuCopyAccess, @unchecked Sendable {
     /// The item found by the last state query, pressed without a second menu walk.
-    private let lastItem = Mutex<(pid: Int32, item: AXUIElement)?>(nil)
+    /// AXUIElement is not Sendable, so the slot is guarded by a lock.
+    private let lock = NSLock()
+    private var lastItem: (pid: Int32, item: AXUIElement)?
 
     func copyItemState(pid: Int32) -> MenuCopyState {
         let state: MenuCopyState
@@ -21,14 +23,14 @@ nonisolated final class MenuCopyAdapter: MenuCopyAccess, Sendable {
             case .unsupported, .error: state = .unknown
             }
         }
-        lastItem.withLock { $0 = found.map { (pid, $0) } }
+        lock.withLock { lastItem = found.map { (pid, $0) } }
         return state
     }
 
     func pressCopy(pid: Int32) -> Bool {
-        let item = lastItem.withLock { last -> AXUIElement? in
-            defer { last = nil }
-            return last?.pid == pid ? last?.item : nil
+        let item = lock.withLock { () -> AXUIElement? in
+            defer { lastItem = nil }
+            return lastItem?.pid == pid ? lastItem?.item : nil
         }
         guard let item else { return false }
         return AXUIElementPerformAction(item, kAXPressAction as CFString) == .success

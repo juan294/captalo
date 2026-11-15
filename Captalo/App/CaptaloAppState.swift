@@ -7,19 +7,23 @@ import SwiftUI
 final class CaptaloAppState: ObservableObject {
     static let shared = CaptaloAppState()
 
-    /// Voice and speed sync to `readingSettings` (read off the main actor) on every change.
-    @Published var speed: Float = 1.0 {
-        didSet { readingSettings.set(voice: voice, speed: speed) }
+    /// Voice and speed sync to `readingSettings` (read off the main actor) and
+    /// persist in the defaults store on every change.
+    @Published var speed: Float {
+        didSet { preferencesChanged() }
     }
     @Published var voiceState: VoiceInstallState = .checking
     @Published var voice: String {
-        didSet { readingSettings.set(voice: voice, speed: speed) }
+        didSet { preferencesChanged() }
     }
+    @Published var loginItem = LoginItemRow.make(status: .notRegistered)
     /// "The last reading stopped because of a voice error." until the next reading.
     @Published var lastReadingError: String?
     @Published var accessibilityPermissionGranted: Bool
 
     let speechService = SpeechService()
+    /// Injected for tests; the app uses the standard domain.
+    let defaults: UserDefaults
     /// Voice and speed as the reading pipeline sees them (read off the main actor).
     let readingSettings = ReadingSettings()
     let accessibility = AccessibilityAdapter()
@@ -41,17 +45,22 @@ final class CaptaloAppState: ObservableObject {
             )
         }
     }()
-    lazy var capture: CaptureCoordinator = {
-        let requests = self.requests
-        let lock = clipboardLock
-        return CaptureCoordinator(
+    lazy var capture: CaptureCoordinator = Self.makeCapture(
+        accessibility: accessibility, requests: requests, lock: clipboardLock)
+
+    /// Built outside the main actor so its closures are nonisolated.
+    nonisolated static func makeCapture(
+        accessibility: AccessibilityAdapter, requests: RequestCoordinator, lock: AsyncSerialLock
+    ) -> CaptureCoordinator {
+        CaptureCoordinator(
             ax: accessibility, menu: MenuCopyAdapter(), keys: KeyEventAdapter(), focus: accessibility,
             transaction: { ClipboardTransaction(pasteboard: SystemPasteboard(), lock: lock) },
-            isCurrent: { await requests.isCurrent($0) }
+            isCurrent: { await requests.isCurrent($0) },
+            sleep: { try? await Task.sleep(for: $0) }
         )
-    }()
+    }
     /// The selection capture, chosen once: wrapped by the probe in probe mode.
-    lazy var selectionCapture: @Sendable (InputToken) async -> CaptureOutcome = {
+    var selectionCapture: @Sendable (InputToken) async -> CaptureOutcome {
         let capture = self.capture
         #if DEBUG
         if let probe = captureProbe {
@@ -64,7 +73,7 @@ final class CaptaloAppState: ObservableObject {
             if case let .text(text, _) = outcome, !TextPreparer.hasSpeakableText(text) { return .nothingSelected }
             return outcome
         }
-    }()
+    }
     #if DEBUG
     lazy var captureProbe = CaptureProbeRunner(accessibility: accessibility)
     #endif
@@ -72,11 +81,18 @@ final class CaptaloAppState: ObservableObject {
     var onVoiceAttentionRequired: (() -> Void)?
     var onAccessibilityPermissionRequired: (() -> Void)?
 
-    private init() {
+    private init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
         accessibilityPermissionGranted = AXIsProcessTrusted()
-        let initialVoice = speechService.voices.first ?? ReadingSettings.defaultVoice
-        voice = initialVoice
-        readingSettings.set(voice: initialVoice, speed: 1.0)
+        let saved = ReadingPreferences.load(from: defaults, voices: speechService.voices)
+        speed = saved.speed
+        voice = saved.voice
+        readingSettings.set(voice: saved.voice, speed: saved.speed)
+    }
+
+    private func preferencesChanged() {
+        readingSettings.set(voice: voice, speed: speed)
+        ReadingPreferences(speed: speed, voice: voice).save(to: defaults)
     }
 
     var canSpeak: Bool {

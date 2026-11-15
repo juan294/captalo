@@ -75,6 +75,13 @@
       ]
     },
     {
+      "name": "shell-audit",
+      "argv": [
+        "make",
+        "shell-audit"
+      ]
+    },
+    {
       "name": "bundle-check",
       "argv": [
         "make",

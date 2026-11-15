@@ -2,8 +2,6 @@ import CaptaloCore
 import Foundation
 import Synchronization
 
-extension VoiceInstallState: Error {}
-
 extension StoreError {
     /// The settings-window state for an activation failure.
     var installState: VoiceInstallState {

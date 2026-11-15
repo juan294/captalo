@@ -3,7 +3,7 @@ import CaptaloCore
 import CoreGraphics
 
 /// Synthetic Cmd+C. Used only when the app has no Copy menu item.
-nonisolated final class KeyEventAdapter: KeyEventPosting, @unchecked Sendable {
+nonisolated final class KeyEventAdapter: KeyEventPosting, Sendable {
     /// All four modifiers must be up: any held one would turn Cmd+C into another shortcut.
     func shortcutModifiersReleased() -> Bool {
         let held = CGEventSource.flagsState(.combinedSessionState)

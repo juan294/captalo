@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		F10000000000000000000001 /* CaptaloSpeech in Frameworks */ = {isa = PBXBuildFile; productRef = F10000000000000000000002 /* CaptaloSpeech */; };
 		F10000000000000000000011 /* CaptaloCore in Frameworks */ = {isa = PBXBuildFile; productRef = F10000000000000000000012 /* CaptaloCore */; };
+		F10000000000000000000014 /* KeyboardShortcuts in Frameworks */ = {isa = PBXBuildFile; productRef = F10000000000000000000015 /* KeyboardShortcuts */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -30,6 +31,7 @@
 			files = (
 				F10000000000000000000001 /* CaptaloSpeech in Frameworks */,
 				F10000000000000000000011 /* CaptaloCore in Frameworks */,
+				F10000000000000000000014 /* KeyboardShortcuts in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -77,6 +79,7 @@
 			packageProductDependencies = (
 				F10000000000000000000002 /* CaptaloSpeech */,
 				F10000000000000000000012 /* CaptaloCore */,
+				F10000000000000000000015 /* KeyboardShortcuts */,
 			);
 			productName = Captalo;
 			productReference = 0BBB61B930081CE300D9E3A3 /* Captalo.app */;
@@ -109,6 +112,7 @@
 			packageReferences = (
 				F10000000000000000000003 /* XCLocalSwiftPackageReference "Packages/CaptaloSpeech" */,
 				F10000000000000000000013 /* XCLocalSwiftPackageReference "Packages/CaptaloCore" */,
+				F10000000000000000000016 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 0BBB61BA30081CE300D9E3A3 /* Products */;
@@ -356,6 +360,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Cáptalo";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -371,7 +376,7 @@
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 			};
 			name = Debug;
 		};
@@ -401,6 +406,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Cáptalo";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -416,7 +422,7 @@
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 			};
 			name = Release;
 		};
@@ -455,6 +461,17 @@
 /* End XCLocalSwiftPackageReference section */
 
 
+/* Begin XCRemoteSwiftPackageReference section */
+		F10000000000000000000016 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sindresorhus/KeyboardShortcuts";
+			requirement = {
+				kind = revision;
+				revision = 772133d9dbe800fdac0473226822994c5c162c58;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
 		F10000000000000000000012 /* CaptaloCore */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -465,6 +482,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = F10000000000000000000003 /* XCLocalSwiftPackageReference "Packages/CaptaloSpeech" */;
 			productName = CaptaloSpeech;
+		};
+		F10000000000000000000015 /* KeyboardShortcuts */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F10000000000000000000016 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */;
+			productName = KeyboardShortcuts;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

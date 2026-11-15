@@ -49,12 +49,30 @@ nonisolated enum AX {
         CFGetTypeID(value) == AXUIElementGetTypeID() ? (value as! AXUIElement) : nil
     }
 
-    static func element(_ parent: AXUIElement, _ attribute: String) -> AXRead<AXUIElement> {
-        read(parent, attribute) { asElement($0).map(prepared) }
+    /// `AXRead` needs a Sendable value; elements are read with this local form.
+    enum ElementRead {
+        case value(AXUIElement)
+        case unsupported
+        case error
+    }
+
+    static func element(_ parent: AXUIElement, _ attribute: String) -> ElementRead {
+        var value: CFTypeRef?
+        switch AXUIElementCopyAttributeValue(parent, attribute as CFString, &value) {
+        case .success:
+            guard let value, let element = asElement(value) else { return .error }
+            return .value(prepared(element))
+        case .attributeUnsupported, .noValue:
+            return .unsupported
+        default:
+            return .error
+        }
     }
 
     static func children(_ parent: AXUIElement) -> [AXUIElement] {
-        guard case let .value(children) = read(parent, kAXChildrenAttribute, { $0 as? [AXUIElement] }) else { return [] }
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(parent, kAXChildrenAttribute as CFString, &value) == .success,
+              let children = value as? [AXUIElement] else { return [] }
         return children.map(prepared)
     }
 }

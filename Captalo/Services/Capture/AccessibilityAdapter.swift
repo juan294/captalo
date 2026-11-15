@@ -57,11 +57,15 @@ nonisolated final class AccessibilityAdapter: SelectionAccessibility, FocusEnvir
 
     func textMarkerSelection(_ ref: ElementRef) -> AXRead<String> {
         guard let element = element(ref) else { return .error }
-        switch AX.read(element, Self.markerRangeAttribute, { $0 }) {
-        case let .value(marker):
+        var marker: CFTypeRef?
+        switch AXUIElementCopyAttributeValue(element, Self.markerRangeAttribute as CFString, &marker) {
+        case .success:
+            guard let marker else { return .error }
             return AX.read(element, Self.stringForMarkerRange, parameter: marker) { $0 as? String }
-        case .unsupported: return .unsupported
-        case .error: return .error
+        case .attributeUnsupported, .noValue:
+            return .unsupported
+        default:
+            return .error
         }
     }
 
