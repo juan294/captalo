@@ -100,10 +100,27 @@ import Testing
         let two = await coordinator.beginInput(kind: .selection, source: sourceA)
         _ = await coordinator.resolve(two, .text("two", layer: .accessibility))
         let stale = SessionToken(sessionGeneration: 1)
+        // A session's own finish callback reaches the coordinator.
         #expect(await coordinator.isCurrent(stale) == false)
         #expect(await coordinator.sessionFinished(stale) == false)
         #expect(await coordinator.currentSession == SessionToken(sessionGeneration: 2))
         #expect(await coordinator.sessionFinished(SessionToken(sessionGeneration: 2)) == true)
+        #expect(await coordinator.currentSession == nil)
+    }
+
+    @Test func sessionFinishCallbackEndsOnlyItsOwnSession() async {
+        let finishers = FinisherBox()
+        let coordinator = RequestCoordinator { token, text, finished in
+            finishers.append(finished)
+            return RecordingSession(name: "\(token.sessionGeneration):\(text)", log: EventLog())
+        }
+        let one = await coordinator.beginInput(kind: .selection, source: sourceA)
+        _ = await coordinator.resolve(one, .text("one", layer: .accessibility))
+        let two = await coordinator.beginInput(kind: .selection, source: sourceA)
+        _ = await coordinator.resolve(two, .text("two", layer: .accessibility))
+        #expect(await finishers.call(0) == false) // stale: session 1 was replaced
+        #expect(await coordinator.currentSession == SessionToken(sessionGeneration: 2))
+        #expect(await finishers.call(1) == true)
         #expect(await coordinator.currentSession == nil)
     }
 
@@ -124,7 +141,7 @@ import Testing
     @Test func interleavedPromotionsNeverStartAStaleHandle() async {
         let log = EventLog()
         let gate = Gate()
-        let coordinator = RequestCoordinator { token, text in
+        let coordinator = RequestCoordinator { token, text, _ in
             GatedSession(name: "\(token.sessionGeneration):\(text)", log: log, stopGate: text == "old" ? gate : nil)
         }
         let first = await coordinator.beginInput(kind: .selection, source: sourceA)

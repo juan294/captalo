@@ -168,6 +168,14 @@ class CaptureCollectTests(unittest.TestCase):
         self.assertIsNone(collect.parse("2026-11-15 10:00:01.000 I  Other[1:2] unrelated line"))
 
 
+class SubsystemTests(unittest.TestCase):
+    def test_collector_subsystem_matches_privacy_log(self):
+        source = (SCRIPTS.parent / "Packages/CaptaloCore/Sources/CaptaloCore/Logging/PrivacyLog.swift").read_text()
+        collector = (SCRIPTS / "capture-matrix-collect").read_text()
+        self.assertIn('subsystem = "com.thecreativetoken.captalo"', source)
+        self.assertIn('subsystem == "com.thecreativetoken.captalo"', collector)
+
+
 class MakefileTests(unittest.TestCase):
     def test_failed_xcodebuild_fails_the_piped_recipe(self):
         result = subprocess.run(["make", "-s", "build-unsigned-debug", "XCODEBUILD=false"],

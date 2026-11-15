@@ -28,6 +28,13 @@ public protocol FocusEnvironment: Sendable {
     func focusedElement(pid: Int32) -> ElementRef?
 }
 
+extension FocusEnvironment {
+    /// The press's app is still frontmost with the same focused element.
+    public func matches(_ source: InputSource) -> Bool {
+        frontmostPID() == source.pid && focusedElement(pid: source.pid) == source.focusedElement
+    }
+}
+
 /// The layered reader (assessment §3, plan phase 2).
 public final class CaptureCoordinator: Sendable {
     public static let modifierWaitPolls = 50
@@ -81,12 +88,14 @@ public final class CaptureCoordinator: Sendable {
         case .unknown:
             return .failed(.menuUnreadable)
         case .enabled:
-            return await copy(token, layer: .menuCopy) { [menu] in _ = menu.pressCopy(pid: pid) }
+            return await copy(token, layer: .menuCopy) { [menu] in menu.pressCopy(pid: pid) }
         case .absent:
             guard await waitForModifierRelease() else { return .unsupported(.modifiersHeld) }
             // Modifiers are checked again at the post: a lock wait may have passed.
             return await copy(token, layer: .syntheticCopy) { [keys] in
-                if keys.shortcutModifiersReleased() { keys.postCopy() }
+                guard keys.shortcutModifiersReleased() else { return false }
+                keys.postCopy()
+                return true
             }
         }
     }
@@ -102,7 +111,7 @@ public final class CaptureCoordinator: Sendable {
     private func copy(
         _ token: InputToken,
         layer: CaptureLayerKind,
-        action: @escaping @Sendable () -> Void
+        action: @escaping @Sendable () -> Bool
     ) async -> CaptureOutcome {
         let isCurrent = self.isCurrent
         let focus = self.focus
@@ -110,21 +119,13 @@ public final class CaptureCoordinator: Sendable {
         let transaction = await transaction()
         let result = await transaction.run(
             isCurrent: { await isCurrent(token) },
-            sourceUnchanged: {
-                focus.frontmostPID() == source.pid && focus.focusedElement(pid: source.pid) == source.focusedElement
-            },
+            sourceUnchanged: { focus.matches(source) },
             copyAction: action
         )
         switch result {
-        case let .copied(text):
-            return text.isEmpty ? .nothingSelected : .text(text, layer: layer)
+        case let .copied(text): return text.isEmpty ? .nothingSelected : .text(text, layer: layer)
         case .cancelled: return .cancelled
-        case .notPreservable: return .failed(.notPreservable)
-        case .ownershipUncertain: return .failed(.ownershipUncertain)
-        case .noCopyResult: return .failed(.noCopyResult)
-        case .restoreFailed: return .failed(.restoreFailed)
-        case .sourceChanged: return .failed(.sourceChanged)
-        case .noText: return .failed(.noText)
+        case let .failed(failure): return .failed(failure)
         }
     }
 }

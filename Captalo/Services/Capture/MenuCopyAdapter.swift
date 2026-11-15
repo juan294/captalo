@@ -1,45 +1,57 @@
 import ApplicationServices
 import CaptaloCore
+import Synchronization
 
 /// Finds the app's own Copy menu item (Cmd+C, no other modifiers) through
 /// Accessibility. Language-independent: it matches the key equivalent, not the title.
-nonisolated final class MenuCopyAdapter: MenuCopyAccess, @unchecked Sendable {
-    fileprivate enum Lookup {
+nonisolated final class MenuCopyAdapter: MenuCopyAccess, Sendable {
+    /// The item found by the last state query, pressed without a second menu walk.
+    private let lastItem = Mutex<(pid: Int32, item: AXUIElement)?>(nil)
+
+    func copyItemState(pid: Int32) -> MenuCopyState {
+        let state: MenuCopyState
+        var found: AXUIElement?
+        switch copyItem(pid: pid) {
+        case .absent: state = .absent
+        case .unreadable: state = .unknown
+        case let .found(item):
+            found = item
+            switch AX.read(item, kAXEnabledAttribute, { $0 as? Bool }) {
+            case let .value(enabled): state = enabled ? .enabled : .disabled
+            case .unsupported, .error: state = .unknown
+            }
+        }
+        lastItem.withLock { $0 = found.map { (pid, $0) } }
+        return state
+    }
+
+    func pressCopy(pid: Int32) -> Bool {
+        let item = lastItem.withLock { last -> AXUIElement? in
+            defer { last = nil }
+            return last?.pid == pid ? last?.item : nil
+        }
+        guard let item else { return false }
+        return AXUIElementPerformAction(item, kAXPressAction as CFString) == .success
+    }
+
+    private enum Lookup {
         case found(AXUIElement)
         case absent
         case unreadable
     }
 
-    func copyItemState(pid: Int32) -> MenuCopyState {
-        let lookup = copyItem(pid: pid)
-        guard case let .found(item) = lookup else { return lookup.isAbsent ? .absent : .unknown }
-        var enabled: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(item, kAXEnabledAttribute as CFString, &enabled) == .success,
-              let isEnabled = enabled as? Bool else { return .unknown }
-        return isEnabled ? .enabled : .disabled
-    }
-
-    func pressCopy(pid: Int32) -> Bool {
-        guard case let .found(item) = copyItem(pid: pid) else { return false }
-        return AXUIElementPerformAction(item, kAXPressAction as CFString) == .success
-    }
-
     /// `.absent` only when the menu bar was read and holds no Copy item;
     /// any read error is `.unreadable`, so no synthetic key is sent.
     private func copyItem(pid: Int32) -> Lookup {
-        let app = AXUIElementCreateApplication(pid)
-        AXUIElementSetMessagingTimeout(app, AccessibilityAdapter.messagingTimeout)
-        var value: CFTypeRef?
-        switch AXUIElementCopyAttributeValue(app, kAXMenuBarAttribute as CFString, &value) {
-        case .success: break
-        case .attributeUnsupported, .noValue: return .absent
-        default: return .unreadable
+        let menuBar: AXUIElement
+        switch AX.element(AX.application(pid), kAXMenuBarAttribute) {
+        case let .value(element): menuBar = element
+        case .unsupported: return .absent
+        case .error: return .unreadable
         }
-        guard let value, CFGetTypeID(value) == AXUIElementGetTypeID() else { return .unreadable }
-        let menuBar = value as! AXUIElement
-        for topLevel in children(menuBar) {
-            for menu in children(topLevel) {
-                for item in children(menu) where isCopy(item) {
+        for topLevel in AX.children(menuBar) {
+            for menu in AX.children(topLevel) {
+                for item in AX.children(menu) where isCopy(item) {
                     return .found(item)
                 }
             }
@@ -47,27 +59,13 @@ nonisolated final class MenuCopyAdapter: MenuCopyAccess, @unchecked Sendable {
         return .absent
     }
 
+    /// One batched read of the key equivalent and its modifiers (0 means Command only).
     private func isCopy(_ item: AXUIElement) -> Bool {
-        var char: CFTypeRef?
-        var modifiers: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(item, kAXMenuItemCmdCharAttribute as CFString, &char) == .success,
-              let key = char as? String, key.caseInsensitiveCompare("c") == .orderedSame else { return false }
-        // 0 means Command only (kAXMenuItemModifierNone).
-        guard AXUIElementCopyAttributeValue(item, kAXMenuItemCmdModifiersAttribute as CFString, &modifiers) == .success,
-              let mask = modifiers as? Int else { return false }
-        return mask == 0
-    }
-
-    private func children(_ parent: AXUIElement) -> [AXUIElement] {
-        var value: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(parent, kAXChildrenAttribute as CFString, &value) == .success else { return [] }
-        return (value as? [AXUIElement]) ?? []
-    }
-}
-
-private extension MenuCopyAdapter.Lookup {
-    var isAbsent: Bool {
-        if case .absent = self { return true }
-        return false
+        let names = [kAXMenuItemCmdCharAttribute, kAXMenuItemCmdModifiersAttribute] as CFArray
+        var values: CFArray?
+        guard AXUIElementCopyMultipleAttributeValues(item, names, AXCopyMultipleAttributeOptions(), &values) == .success,
+              let pair = values as? [Any], pair.count == 2,
+              let key = pair[0] as? String, let mask = pair[1] as? Int else { return false }
+        return key.caseInsensitiveCompare("c") == .orderedSame && mask == 0
     }
 }

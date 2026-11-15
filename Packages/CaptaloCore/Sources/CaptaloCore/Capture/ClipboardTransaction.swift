@@ -19,8 +19,9 @@ public struct PasteboardItemSnapshot: Equatable, Sendable {
 @MainActor
 public protocol PasteboardAccess: AnyObject {
     var changeCount: Int { get }
-    /// Every item and type as data; `nil` entries mark types that failed to materialize.
-    func materialize() -> [[(type: String, data: Data?)]]
+    /// Every item and type as data; `nil` entries mark types that failed to
+    /// materialize. Returns nil as soon as the total passes `byteLimit`.
+    func materialize(byteLimit: Int) -> [[(type: String, data: Data?)]]?
     func readString() -> String?
     /// Clears the pasteboard and writes `items`. Returns false when the write fails.
     func write(_ items: [PasteboardItemSnapshot]) -> Bool
@@ -36,10 +37,20 @@ public final class SystemPasteboard: PasteboardAccess {
 
     public var changeCount: Int { pasteboard.changeCount }
 
-    public func materialize() -> [[(type: String, data: Data?)]] {
-        (pasteboard.pasteboardItems ?? []).map { item in
-            item.types.map { ($0.rawValue, item.data(forType: $0)) }
+    public func materialize(byteLimit: Int) -> [[(type: String, data: Data?)]]? {
+        var total = 0
+        var items: [[(type: String, data: Data?)]] = []
+        for item in pasteboard.pasteboardItems ?? [] {
+            var entries: [(type: String, data: Data?)] = []
+            for type in item.types {
+                let data = item.data(forType: type)
+                total += data?.count ?? 0
+                guard total <= byteLimit else { return nil }
+                entries.append((type.rawValue, data))
+            }
+            items.append(entries)
         }
+        return items
     }
 
     public func readString() -> String? {
@@ -63,12 +74,7 @@ public final class SystemPasteboard: PasteboardAccess {
 public enum ClipboardResult: Equatable, Sendable {
     case copied(String)
     case cancelled
-    case notPreservable
-    case ownershipUncertain
-    case noCopyResult
-    case restoreFailed
-    case sourceChanged
-    case noText
+    case failed(CaptureFailure)
 }
 
 /// A FIFO async lock shared by every transaction in the process.
@@ -85,6 +91,14 @@ public actor AsyncSerialLock {
 
     public func release() {
         if waiters.isEmpty { held = false } else { waiters.removeFirst().resume() }
+    }
+
+    /// Runs `body` holding the lock; every return path releases it.
+    public func withLock<T: Sendable>(_ body: @Sendable () async -> T) async -> T {
+        await acquire()
+        let result = await body()
+        release()
+        return result
     }
 }
 
@@ -136,53 +150,45 @@ public final class ClipboardTransaction {
     /// - Parameters:
     ///   - isCurrent: whether the input is still current.
     ///   - sourceUnchanged: frontmost PID and focused element still match the token.
-    ///   - copyAction: presses Copy (menu item or synthetic key). Runs at most once.
+    ///   - copyAction: presses Copy (menu item or synthetic key) at most once;
+    ///     false means nothing was sent.
+    ///
+    /// The whole transaction runs in an unstructured task, so the caller's
+    /// cancellation never interrupts it: before Copy, cancellation is seen
+    /// through `isCurrent` and always wins; after Copy, the cleanup
+    /// capability (attribution and one restore write) always completes.
     public func run(
         isCurrent: @escaping @Sendable () async -> Bool,
         sourceUnchanged: @escaping @Sendable () async -> Bool,
-        copyAction: @escaping @Sendable () async -> Void
+        copyAction: @escaping @Sendable () async -> Bool
     ) async -> ClipboardResult {
-        await lock.acquire()
-        // Step 0: input still current on lock acquisition.
-        guard await isCurrent() else {
-            await lock.release()
-            return .cancelled
-        }
-
-        // Step 1: fenced snapshot.
-        guard let snapshot = takeSnapshot() else {
-            await lock.release()
-            return .notPreservable
-        }
-
-        // Step 2: recheck right before Copy. The slow check (Accessibility)
-        // runs first; input currency and the change count are checked last,
-        // on the main actor, immediately before the Copy action.
-        guard await sourceUnchanged() else {
-            await lock.release()
-            return .sourceChanged
-        }
-        checkpoint?(.beforeCopy)
         let lock = self.lock
         let result = await Task { @MainActor in
-            guard await isCurrent() else {
-                await lock.release()
-                return ClipboardResult.cancelled
+            await lock.withLock { @MainActor in
+                await self.locked(isCurrent: isCurrent, sourceUnchanged: sourceUnchanged, copyAction: copyAction)
             }
-            guard self.pasteboard.changeCount == snapshot.changeCount else {
-                await lock.release()
-                return .ownershipUncertain
-            }
-            // From here the cleanup capability runs steps 3-4 even if the input
-            // is cancelled or the app quits: this unstructured task ignores the
-            // caller's cancellation.
-            await copyAction()
-            let result = await self.attributeAndRestore(snapshot)
-            await lock.release()
-            return result
         }.value
         guard await isCurrent() else { return .cancelled }
         return result
+    }
+
+    private func locked(
+        isCurrent: @Sendable () async -> Bool,
+        sourceUnchanged: @Sendable () async -> Bool,
+        copyAction: @Sendable () async -> Bool
+    ) async -> ClipboardResult {
+        // Step 0: input still current on lock acquisition.
+        guard await isCurrent() else { return .cancelled }
+        // Step 1: fenced snapshot.
+        guard let snapshot = takeSnapshot() else { return .failed(.notPreservable) }
+        // Step 2: the slow check (Accessibility) first; input currency and
+        // the change count last, immediately before the Copy action.
+        guard await sourceUnchanged() else { return .failed(.sourceChanged) }
+        checkpoint?(.beforeCopy)
+        guard await isCurrent() else { return .cancelled }
+        guard pasteboard.changeCount == snapshot.changeCount else { return .failed(.ownershipUncertain) }
+        guard await copyAction() else { return .failed(.noCopyResult) }
+        return await attributeAndRestore(snapshot)
     }
 
     private struct Snapshot {
@@ -194,14 +200,14 @@ public final class ClipboardTransaction {
         let started = clock()
         let c0 = pasteboard.changeCount
         checkpoint?(.duringSnapshot)
+        guard let raw = pasteboard.materialize(byteLimit: limits.snapshotBytes) else { return nil }
         var items: [PasteboardItemSnapshot] = []
         var bytes = 0
-        for raw in pasteboard.materialize() {
+        for rawItem in raw {
             var entries: [(type: String, data: Data)] = []
-            for entry in raw {
+            for entry in rawItem {
                 guard let data = entry.data else { return nil }
                 bytes += data.count
-                guard bytes <= limits.snapshotBytes else { return nil }
                 entries.append((entry.type, data))
             }
             items.append(PasteboardItemSnapshot(entries: entries))
@@ -218,23 +224,23 @@ public final class ClipboardTransaction {
         let c0 = snapshot.changeCount
         let deadline = clock().advanced(by: limits.copyWindow)
         while pasteboard.changeCount == c0 {
-            guard clock() < deadline else { return .noCopyResult }
+            guard clock() < deadline else { return .failed(.noCopyResult) }
             try? await Task.sleep(for: limits.pollInterval)
         }
-        guard pasteboard.changeCount == c0 + 1 else { return .ownershipUncertain }
+        guard pasteboard.changeCount == c0 + 1 else { return .failed(.ownershipUncertain) }
 
         // Step 4: read, final check, restore with markers.
         let text = pasteboard.readString()
         checkpoint?(.afterRead)
-        guard pasteboard.changeCount == c0 + 1 else { return .ownershipUncertain }
+        guard pasteboard.changeCount == c0 + 1 else { return .failed(.ownershipUncertain) }
         let marked = snapshot.items.map { item in
             PasteboardItemSnapshot(entries: item.entries + [(Self.transientType, Data()), (Self.autoGeneratedType, Data())])
         }
         guard pasteboard.write(marked) else {
             PrivacyLog.record(.restoreFailed)
-            return .restoreFailed
+            return .failed(.restoreFailed)
         }
-        guard let text else { return .noText }
+        guard let text else { return .failed(.noText) }
         return .copied(text)
     }
 }

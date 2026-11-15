@@ -26,23 +26,16 @@ nonisolated final class CaptureProbeRunner: Sendable {
         let (before, countBefore) = await Self.clipboard()
         let started = clock.now
         let outcome = await capture()
-        let elapsedMs = Self.milliseconds(started.duration(to: clock.now))
+        let elapsed = started.duration(to: clock.now)
         let (after, countAfter) = await Self.clipboard()
-        var layer: CaptureLayerKind?
-        var capturedLength = 0
-        if case let .text(text, captured) = outcome {
-            layer = captured
-            capturedLength = text.count
-        }
         PrivacyLog.record(.probe(
             result: CaptureProbe.result(for: outcome, expected: expected),
-            layer: layer,
+            layer: outcome.capturedLayer,
             expectedLength: expected.count,
-            capturedLength: capturedLength,
+            capturedLength: outcome.capturedLength,
             clipboardIntact: CaptureProbe.clipboardIntact(before: before, after: after),
-            focusKept: accessibility.frontmostPID() == token.source.pid
-                && accessibility.focusedElement(pid: token.source.pid) == token.source.focusedElement,
-            elapsedMs: elapsedMs,
+            focusKept: accessibility.matches(token.source),
+            elapsed: elapsed,
             changeDelta: countAfter - countBefore
         ))
         return outcome
@@ -51,14 +44,10 @@ nonisolated final class CaptureProbeRunner: Sendable {
     @MainActor
     private static func clipboard() -> ([PasteboardItemSnapshot], Int) {
         let pasteboard = SystemPasteboard()
-        let items = pasteboard.materialize().map { item in
+        let items = (pasteboard.materialize(byteLimit: .max) ?? []).map { item in
             PasteboardItemSnapshot(entries: item.map { ($0.type, $0.data ?? Data("<unavailable>".utf8)) })
         }
         return (items, pasteboard.changeCount)
-    }
-
-    private static func milliseconds(_ duration: Duration) -> Int {
-        Int(duration / .milliseconds(1))
     }
 }
 #endif

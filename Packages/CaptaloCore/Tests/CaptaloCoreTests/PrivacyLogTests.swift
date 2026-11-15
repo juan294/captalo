@@ -10,7 +10,7 @@ import Testing
         .capture(kind: .selection, outcome: .text, layer: .menuCopy, characters: 12, elapsed: .milliseconds(80)),
         .capture(kind: .region, outcome: .failed, layer: nil, characters: 0, elapsed: .seconds(10)),
         .probe(result: .pass, layer: .accessibility, expectedLength: 300, capturedLength: 300,
-               clipboardIntact: true, focusKept: true, elapsedMs: 12, changeDelta: 0),
+               clipboardIntact: true, focusKept: true, elapsed: .milliseconds(12), changeDelta: 0),
         .clipboardSnapshot(items: 2, bytes: 4_096, elapsed: .milliseconds(3)),
         .seamSession(state: .started),
     ]

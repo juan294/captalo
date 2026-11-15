@@ -34,23 +34,19 @@ final class CaptaloAppState: ObservableObject {
     let speech = SpeechController()
     let accessibility = AccessibilityAdapter()
     let clipboardLock = AsyncSerialLock()
-    private let requestsBox = WeakBox<RequestCoordinator>()
+    /// The session factory, chosen once: the silent seam in probe mode, else speech.
     lazy var requests: RequestCoordinator = {
-        let box = requestsBox
         let speech = speech
-        let seam = isCaptureProbeActive
-        let coordinator = RequestCoordinator { token, text in
-            #if DEBUG
-            if seam {
-                return SilentTimedSession { await box.value?.sessionFinished(token) ?? false }
-            }
-            #endif
-            return SpeechPlaybackSession(token: token, text: text, speech: speech) { text, token in
-                CaptaloAppState.shared.beginReading(text, token: token)
+        #if DEBUG
+        if isCaptureProbeActive {
+            return RequestCoordinator { _, _, finished in SilentTimedSession(finished: finished) }
+        }
+        #endif
+        return RequestCoordinator { token, text, finished in
+            SpeechPlaybackSession(token: token, text: text, speech: speech, finished: finished) { session in
+                CaptaloAppState.shared.beginReading(session)
             }
         }
-        box.value = coordinator
-        return coordinator
     }()
     lazy var capture: CaptureCoordinator = {
         let requests = self.requests
@@ -60,6 +56,16 @@ final class CaptaloAppState: ObservableObject {
             transaction: { ClipboardTransaction(pasteboard: SystemPasteboard(), lock: lock) },
             isCurrent: { await requests.isCurrent($0) }
         )
+    }()
+    /// The selection capture, chosen once: wrapped by the probe in probe mode.
+    lazy var selectionCapture: @Sendable (InputToken) async -> CaptureOutcome = {
+        let capture = self.capture
+        #if DEBUG
+        if let probe = captureProbe {
+            return { token in await probe.measure(token) { await capture.capture(token) } }
+        }
+        #endif
+        return { await capture.capture($0) }
     }()
     #if DEBUG
     lazy var captureProbe = CaptureProbeRunner(accessibility: accessibility)
@@ -77,7 +83,7 @@ final class CaptaloAppState: ObservableObject {
     private init() {
         wordsSpoken = UserDefaults.standard.integer(forKey: DefaultsKey.wordsSpoken)
         totalDictationSeconds = UserDefaults.standard.double(forKey: DefaultsKey.totalDictationSeconds)
-        accessibilityPermissionGranted = AXIsProcessTrusted()
+        accessibilityPermissionGranted = accessibility.isProcessTrusted()
         pronunciationRules = Self.loadPronunciationRules()
 
         if let data = UserDefaults.standard.data(forKey: DefaultsKey.globalShortcut),

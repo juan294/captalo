@@ -30,9 +30,9 @@ final class InstrumentedPasteboard: PasteboardAccess {
 
     init(_ real: SystemPasteboard) { self.real = real }
     var changeCount: Int { real.changeCount }
-    func materialize() -> [[(type: String, data: Data?)]] {
+    func materialize(byteLimit: Int) -> [[(type: String, data: Data?)]]? {
         materializations += 1
-        return real.materialize().map { item in item.map { $0.type == unavailableType ? ($0.type, nil) : $0 } }
+        return real.materialize(byteLimit: byteLimit)?.map { item in item.map { $0.type == unavailableType ? ($0.type, nil) : $0 } }
     }
     func readString() -> String? { stringReads += 1; return real.readString() }
     /// A failing write still clears first, as NSPasteboard requires.
@@ -83,7 +83,7 @@ final class InstrumentedPasteboard: PasteboardAccess {
     }
 
     func snapshotNow() -> [PasteboardItemSnapshot] {
-        pasteboard.materialize().map { item in
+        (pasteboard.materialize(byteLimit: .max) ?? []).map { item in
             PasteboardItemSnapshot(entries: item.map { ($0.type, $0.data ?? Data()) })
         }
     }
@@ -109,7 +109,7 @@ final class InstrumentedPasteboard: PasteboardAccess {
         await transaction.run(
             isCurrent: { current.get() },
             sourceUnchanged: { await sourceCheck?(); return sourceUnchanged },
-            copyAction: copy
+            copyAction: { await copy(); return true }
         )
     }
 
@@ -128,7 +128,7 @@ final class InstrumentedPasteboard: PasteboardAccess {
     @Test func unchangedPasteboardIsNeverRead() async {
         let original = writeOriginal()
         let result = await run(makeTransaction()) {}
-        #expect(result == .noCopyResult)
+        #expect(result == .failed(.noCopyResult))
         #expect(pasteboard.stringReads == 0)
         #expect(snapshotNow() == original)
     }
@@ -146,7 +146,7 @@ final class InstrumentedPasteboard: PasteboardAccess {
         transaction.checkpoint = { if $0 == .duringSnapshot { self.foreignWrite() } }
         let copies = Counter()
         let result = await run(transaction) { copies.increment() }
-        #expect(result == .notPreservable)
+        #expect(result == .failed(.notPreservable))
         #expect(copies.count == 0)
         #expect(snapshotNow() != original) // the foreign write is kept
     }
@@ -157,7 +157,7 @@ final class InstrumentedPasteboard: PasteboardAccess {
         transaction.checkpoint = { if $0 == .beforeCopy { self.foreignWrite() } }
         let copies = Counter()
         let result = await run(transaction) { copies.increment() }
-        #expect(result == .ownershipUncertain)
+        #expect(result == .failed(.ownershipUncertain))
         #expect(copies.count == 0)
         #expect(board.string(forType: .string) == "foreign")
     }
@@ -168,7 +168,7 @@ final class InstrumentedPasteboard: PasteboardAccess {
             self.sourceCopy("selected")
             self.foreignWrite()
         }
-        #expect(result == .ownershipUncertain)
+        #expect(result == .failed(.ownershipUncertain))
         #expect(pasteboard.stringReads == 0)
         #expect(board.string(forType: .string) == "foreign")
     }
@@ -179,7 +179,7 @@ final class InstrumentedPasteboard: PasteboardAccess {
         _ = writeOriginal()
         let copies = Counter()
         let written = await run(makeTransaction(), sourceCheck: { self.foreignWrite() }) { copies.increment() }
-        #expect(written == .ownershipUncertain)
+        #expect(written == .failed(.ownershipUncertain))
         let current = Flag(true)
         let cancelled = await run(makeTransaction(), current: current, sourceCheck: { current.set(false) }) { copies.increment() }
         #expect(cancelled == .cancelled)
@@ -190,7 +190,7 @@ final class InstrumentedPasteboard: PasteboardAccess {
         _ = writeOriginal()
         pasteboard.unavailableType = NSPasteboard.PasteboardType.rtf.rawValue
         let copies = Counter()
-        #expect(await run(makeTransaction()) { copies.increment() } == .notPreservable)
+        #expect(await run(makeTransaction()) { copies.increment() } == .failed(.notPreservable))
         #expect(copies.count == 0)
     }
 
@@ -199,7 +199,7 @@ final class InstrumentedPasteboard: PasteboardAccess {
         let transaction = makeTransaction()
         transaction.checkpoint = { if $0 == .afterRead { self.foreignWrite() } }
         let result = await run(transaction) { self.sourceCopy("selected") }
-        #expect(result == .ownershipUncertain)
+        #expect(result == .failed(.ownershipUncertain))
         #expect(board.string(forType: .string) == "foreign")
     }
 
@@ -241,7 +241,7 @@ final class InstrumentedPasteboard: PasteboardAccess {
         let original = writeOriginal()
         let before = board.changeCount
         let result = await run(makeTransaction()) {}
-        #expect(result == .noCopyResult)
+        #expect(result == .failed(.noCopyResult))
         #expect(board.changeCount == before)
         #expect(snapshotNow() == original)
     }
@@ -309,7 +309,7 @@ final class InstrumentedPasteboard: PasteboardAccess {
         _ = writeOriginal()
         pasteboard.failWrites = true
         let result = await run(makeTransaction()) { self.sourceCopy("selected") }
-        #expect(result == .restoreFailed)
+        #expect(result == .failed(.restoreFailed))
         // NSPasteboard clears before writing, so a failed restore leaves it empty.
         #expect((board.pasteboardItems ?? []).isEmpty)
     }
@@ -320,7 +320,7 @@ final class InstrumentedPasteboard: PasteboardAccess {
         limits.snapshotBytes = 4
         let copies = Counter()
         let bySize = ClipboardTransaction(pasteboard: pasteboard, lock: AsyncSerialLock(), limits: limits)
-        #expect(await run(bySize) { copies.increment() } == .notPreservable)
+        #expect(await run(bySize) { copies.increment() } == .failed(.notPreservable))
 
         // A slow snapshot (over the 150 ms budget) also aborts before Copy.
         let ticks = Counter()
@@ -329,7 +329,7 @@ final class InstrumentedPasteboard: PasteboardAccess {
             return ContinuousClock.now.advanced(by: .milliseconds(200 * ticks.count))
         }
         let slow = ClipboardTransaction(pasteboard: pasteboard, lock: AsyncSerialLock(), limits: fastLimits(), clock: slowClock)
-        #expect(await run(slow) { copies.increment() } == .notPreservable)
+        #expect(await run(slow) { copies.increment() } == .failed(.notPreservable))
         #expect(copies.count == 0)
     }
 
@@ -337,7 +337,7 @@ final class InstrumentedPasteboard: PasteboardAccess {
         _ = writeOriginal()
         let copies = Counter()
         let result = await run(makeTransaction(), sourceUnchanged: false) { copies.increment() }
-        #expect(result == .sourceChanged)
+        #expect(result == .failed(.sourceChanged))
         #expect(copies.count == 0)
     }
 }

@@ -19,7 +19,11 @@ public actor RequestCoordinator {
         case unchanged
     }
 
-    public typealias SessionFactory = @Sendable (SessionToken, String) -> any PlaybackSession
+    /// Builds a session for promoted text. `finished` reports the natural end
+    /// of playback; it returns false (and does nothing) for a stale session.
+    public typealias SessionFactory = @Sendable (
+        _ token: SessionToken, _ text: String, _ finished: @escaping @Sendable () async -> Bool
+    ) -> any PlaybackSession
 
     private struct Playing {
         let token: SessionToken
@@ -30,7 +34,7 @@ public actor RequestCoordinator {
     private let makeSession: SessionFactory
     private var inputGeneration: UInt64 = 0
     private var sessionGeneration: UInt64 = 0
-    private var pending: (token: InputToken, task: Task<Void, Never>)?
+    /// Owned input tasks by generation; the current generation's task is the pending input.
     private var inFlight: [UInt64: Task<Void, Never>] = [:]
     private var playing: Playing?
     private var isShutDown = false
@@ -51,8 +55,7 @@ public actor RequestCoordinator {
 
     /// Starts a new pending input and cancels the older one. Never touches the session.
     public func beginInput(kind: InputKind, source: InputSource) -> InputToken {
-        pending?.task.cancel()
-        pending = nil
+        inFlight[inputGeneration]?.cancel()
         inputGeneration += 1
         return InputToken(inputGeneration: inputGeneration, kind: kind, source: source, startedAt: .now)
     }
@@ -69,13 +72,15 @@ public actor RequestCoordinator {
             let outcome = await capture(token)
             await self?.finish(token, outcome)
         }
-        pending = (token, task)
         inFlight[token.inputGeneration] = task
         return token
     }
 
     private func finish(_ token: InputToken, _ outcome: CaptureOutcome) async {
-        if pending?.token == token { pending = nil }
+        PrivacyLog.record(.capture(
+            kind: token.kind, outcome: .init(outcome), layer: outcome.capturedLayer,
+            characters: outcome.capturedLength, elapsed: token.startedAt.duration(to: .now)
+        ))
         await resolve(token, outcome)
         // Removed only after resolve returns, so shutdown waits for a promote in progress.
         inFlight[token.inputGeneration] = nil
@@ -87,17 +92,18 @@ public actor RequestCoordinator {
         guard isCurrent(token) else { return .dropped }
         switch (token.kind, outcome) {
         case let (.selection, .text(text, _)):
-            if let playing, playing.identity == ReadingIdentity(capturedText: text) {
+            let identity = ReadingIdentity(capturedText: text)
+            if let playing, playing.identity == identity {
                 await stopPlaying()
                 return .stopped
             }
-            return await promote(text)
+            return await promote(text, identity: identity)
         case (.selection, .nothingSelected):
             guard playing != nil else { return .unchanged }
             await stopPlaying()
             return .stopped
         case let (.region, .text(text, _)):
-            return await promote(text)
+            return await promote(text, identity: ReadingIdentity(capturedText: text))
         default:
             return .unchanged
         }
@@ -119,12 +125,8 @@ public actor RequestCoordinator {
     /// Quit: cancel the pending input, let every open cleanup finish, stop the session.
     public func shutdown() async {
         isShutDown = true
-        pending?.task.cancel()
-        pending = nil
-        while let next = inFlight.first {
-            await next.value.value
-            inFlight[next.key] = nil
-        }
+        inFlight[inputGeneration]?.cancel()
+        await waitForIdle()
         await stopPlaying()
     }
 
@@ -136,10 +138,11 @@ public actor RequestCoordinator {
         }
     }
 
-    private func promote(_ text: String) async -> Resolution {
+    private func promote(_ text: String, identity: ReadingIdentity) async -> Resolution {
         sessionGeneration += 1
         let token = SessionToken(sessionGeneration: sessionGeneration)
-        let new = Playing(token: token, identity: ReadingIdentity(capturedText: text), handle: makeSession(token, text))
+        let handle = makeSession(token, text) { [weak self] in await self?.sessionFinished(token) ?? false }
+        let new = Playing(token: token, identity: identity, handle: handle)
         let old = playing
         playing = new
         await old?.handle.stop()

@@ -73,6 +73,18 @@ public enum CaptureOutcome: Equatable, Sendable {
     case permissionMissing
     case cancelled
     case failed(CaptureFailure)
+
+    /// The layer that produced text, or nil.
+    public var capturedLayer: CaptureLayerKind? {
+        if case let .text(_, layer) = self { return layer }
+        return nil
+    }
+
+    /// Characters of captured text (0 when there is none).
+    public var capturedLength: Int {
+        if case let .text(text, _) = self { return text.count }
+        return 0
+    }
 }
 
 /// The identity of a reading: a hash of the captured text, so the stop

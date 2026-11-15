@@ -21,7 +21,7 @@ public enum PrivacyEvent: Sendable, Equatable {
     /// Provider time comes from the transaction's `clipboardSnapshot` event.
     case probe(
         result: CaptureProbe.Result, layer: CaptureLayerKind?, expectedLength: Int, capturedLength: Int,
-        clipboardIntact: Bool, focusKept: Bool, elapsedMs: Int, changeDelta: Int
+        clipboardIntact: Bool, focusKept: Bool, elapsed: Duration, changeDelta: Int
     )
     /// Clipboard transaction snapshot: item count, bytes and materialization time.
     case clipboardSnapshot(items: Int, bytes: Int, elapsed: Duration)
@@ -59,8 +59,8 @@ public enum PrivacyEvent: Sendable, Equatable {
             "restoreFailed"
         case let .capture(kind, outcome, layer, characters, elapsed):
             "capture kind=\(kind.rawValue) outcome=\(outcome.rawValue) layer=\(layer?.rawValue ?? "none") characters=\(characters) elapsedMs=\(PrivacyEvent.milliseconds(elapsed))"
-        case let .probe(result, layer, expectedLength, capturedLength, clipboardIntact, focusKept, elapsedMs, changeDelta):
-            "probe result=\(result.rawValue) layer=\(layer?.rawValue ?? "none") expectedLength=\(expectedLength) capturedLength=\(capturedLength) clipboardIntact=\(clipboardIntact) focusKept=\(focusKept) elapsedMs=\(elapsedMs) changeDelta=\(changeDelta)"
+        case let .probe(result, layer, expectedLength, capturedLength, clipboardIntact, focusKept, elapsed, changeDelta):
+            "probe result=\(result.rawValue) layer=\(layer?.rawValue ?? "none") expectedLength=\(expectedLength) capturedLength=\(capturedLength) clipboardIntact=\(clipboardIntact) focusKept=\(focusKept) elapsedMs=\(PrivacyEvent.milliseconds(elapsed)) changeDelta=\(changeDelta)"
         case let .clipboardSnapshot(items, bytes, elapsed):
             "clipboardSnapshot items=\(items) bytes=\(bytes) elapsedMs=\(PrivacyEvent.milliseconds(elapsed))"
         case let .seamSession(state):

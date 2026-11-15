@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 
 /// The result of reading one accessibility attribute.
 public enum AXRead<Value: Sendable>: Sendable {
@@ -40,7 +41,7 @@ public enum SelectionEvidence: Equatable, Sendable {
 
 /// Layer 1 of the approved reader (assessment §3): Accessibility variants,
 /// with `AXManualAccessibility` for Chromium and Electron apps.
-public final class AXSelectionLayer: @unchecked Sendable {
+public final class AXSelectionLayer: Sendable {
     /// Bundle IDs of Chromium and Electron apps that build their tree only
     /// after `AXManualAccessibility` is set. Never set `AXEnhancedUserInterface`.
     public static let manualAccessibilityBundles: Set<String> = [
@@ -60,8 +61,7 @@ public final class AXSelectionLayer: @unchecked Sendable {
     private let ax: SelectionAccessibility
     private let focus: FocusEnvironment
     private let sleep: @Sendable (Duration) async -> Void
-    private let lock = NSLock()
-    private var manualAccessibilityPIDs: Set<Int32> = []
+    private let manualAccessibilityPIDs = Mutex<Set<Int32>>([])
 
     public init(ax: SelectionAccessibility, focus: FocusEnvironment, sleep: @escaping @Sendable (Duration) async -> Void) {
         self.ax = ax
@@ -89,8 +89,7 @@ public final class AXSelectionLayer: @unchecked Sendable {
 
     /// True the first time it is called for a PID (once per app launch).
     private func markManualAccessibility(_ pid: Int32) -> Bool {
-        lock.lock(); defer { lock.unlock() }
-        return manualAccessibilityPIDs.insert(pid).inserted
+        manualAccessibilityPIDs.withLock { $0.insert(pid).inserted }
     }
 
     private func probe(_ element: ElementRef) -> SelectionEvidence {
@@ -98,10 +97,13 @@ public final class AXSelectionLayer: @unchecked Sendable {
         // A nonzero range whose text cannot be read is evidence of a selection:
         // it must never count as an empty one.
         var selectionUnreadable = false
+        // An error (timeout, invalid element) stops the probe: further calls
+        // to a hung app would each wait for the messaging timeout.
         switch ax.selectedText(element) {
         case let .value(text) where !text.isEmpty: return .selected(text)
         case .value: confirmedEmpty = true
-        default: break
+        case .unsupported: break
+        case .error: return .unavailable
         }
         switch ax.selectedTextRange(element) {
         case let .value(range) where range.length > 0:
@@ -111,7 +113,8 @@ public final class AXSelectionLayer: @unchecked Sendable {
             selectionUnreadable = true
         case .value:
             confirmedEmpty = true
-        default: break
+        case .unsupported: break
+        case .error: return .unavailable
         }
         if case let .value(text) = ax.textMarkerSelection(element), !text.isEmpty {
             return .selected(text)

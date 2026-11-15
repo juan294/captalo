@@ -37,6 +37,21 @@ struct GatedSession: PlaybackSession {
     }
 }
 
+/// Collects session finish callbacks so a test can fire them later.
+final class FinisherBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var finishers: [@Sendable () async -> Bool] = []
+
+    func append(_ finisher: @escaping @Sendable () async -> Bool) {
+        lock.lock(); finishers.append(finisher); lock.unlock()
+    }
+
+    func call(_ index: Int) async -> Bool {
+        let finisher = lock.withLock { finishers[index] }
+        return await finisher()
+    }
+}
+
 /// A gate a test opens to let a blocked task continue.
 actor Gate {
     private var isOpen = false
@@ -58,7 +73,7 @@ let sourceA = InputSource(pid: 101, bundleID: "com.example.a", focusedElement: E
 let sourceB = InputSource(pid: 202, bundleID: "com.example.b", focusedElement: ElementRef("field-b"))
 
 func makeCoordinator(log: EventLog) -> RequestCoordinator {
-    RequestCoordinator { token, text in
+    RequestCoordinator { token, text, _ in
         RecordingSession(name: "\(token.sessionGeneration):\(text)", log: log)
     }
 }

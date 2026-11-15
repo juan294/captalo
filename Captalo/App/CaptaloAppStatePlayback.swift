@@ -3,45 +3,23 @@ import Foundation
 
 extension CaptaloAppState {
     /// The read-selection shortcut (plan phase 2). The press records its
-    /// source at once; capture and the stop gesture run in the request coordinator.
+    /// source at once; trust, capture and the stop gesture run in the coordinators.
     func speakSelection() {
-        guard accessibility.isProcessTrusted() else {
-            accessibilityPermissionGranted = false
-            updateStatus("Accessibility access required")
-            onAccessibilityPermissionRequired?()
-            return
-        }
-        accessibilityPermissionGranted = true
         if !isCaptureProbeActive, !canSpeak {
             updateStatus("Kokoro needs to be installed")
             if kokoroInstallationState == .downloadRequired { onKokoroDownloadRequired?() }
             return
         }
-        let capture = self.capture
+        let capture = selectionCapture
         let accessibility = self.accessibility
         let requests = self.requests
-        #if DEBUG
-        let probe = captureProbe
-        #endif
         // The source is read off the main actor: a hung app cannot block the UI.
+        // Without Accessibility trust there is no source; the coordinator then
+        // returns .permissionMissing before any layer runs.
         Task.detached {
-            guard let source = accessibility.currentSource() else { return }
+            let source = accessibility.currentSource() ?? InputSource(pid: 0, bundleID: nil, focusedElement: nil)
             await requests.submit(kind: .selection, source: source) { token in
-                let started = ContinuousClock.now
-                #if DEBUG
-                let outcome = if let probe {
-                    await probe.measure(token) { await capture.capture(token) }
-                } else {
-                    await capture.capture(token)
-                }
-                #else
-                let outcome = await capture.capture(token)
-                #endif
-                var layer: CaptureLayerKind?
-                var characters = 0
-                if case let .text(text, captured) = outcome { layer = captured; characters = text.count }
-                PrivacyLog.record(.capture(kind: .selection, outcome: .init(outcome), layer: layer,
-                                           characters: characters, elapsed: started.duration(to: .now)))
+                let outcome = await capture(token)
                 if outcome == .permissionMissing {
                     await MainActor.run { CaptaloAppState.shared.refreshAccessibilityPermission() }
                 }
@@ -59,11 +37,12 @@ extension CaptaloAppState {
     }
 
     /// Starts the inherited speech for a promoted session. Returns at once.
-    func beginReading(_ text: String, token: SessionToken) {
-        recordWords(in: text)
-        let spokenText = applyingPronunciationRules(to: text)
+    func beginReading(_ session: SpeechPlaybackSession) {
+        recordWords(in: session.text)
+        let spokenText = applyingPronunciationRules(to: session.text)
         updateStatus("Generating audio")
         let requests = self.requests
+        let token = session.token
         Task {
             guard await requests.isCurrent(token) else { return }
             do {
@@ -87,7 +66,7 @@ extension CaptaloAppState {
                     },
                     onPlaybackFinished: {
                         Task {
-                            guard await requests.sessionFinished(token) else { return }
+                            guard await session.finished() else { return }
                             await MainActor.run {
                                 CaptaloAppState.shared.finishDictationSession()
                                 CaptaloAppState.shared.isPaused = false
