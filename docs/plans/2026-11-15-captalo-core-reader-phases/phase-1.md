@@ -12,6 +12,12 @@ Every later runtime test runs on the final app identity at one fixed path, under
 - The owner has added an Apple Account in Xcode > Settings > Accounts (free Personal Team). If not, tasks 1-5 still run, task 6 stops at signing with the disclosure, and the phase cannot be accepted.
 - `brew install xcbeautify` is approved.
 
+## Entry note (2026-11-15, after plan acceptance)
+
+- An Apple Account record exists in Xcode (`DVTDeveloperAccountManagerAppleIDLists`, one identifier), but `security find-identity -v -p codesigning` still reports 0 valid identities. Xcode creates the Apple Development certificate on the first automatic-signing build with `-allowProvisioningUpdates`.
+- Adjustment: `make install` cannot resolve the identity before any signed build has run. Add a one-time `make signing-setup` that runs that first signed build with `-allowProvisioningUpdates`, then checks `Scripts/signing-identity`. `make install` keeps its identity check, and its no-identity message also names `make signing-setup`. The team ID is read from the build settings after that first build.
+- xcbeautify 3.2.1 was installed with Homebrew (owner-approved).
+
 ## Tasks
 
 ### 1. Rename Sotto to Cáptalo (one dedicated commit)
