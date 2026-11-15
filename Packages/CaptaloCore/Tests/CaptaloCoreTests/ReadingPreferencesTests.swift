@@ -8,8 +8,9 @@ import Testing
     /// A disposable domain unique to one test. Teardown deletes the domain with
     /// `defaults delete` and then the empty plist the delete leaves in
     /// ~/Library/Preferences, only for this exact prefix plus the test's UUID.
-    /// An in-process removePersistentDomain lets cfprefsd write the empty plist
-    /// again about 10 s later; the out-of-process delete does not.
+    /// In local probes an in-process removePersistentDomain let cfprefsd write
+    /// the empty plist again about 10 s later. The out-of-process delete is the
+    /// intended mitigation; it is not proven to close the leak (notes, D29).
     func withSuite(_ body: (UserDefaults) throws -> Void) rethrows {
         let id = UUID()
         let name = Self.disposablePrefix + id.uuidString

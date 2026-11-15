@@ -14,7 +14,8 @@ if [ -n "$LAST" ] && [ ! -e "${LAST%.state}.restored" ]; then
   echo "defaults-backup: $LAST is not restored yet; run make defaults-restore first" >&2
   exit 1
 fi
-if is_empty; then
+CURRENT=$(domain_state)
+if [ "$CURRENT" = absent ]; then
   echo "absent" > "$DIR/defaults-$STAMP.state"
   echo "defaults-backup: domain absent; recorded $DIR/defaults-$STAMP.state"
   exit 0

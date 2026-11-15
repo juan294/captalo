@@ -247,15 +247,6 @@ class DefaultsBackupTests(unittest.TestCase):
         self.assertEqual(self.run_script("defaults-restore").returncode, 0)
         self.assertTrue(self.is_empty())
 
-    def stub_delete(self, exit_status):
-        """A `defaults` on PATH whose delete leaves the domain untouched; every other verb is real."""
-        stub = Path(self.tmp.name) / "bin"
-        stub.mkdir(exist_ok=True)
-        (stub / "defaults").write_text(
-            f'#!/bin/bash\n[ "$1" = delete ] && exit {exit_status}\nexec /usr/bin/defaults "$@"\n')
-        (stub / "defaults").chmod(0o755)
-        self.env["PATH"] = f"{stub}:{os.environ['PATH']}"
-
     def test_absent_domain_with_values_left_after_delete_is_not_marked_restored(self):
         """VAL-11: a failed (or ineffective) delete must not mark the backup restored."""
         for status in (1, 0):
@@ -267,15 +258,117 @@ class DefaultsBackupTests(unittest.TestCase):
                     marker.unlink()
                 self.assertEqual(self.run_script("defaults-backup").returncode, 0)
                 subprocess.run(["defaults", "write", self.domain, "reading.speed", "-float", "1.2"], check=True)
-                self.stub_delete(status)
+                self.stub_failing("delete", status=status)
                 restore = self.run_script("defaults-restore")
                 self.assertNotEqual(restore.returncode, 0, restore.stdout)
                 self.assertEqual(list(Path(self.tmp.name).glob("defaults-*.restored")), [])
                 self.assertEqual(self.read("reading.speed"), "1.2")
 
+    def stub(self, body):
+        """A `defaults` on PATH running `body` (bash) first; verbs it does not handle are real."""
+        stub = Path(self.tmp.name) / "bin"
+        stub.mkdir(exist_ok=True)
+        (stub / "defaults").write_text(f'#!/bin/bash\n{body}\nexec /usr/bin/defaults "$@"\n')
+        (stub / "defaults").chmod(0o755)
+        self.env["PATH"] = f"{stub}:{os.environ['PATH']}"
+
+    def stub_failing(self, *verbs, status=1):
+        """`verbs` exit with `status` without touching the domain; other verbs are real."""
+        self.stub(f'case "$1" in {"|".join(verbs)}) echo "stub: $1 exits {status}" >&2; exit {status};; esac')
+
+    def test_unreadable_domain_is_never_marked_restored(self):
+        """VAL-11: an inspection failure is not proof of absence."""
+        for has_values in (False, True):
+            with self.subTest(has_values=has_values):
+                self.env["PATH"] = os.environ["PATH"]
+                subprocess.run(["defaults", "delete", self.domain], capture_output=True)
+                for marker in Path(self.tmp.name).glob("defaults-*"):
+                    marker.unlink()
+                self.assertEqual(self.run_script("defaults-backup").returncode, 0)
+                if has_values:
+                    subprocess.run(["defaults", "write", self.domain, "reading.speed", "-float", "1.2"], check=True)
+                self.stub_failing("export", "read", "delete")
+                restore = self.run_script("defaults-restore")
+                self.assertNotEqual(restore.returncode, 0, restore.stdout)
+                self.assertIn("cannot read", restore.stderr)
+                self.assertEqual(list(Path(self.tmp.name).glob("defaults-*.restored")), [])
+                if has_values:
+                    self.assertEqual(self.read("reading.speed"), "1.2")
+
+    def test_backup_of_an_unreadable_domain_records_nothing(self):
+        """VAL-11: backup never records `absent` from a failed inspection."""
+        subprocess.run(["defaults", "write", self.domain, "reading.voice", "af_bella"], check=True)
+        self.stub_failing("export", "read")
+        backup = self.run_script("defaults-backup")
+        self.assertNotEqual(backup.returncode, 0, backup.stdout)
+        self.assertIn("cannot read", backup.stderr)
+        self.assertNotIn("stub: export", backup.stderr)  # aborted before the backup export
+        self.assertEqual(list(Path(self.tmp.name).glob("defaults-*")), [])
+        self.assertEqual(self.read("reading.voice"), "af_bella")
+
+    def test_unreadable_state_after_the_delete_aborts_restore(self):
+        """The second inspection, after a delete, aborts restore too."""
+        self.assertEqual(self.run_script("defaults-backup").returncode, 0)
+        subprocess.run(["defaults", "write", self.domain, "reading.speed", "-float", "1.2"], check=True)
+        flag = Path(self.tmp.name) / "deleted"
+        self.stub(f'case "$1" in delete) /usr/bin/defaults "$@"; s=$?; touch "{flag}"; exit $s;; '
+                  f'export) [ -e "{flag}" ] && exit 1;; esac')
+        restore = self.run_script("defaults-restore")
+        self.assertNotEqual(restore.returncode, 0, restore.stdout)
+        self.assertTrue(flag.exists())
+        self.assertIn("cannot read", restore.stderr)
+        self.assertNotIn("still has values", restore.stderr)  # aborted at the inspection itself
+        self.assertEqual(list(Path(self.tmp.name).glob("defaults-*.restored")), [])
+
+    def prefs_file(self, content=None, mode=None):
+        """This test's plist in a private preferences directory the scripts inspect (never the real one)."""
+        prefs = Path(self.tmp.name) / "Preferences"
+        prefs.mkdir(exist_ok=True)
+        self.env["CAPTALO_DEFAULTS_PREFS"] = str(prefs)
+        plist = prefs / f"{self.domain}.plist"
+        if plist.exists():  # a previous case's file, possibly unreadable
+            plist.chmod(0o600)
+            plist.unlink()
+        if content is not None:
+            plist.write_bytes(content)
+        if mode is not None:
+            plist.chmod(mode)
+            self.addCleanup(lambda: plist.exists() and plist.chmod(0o600))
+        return plist
+
+    def test_unreadable_or_inconsistent_plist_file_is_never_absent(self):
+        """VAL-11: export can print <dict/> for an unreadable, corrupt or keyed plist; the file decides."""
+        keyed = plistlib.dumps({"reading.voice": "af_bella"})
+        cases = {
+            "unreadable file": (keyed, 0o000),
+            "corrupt file": (b"<?xml version='1.0'?><plist><dict><key>x", None),
+            "file with keys while the export is empty": (keyed, None),
+        }
+        for name, (content, mode) in cases.items():
+            with self.subTest(name):
+                for marker in Path(self.tmp.name).glob("defaults-*"):
+                    marker.unlink()
+                self.prefs_file(content, mode)
+                backup = self.run_script("defaults-backup")
+                self.assertNotEqual(backup.returncode, 0, backup.stdout)
+                self.assertIn("cannot read", backup.stderr)
+                self.assertEqual(list(Path(self.tmp.name).glob("defaults-*")), [])
+                Path(self.tmp.name, "defaults-20000101T000000Z.state").write_text("absent\n")
+                restore = self.run_script("defaults-restore")
+                self.assertNotEqual(restore.returncode, 0, restore.stdout)
+                self.assertIn("cannot read", restore.stderr)
+                self.assertEqual(list(Path(self.tmp.name).glob("defaults-*.restored")), [])
+
+    def test_empty_dictionary_plist_counts_as_absent(self):
+        """What `defaults delete` leaves behind: an empty-dictionary plist."""
+        self.prefs_file(plistlib.dumps({}))
+        backup = self.run_script("defaults-backup")
+        self.assertEqual(backup.returncode, 0, backup.stderr)
+        self.assertIn("domain absent", backup.stdout)
+
     def test_already_absent_domain_is_restored_without_a_delete(self):
         self.assertEqual(self.run_script("defaults-backup").returncode, 0)
-        self.stub_delete(1)  # nothing to delete, so a delete must not be needed
+        self.stub_failing("delete")  # nothing to delete, so a delete must not be needed
         restore = self.run_script("defaults-restore")
         self.assertEqual(restore.returncode, 0, restore.stderr)
         self.assertEqual(len(list(Path(self.tmp.name).glob("defaults-*.restored"))), 1)
@@ -284,8 +377,8 @@ class DefaultsBackupTests(unittest.TestCase):
 completeness = load("completeness-test")
 
 
-def unit_record(voice, unit=0):
-    return {"kind": "unit", "voice": voice, "unit": unit, "completed": True, "phonemes": 5, "normalizedText": "text"}
+def unit_record(voice, unit=0, completed=True):
+    return {"kind": "unit", "voice": voice, "unit": unit, "completed": completed, "phonemes": 5, "normalizedText": "text"}
 
 
 def summary_record(voice, outcome="finished", queued=0.0):
@@ -308,9 +401,9 @@ class CompletenessHarnessTests(unittest.TestCase):
         return {
             "completeness": [r for v in self.voices for r in (unit_record(v), summary_record(v))],
             "long": [unit_record(first), summary_record(first)],
-            "long-stop": [unit_record(first),
+            "long-stop": [*(unit_record(first, i) for i in range(5)), unit_record(first, 5, completed=False),
                           {"kind": "stop", "voice": first, "afterUnits": 5, "stopToSilenceMs": 0, "stopToIdleMs": 40},
-                          summary_record(first, outcome="stopped")],
+                          {**summary_record(first, outcome="stopped"), "units": 5, "expectedUnits": 10}],
             "long-device": [{"kind": "deviceChange", "voice": first, "afterUnits": 3, "replayedUnits": [3],
                              "replaySpanSeconds": 20.0},
                             unit_record(first), summary_record(first, queued=60.0)],
@@ -415,6 +508,63 @@ out.write_text((pathlib.Path(__file__).parent / "records" / (out.stem + ".jsonl"
                 runs = self.valid_runs()
                 mutate(runs)
                 self.assert_fails(runs, expected)
+
+    def with_units(self, runs, label, ids, expected, splits=0, voice="af_one"):
+        """Replaces `voice`'s unit records in `label` with `ids` (one record per piece)."""
+        runs[label] = [r for r in runs[label] if not (r["kind"] == "unit" and r["voice"] == voice)]
+        runs[label] += [unit_record(voice, i) for i in ids]
+        summary = next(r for r in runs[label] if r["kind"] == "summary" and r["voice"] == voice)
+        summary.update(units=expected, expectedUnits=expected, oversizeSplits=splits)
+        return runs
+
+    def test_split_unit_pieces_pass(self):
+        """A runtime split records one piece per half, under the same unit ID."""
+        runs = self.with_units(self.valid_runs(), "completeness", [0, 0, 1], expected=2, splits=1)
+        self.assertEqual(self.run_harness(runs), (0, []))
+
+    def test_unit_inventory_mismatches_fail(self):
+        """VAL-06: unit records must cover IDs 0..expectedUnits-1, each once (split pieces adjacent)."""
+        cases = {
+            "one unit dropped, summary intact": ("completeness", [0], 2, 0),
+            "unit duplicated": ("completeness", [0, 1, 0], 2, 0),
+            "adjacent duplicate without a split": ("completeness", [0, 0, 1], 2, 0),
+            "ID outside the inventory": ("completeness", [0, 1, 5], 2, 0),
+            "long run missing a unit": ("long", [1], 2, 0),
+            "device run missing a unit": ("long-device", [0, 2], 3, 0),
+        }
+        for name, (label, ids, expected, splits) in cases.items():
+            with self.subTest(name):
+                runs = self.with_units(self.valid_runs(), label, ids, expected, splits)
+                self.assert_fails(runs, "unit records cover")
+
+    def stopped(self, units, played=5, splits=0):
+        """The stopped run with unit records `units` as (ID, completed) and `played` units in the summary."""
+        runs = self.valid_runs()
+        runs["long-stop"] = [r for r in runs["long-stop"] if r["kind"] != "unit"]
+        runs["long-stop"] += [unit_record("af_one", i, done) for i, done in units]
+        next(r for r in runs["long-stop"] if r["kind"] == "summary").update(units=played, oversizeSplits=splits)
+        return runs
+
+    def test_stopped_run_with_a_split_unit_passes(self):
+        units = [(0, True), (1, True), (1, True), (2, True), (3, True), (4, True), (5, False)]
+        self.assertEqual(self.run_harness(self.stopped(units, splits=1)), (0, []))
+
+    def test_stopped_run_units_must_cover_the_played_units(self):
+        """VAL-06: the stopped run's records cover exactly the units it played, as an in-order prefix."""
+        cases = {
+            "not a prefix": [(1, True)],
+            "no unit records": [],
+            "two records after five played units": [(0, True), (1, True)],
+            "adjacent duplicate without a split": [(0, True), (0, True), (1, True), (2, True), (3, True), (4, True)],
+            "an unplayed unit marked completed": [(i, True) for i in range(7)],
+        }
+        for name, units in cases.items():
+            with self.subTest(name):
+                self.assert_fails(self.stopped(units), "stop: unit records")
+
+    def test_stop_before_the_requested_units_fails(self):
+        units = [(0, True), (1, True), (2, False)]
+        self.assert_fails(self.stopped(units, played=2), "stop: unit records")
 
     def test_voice_outside_the_manifest_fails(self):
         runs = self.valid_runs()
