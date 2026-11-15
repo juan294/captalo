@@ -12,17 +12,20 @@ extension CaptaloAppState {
             return
         }
         accessibilityPermissionGranted = true
-        guard let source = accessibility.currentSource() else { return }
         if !isCaptureProbeActive, !canSpeak {
             updateStatus("Kokoro needs to be installed")
             if kokoroInstallationState == .downloadRequired { onKokoroDownloadRequired?() }
             return
         }
         let capture = self.capture
+        let accessibility = self.accessibility
+        let requests = self.requests
         #if DEBUG
         let probe = captureProbe
         #endif
-        Task {
+        // The source is read off the main actor: a hung app cannot block the UI.
+        Task.detached {
+            guard let source = accessibility.currentSource() else { return }
             await requests.submit(kind: .selection, source: source) { token in
                 let started = ContinuousClock.now
                 #if DEBUG
@@ -66,8 +69,10 @@ extension CaptaloAppState {
             do {
                 try await speech.speak(
                     text: spokenText,
+                    session: token.sessionGeneration,
                     onFirstAudio: { firstAudio in
                         Task { @MainActor in
+                            guard await requests.isCurrent(token) else { return }
                             CaptaloAppState.shared.latestFirstAudio = firstAudio
                             CaptaloAppState.shared.finishDictationSession()
                             CaptaloAppState.shared.startDictationSession()
@@ -76,12 +81,13 @@ extension CaptaloAppState {
                     },
                     onError: { error in
                         Task { @MainActor in
+                            guard await requests.isCurrent(token) else { return }
                             CaptaloAppState.shared.updateStatus("Playback error: \(error.localizedDescription)")
                         }
                     },
                     onPlaybackFinished: {
                         Task {
-                            await requests.sessionFinished(token)
+                            guard await requests.sessionFinished(token) else { return }
                             await MainActor.run {
                                 CaptaloAppState.shared.finishDictationSession()
                                 CaptaloAppState.shared.isPaused = false

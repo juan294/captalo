@@ -53,6 +53,19 @@ Plan: `2026-11-15-captalo-core-reader.md` (revision 4, accepted 2026-11-15). Imp
 - Found: the machine's developer directory is Command Line Tools, whose SwiftPM cannot resolve `.macOS(.v26)`.
 - Chose: the Makefile exports `DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer` (overridable); policy steps call `make test-core-debug` and `make test-core-release`.
 
+### D7. A failed clipboard restore leaves the clipboard empty (phase 2)
+
+- Plan said: stuck-state row "Clipboard restore fails: the clipboard holds the source app's copied text".
+- Found: NSPasteboard requires `clearContents()` before `writeObjects`, so when the restore write fails the clipboard is already empty (phase 2 review, finding 6).
+- Chose: keep one restore path (clear, then write) and correct the plan's stuck-state row; `restoreFailureDoesNotSpeak` now models the clear and asserts the empty clipboard.
+- Why: there is no API that replaces pasteboard contents atomically. This case is silent and logged (`PrivacyLog.restoreFailed`); it stays within the accepted clipboard limitation (decision 9).
+
+### D8. Chromium retry re-queries the focused element (phase 2)
+
+- Plan said: set `AXManualAccessibility` once per app launch, retry step 1.
+- Chose: after the write, re-query the focused element up to 5 times, 40 ms apart (200 ms bound), and probe it each time.
+- Why: Chromium builds its tree asynchronously; the element captured before the write may not expose the selection (phase 2 review, finding 4, inferred). The once-per-PID rule is unchanged.
+
 ## Phase 1 handoff (2026-11-15)
 
 - Candidate: branch `feat/core-reader`, commits `a000427` (rename), `7f7737a` (cc-rpi v2.2.0), `6eb0b4a` (foundation), `556c148` (review repairs) and the simplify commit that carries this note. `make verify` (8 checks: whitespace, rpi-installation, core tests debug and release, unsigned Debug and Release builds, log-audit, script-test) passed on the simplify candidate; evidence in the worktree's ignored `.rpi/local/verification.json`.

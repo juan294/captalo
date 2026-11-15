@@ -17,12 +17,14 @@ public enum PrivacyEvent: Sendable, Equatable {
     case firstAudio(characters: Int, elapsed: Duration, accelerator: Accelerator)
     case restoreFailed
     case capture(kind: InputKind, outcome: OutcomeKind, layer: CaptureLayerKind?, characters: Int, elapsed: Duration)
-    /// Debug capture probe. `providerMs` is the probe's own pre-press clipboard
-    /// materialization time; `changeDelta` is the pasteboard change count delta.
+    /// Debug capture probe. `changeDelta` is the pasteboard change-count delta.
+    /// Provider time comes from the transaction's `clipboardSnapshot` event.
     case probe(
         result: CaptureProbe.Result, layer: CaptureLayerKind?, expectedLength: Int, capturedLength: Int,
-        clipboardIntact: Bool, focusKept: Bool, providerMs: Int, elapsedMs: Int, changeDelta: Int
+        clipboardIntact: Bool, focusKept: Bool, elapsedMs: Int, changeDelta: Int
     )
+    /// Clipboard transaction snapshot: item count, bytes and materialization time.
+    case clipboardSnapshot(items: Int, bytes: Int, elapsed: Duration)
     /// Debug-only silent playback seam (phase 2).
     case seamSession(state: SeamState)
 
@@ -57,8 +59,10 @@ public enum PrivacyEvent: Sendable, Equatable {
             "restoreFailed"
         case let .capture(kind, outcome, layer, characters, elapsed):
             "capture kind=\(kind.rawValue) outcome=\(outcome.rawValue) layer=\(layer?.rawValue ?? "none") characters=\(characters) elapsedMs=\(PrivacyEvent.milliseconds(elapsed))"
-        case let .probe(result, layer, expectedLength, capturedLength, clipboardIntact, focusKept, providerMs, elapsedMs, changeDelta):
-            "probe result=\(result.rawValue) layer=\(layer?.rawValue ?? "none") expectedLength=\(expectedLength) capturedLength=\(capturedLength) clipboardIntact=\(clipboardIntact) focusKept=\(focusKept) providerMs=\(providerMs) elapsedMs=\(elapsedMs) changeDelta=\(changeDelta)"
+        case let .probe(result, layer, expectedLength, capturedLength, clipboardIntact, focusKept, elapsedMs, changeDelta):
+            "probe result=\(result.rawValue) layer=\(layer?.rawValue ?? "none") expectedLength=\(expectedLength) capturedLength=\(capturedLength) clipboardIntact=\(clipboardIntact) focusKept=\(focusKept) elapsedMs=\(elapsedMs) changeDelta=\(changeDelta)"
+        case let .clipboardSnapshot(items, bytes, elapsed):
+            "clipboardSnapshot items=\(items) bytes=\(bytes) elapsedMs=\(PrivacyEvent.milliseconds(elapsed))"
         case let .seamSession(state):
             "seamSession state=\(state.rawValue)"
         }

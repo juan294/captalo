@@ -24,6 +24,19 @@ struct RecordingSession: PlaybackSession {
     func stop() async { log.append("stop \(name)") }
 }
 
+/// A session whose stop can block on a gate (models a slow stop).
+struct GatedSession: PlaybackSession {
+    let name: String
+    let log: EventLog
+    let stopGate: Gate?
+
+    func start() async { log.append("start \(name)") }
+    func stop() async {
+        log.append("stop \(name)")
+        await stopGate?.wait()
+    }
+}
+
 /// A gate a test opens to let a blocked task continue.
 actor Gate {
     private var isOpen = false

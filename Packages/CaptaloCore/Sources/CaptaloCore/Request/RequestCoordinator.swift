@@ -75,9 +75,10 @@ public actor RequestCoordinator {
     }
 
     private func finish(_ token: InputToken, _ outcome: CaptureOutcome) async {
-        inFlight[token.inputGeneration] = nil
         if pending?.token == token { pending = nil }
         await resolve(token, outcome)
+        // Removed only after resolve returns, so shutdown waits for a promote in progress.
+        inFlight[token.inputGeneration] = nil
     }
 
     /// Routes a resolved input. Superseded tokens are dropped.
@@ -142,8 +143,10 @@ public actor RequestCoordinator {
         let old = playing
         playing = new
         await old?.handle.stop()
+        // A newer resolution may have replaced this session while the old one
+        // stopped: never start a handle that is no longer current.
+        guard playing?.token == token else { return .promoted(token) }
         await new.handle.start()
-        // A newer resolution may have replaced this session during the awaits.
         if playing?.token != token { await new.handle.stop() }
         return .promoted(token)
     }

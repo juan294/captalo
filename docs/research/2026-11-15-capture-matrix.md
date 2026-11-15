@@ -37,7 +37,7 @@ The layered reader in `Packages/CaptaloCore/Sources/CaptaloCore/Capture/`:
    - (a) select the whole fixture and press the read shortcut;
    - (b) place the caret with nothing selected and press;
    - (c) with a seam session playing, select nothing and press (expect `seamSession state=stopped`), then select the fixture and press (expect a new `started`).
-5. `Scripts/capture-matrix-collect --since "<time>" --app "<name>" --version "<version>" --case <a|b|c>` writes `.local/capture/<ISO time>-<app>.json`. Probe events carry only enums, counts and durations: result, layer, expected and captured lengths, clipboard intact, focus kept, provider time (the probe's own pre-press clipboard materialization), elapsed time and change-count delta.
+5. `Scripts/capture-matrix-collect --since "<time>" --app "<name>" --version "<version>" --case <a|b|c>` writes `.local/capture/<ISO time>-<app>.json`. Probe events carry only enums, counts and durations: result, layer, expected and captured lengths, clipboard intact, focus kept (same frontmost PID and focused element), elapsed time and change-count delta. Provider time is the `clipboardSnapshot` event the transaction logs (items, bytes, materialization time). The probe's own pre-press clipboard snapshot resolves promised data before the transaction runs, so the provider time it shows can be lower than in normal use.
 6. Summarize here per app: name and version, layer, pass or fail, clipboard intact, focus kept, change delta, latency, provider time, no-selection outcome, stop and replace outcomes. Flag any Copy over 300 ms.
 7. Permission survival (task 7): after a changed rebuild and `make install`, capture works without re-granting. Record both designated requirements.
 

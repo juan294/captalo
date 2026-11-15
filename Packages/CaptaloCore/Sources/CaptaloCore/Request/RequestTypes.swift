@@ -60,6 +60,7 @@ public enum CaptureFailure: String, Sendable {
     case noCopyResult
     case restoreFailed
     case sourceChanged
+    case menuUnreadable
     case noText
     case ocrTimedOut
     case ocrFailed

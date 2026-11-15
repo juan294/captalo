@@ -26,12 +26,21 @@ final class InstrumentedPasteboard: PasteboardAccess {
     var stringReads = 0
     var materializations = 0
     var failWrites = false
+    var unavailableType: String?
 
     init(_ real: SystemPasteboard) { self.real = real }
     var changeCount: Int { real.changeCount }
-    func materialize() -> [[(type: String, data: Data?)]] { materializations += 1; return real.materialize() }
+    func materialize() -> [[(type: String, data: Data?)]] {
+        materializations += 1
+        return real.materialize().map { item in item.map { $0.type == unavailableType ? ($0.type, nil) : $0 } }
+    }
     func readString() -> String? { stringReads += 1; return real.readString() }
-    func write(_ items: [PasteboardItemSnapshot]) -> Bool { failWrites ? false : real.write(items) }
+    /// A failing write still clears first, as NSPasteboard requires.
+    func write(_ items: [PasteboardItemSnapshot]) -> Bool {
+        guard failWrites else { return real.write(items) }
+        real.pasteboard.clearContents()
+        return false
+    }
 }
 
 @MainActor
@@ -94,11 +103,12 @@ final class InstrumentedPasteboard: PasteboardAccess {
         _ transaction: ClipboardTransaction,
         current: Flag = Flag(true),
         sourceUnchanged: Bool = true,
+        sourceCheck: (@MainActor @Sendable () async -> Void)? = nil,
         copy: @escaping @MainActor @Sendable () async -> Void
     ) async -> ClipboardResult {
         await transaction.run(
             isCurrent: { current.get() },
-            sourceUnchanged: { sourceUnchanged },
+            sourceUnchanged: { await sourceCheck?(); return sourceUnchanged },
             copyAction: copy
         )
     }
@@ -159,7 +169,29 @@ final class InstrumentedPasteboard: PasteboardAccess {
             self.foreignWrite()
         }
         #expect(result == .ownershipUncertain)
+        #expect(pasteboard.stringReads == 0)
         #expect(board.string(forType: .string) == "foreign")
+    }
+
+    @Test func writeOrCancelDuringSourceCheckSendsNoCopy() async {
+        // The source check (Accessibility) is slow; input currency and the
+        // change count are checked after it, immediately before Copy.
+        _ = writeOriginal()
+        let copies = Counter()
+        let written = await run(makeTransaction(), sourceCheck: { self.foreignWrite() }) { copies.increment() }
+        #expect(written == .ownershipUncertain)
+        let current = Flag(true)
+        let cancelled = await run(makeTransaction(), current: current, sourceCheck: { current.set(false) }) { copies.increment() }
+        #expect(cancelled == .cancelled)
+        #expect(copies.count == 0)
+    }
+
+    @Test func typeThatFailsToMaterializeAborts() async {
+        _ = writeOriginal()
+        pasteboard.unavailableType = NSPasteboard.PasteboardType.rtf.rawValue
+        let copies = Counter()
+        #expect(await run(makeTransaction()) { copies.increment() } == .notPreservable)
+        #expect(copies.count == 0)
     }
 
     @Test func writeBetweenReadAndFinalCheckIsPreserved() async {
@@ -278,6 +310,8 @@ final class InstrumentedPasteboard: PasteboardAccess {
         pasteboard.failWrites = true
         let result = await run(makeTransaction()) { self.sourceCopy("selected") }
         #expect(result == .restoreFailed)
+        // NSPasteboard clears before writing, so a failed restore leaves it empty.
+        #expect((board.pasteboardItems ?? []).isEmpty)
     }
 
     @Test func unpreservableSnapshotAbortsBeforeCopy() async {

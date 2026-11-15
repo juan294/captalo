@@ -119,6 +119,29 @@ import Testing
         #expect(log.events == ["start 1:one", "stop 1:one"])
     }
 
+    /// Promote A suspends while the old session stops; promote B wins in the
+    /// meantime. A must never start, and B must not be stopped by A.
+    @Test func interleavedPromotionsNeverStartAStaleHandle() async {
+        let log = EventLog()
+        let gate = Gate()
+        let coordinator = RequestCoordinator { token, text in
+            GatedSession(name: "\(token.sessionGeneration):\(text)", log: log, stopGate: text == "old" ? gate : nil)
+        }
+        let first = await coordinator.beginInput(kind: .selection, source: sourceA)
+        _ = await coordinator.resolve(first, .text("old", layer: .accessibility))
+        let a = await coordinator.beginInput(kind: .region, source: sourceA)
+        let promoteA = Task { await coordinator.resolve(a, .text("A", layer: .ocr)) }
+        try? await Task.sleep(for: .milliseconds(20))
+        let b = await coordinator.beginInput(kind: .region, source: sourceA)
+        _ = await coordinator.resolve(b, .text("B", layer: .ocr))
+        await gate.open()
+        _ = await promoteA.value
+        #expect(!log.events.contains("start 2:A"))
+        #expect(log.events.last == "start 3:B")
+        #expect(!log.events.contains("stop 3:B"))
+        #expect(await coordinator.currentSession == SessionToken(sessionGeneration: 3))
+    }
+
     @Test func quitLetsOpenCleanupFinish() async {
         let log = EventLog()
         let coordinator = makeCoordinator(log: log)

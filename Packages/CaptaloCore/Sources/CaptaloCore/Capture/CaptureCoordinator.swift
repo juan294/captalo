@@ -3,7 +3,10 @@ import Foundation
 public enum MenuCopyState: Equatable, Sendable {
     case enabled
     case disabled
+    /// The app has no Copy item (Cmd+C key equivalent).
     case absent
+    /// The menu could not be read (timeout or error): no key event is sent.
+    case unknown
 }
 
 /// The app's own Edit > Copy item, reached through Accessibility.
@@ -49,7 +52,7 @@ public final class CaptureCoordinator: Sendable {
         sleep: @escaping @Sendable (Duration) async -> Void = { try? await Task.sleep(for: $0) }
     ) {
         self.ax = ax
-        layer = AXSelectionLayer(ax: ax)
+        layer = AXSelectionLayer(ax: ax, focus: focus, sleep: sleep)
         self.menu = menu
         self.keys = keys
         self.focus = focus
@@ -60,7 +63,7 @@ public final class CaptureCoordinator: Sendable {
 
     public func capture(_ token: InputToken) async -> CaptureOutcome {
         guard ax.isProcessTrusted() else { return .permissionMissing }
-        switch layer.read(token.source) {
+        switch await layer.read(token.source) {
         case let .selected(text):
             return .text(text, layer: .accessibility)
         case .confirmedEmpty:
@@ -75,11 +78,16 @@ public final class CaptureCoordinator: Sendable {
         switch menu.copyItemState(pid: pid) {
         case .disabled:
             return .nothingSelected
+        case .unknown:
+            return .failed(.menuUnreadable)
         case .enabled:
             return await copy(token, layer: .menuCopy) { [menu] in _ = menu.pressCopy(pid: pid) }
         case .absent:
             guard await waitForModifierRelease() else { return .unsupported(.modifiersHeld) }
-            return await copy(token, layer: .syntheticCopy) { [keys] in keys.postCopy() }
+            // Modifiers are checked again at the post: a lock wait may have passed.
+            return await copy(token, layer: .syntheticCopy) { [keys] in
+                if keys.shortcutModifiersReleased() { keys.postCopy() }
+            }
         }
     }
 

@@ -21,6 +21,8 @@ actor SpeechController {
     var isPrepared = false
     var playbackRate: Float = 1.0
     var activeRequest: UUID?
+    /// The coordinator session that owns the current speech (phase 2).
+    var activeSession: UInt64?
     var activeText: String?
     var synthesisTask: Task<Void, Never>?
     var sections: [String] = []
@@ -49,6 +51,7 @@ actor SpeechController {
 
     func speak(
         text: String,
+        session: UInt64? = nil,
         onFirstAudio: @escaping @Sendable (Duration) -> Void,
         onError: @escaping @Sendable (Error) -> Void,
         onPlaybackFinished: @escaping @Sendable () -> Void
@@ -58,6 +61,7 @@ actor SpeechController {
         if !engine.isRunning { try engine.start() }
         let request = UUID()
         activeRequest = request
+        activeSession = session
         activeText = text
         synthesisTask?.cancel()
         isPaused = false
@@ -67,6 +71,13 @@ actor SpeechController {
         try await speakKokoro(
             text: text, request: request, started: started,
             onFirstAudio: onFirstAudio, onError: onError)
+    }
+
+    /// Stops only when `session` still owns the speech, so a stale session
+    /// handle can never stop a newer reading.
+    func stop(session: UInt64) {
+        guard activeSession == session else { return }
+        stop()
     }
 
     func stop() {

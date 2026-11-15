@@ -11,16 +11,22 @@ final class FakeAX: SelectionAccessibility, @unchecked Sendable {
     var range: AXRead<AXTextRange> = .unsupported
     var rangeString: AXRead<String> = .unsupported
     var marker: AXRead<String> = .unsupported
-    /// Values returned after AXManualAccessibility is set (Chromium).
+    /// Returned by the reads that follow an AXManualAccessibility write
+    /// (Chromium builds its tree then); `manualReadsAfterWrite` reads see it.
     var afterManual: AXRead<String>?
+    var manualReadsAfterWrite = 1
+    /// The tree appears only after this many reads following the write.
+    var manualDelayReads = 0
     private(set) var writes: [String] = []
     private(set) var reads = 0
-    private var manualSet = false
+    private var manualReadsLeft = 0
+    private var delayLeft = 0
 
     func isProcessTrusted() -> Bool { trusted }
     func selectedText(_ element: ElementRef) -> AXRead<String> {
         reads += 1
-        if manualSet, let afterManual { return afterManual }
+        if delayLeft > 0 { delayLeft -= 1; return selectedText }
+        if manualReadsLeft > 0, let afterManual { manualReadsLeft -= 1; return afterManual }
         return selectedText
     }
     func selectedTextRange(_ element: ElementRef) -> AXRead<AXTextRange> { range }
@@ -28,7 +34,10 @@ final class FakeAX: SelectionAccessibility, @unchecked Sendable {
     func textMarkerSelection(_ element: ElementRef) -> AXRead<String> { marker }
     func setApplicationAttribute(_ name: String, to value: Bool, pid: Int32) -> Bool {
         writes.append(name)
-        if name == AXSelectionLayer.manualAccessibilityAttribute { manualSet = true }
+        if name == AXSelectionLayer.manualAccessibilityAttribute {
+            manualReadsLeft = manualReadsAfterWrite
+            delayLeft = manualDelayReads
+        }
         return true
     }
 }
@@ -47,9 +56,10 @@ final class FakeMenu: MenuCopyAccess, @unchecked Sendable {
 
 final class FakeKeys: KeyEventPosting, @unchecked Sendable {
     var released = true
+    var releasedProvider: (() -> Bool)?
     var onPost: () -> Void = {}
     private(set) var posts = 0
-    func shortcutModifiersReleased() -> Bool { released }
+    func shortcutModifiersReleased() -> Bool { releasedProvider?() ?? released }
     func postCopy() {
         posts += 1
         MainActor.assumeIsolated { onPost() }
@@ -79,7 +89,7 @@ final class FakeFocus: FocusEnvironment, @unchecked Sendable {
     func coordinator(current: Bool = true) -> CaptureCoordinator {
         let board = self.board
         var limits = ClipboardTransaction.Limits()
-        limits.copyWindow = .milliseconds(200)
+        limits.copyWindow = .milliseconds(100)
         limits.pollInterval = .milliseconds(5)
         let lock = AsyncSerialLock()
         return CaptureCoordinator(
@@ -190,10 +200,41 @@ final class FakeFocus: FocusEnvironment, @unchecked Sendable {
                                 startedAt: .now)
         ax.selectedText = .value("")
         ax.afterManual = .value("web text")
+        // The tree appears two re-queries after the write (asynchronous build).
+        ax.manualDelayReads = 2
         let coordinator = coordinator()
         #expect(await coordinator.capture(chrome) == .text("web text", layer: .accessibility))
-        #expect(await coordinator.capture(chrome) == .text("web text", layer: .accessibility))
+        // A later press that misses on its first probe does not set the attribute again.
+        #expect(await coordinator.capture(chrome) == .nothingSelected)
         #expect(ax.writes == [AXSelectionLayer.manualAccessibilityAttribute])
+    }
+
+    @Test func nonzeroRangeWithUnreadableTextIsNotEmpty() async {
+        ax.selectedText = .value("")
+        ax.range = .value(AXTextRange(location: 0, length: 12))
+        ax.rangeString = .error
+        menu.state = .enabled
+        menu.onPress = { self.sourceAppCopies("copied instead") }
+        #expect(await coordinator().capture(token) == .text("copied instead", layer: .menuCopy))
+    }
+
+    @Test func unreadableMenuSendsNoKeyEvent() async {
+        menu.state = .unknown
+        #expect(await coordinator().capture(token) == .failed(.menuUnreadable))
+        #expect(keys.posts == 0)
+        #expect(menu.presses == 0)
+    }
+
+    @Test func modifiersHeldAgainAtPostSendNoKeyEvent() async {
+        menu.state = .absent
+        var polls = 0
+        keys.releasedProvider = {
+            polls += 1
+            return polls == 1 // released for the wait, held again at the post
+        }
+        let result = await coordinator().capture(token)
+        #expect(keys.posts == 0)
+        #expect(result == .failed(.noCopyResult))
     }
 
     @Test func neverSetsEnhancedUserInterface() async {

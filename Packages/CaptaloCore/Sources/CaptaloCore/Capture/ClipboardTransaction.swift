@@ -155,25 +155,27 @@ public final class ClipboardTransaction {
             return .notPreservable
         }
 
-        // Step 2: recheck right before Copy.
-        checkpoint?(.beforeCopy)
-        guard await isCurrent() else {
-            await lock.release()
-            return .cancelled
-        }
-        guard pasteboard.changeCount == snapshot.changeCount else {
-            await lock.release()
-            return .ownershipUncertain
-        }
+        // Step 2: recheck right before Copy. The slow check (Accessibility)
+        // runs first; input currency and the change count are checked last,
+        // on the main actor, immediately before the Copy action.
         guard await sourceUnchanged() else {
             await lock.release()
             return .sourceChanged
         }
-
-        // From here the cleanup capability runs steps 3-4 even if the input is
-        // cancelled or the app quits: an unstructured task ignores the caller's cancellation.
+        checkpoint?(.beforeCopy)
         let lock = self.lock
         let result = await Task { @MainActor in
+            guard await isCurrent() else {
+                await lock.release()
+                return ClipboardResult.cancelled
+            }
+            guard self.pasteboard.changeCount == snapshot.changeCount else {
+                await lock.release()
+                return .ownershipUncertain
+            }
+            // From here the cleanup capability runs steps 3-4 even if the input
+            // is cancelled or the app quits: this unstructured task ignores the
+            // caller's cancellation.
             await copyAction()
             let result = await self.attributeAndRestore(snapshot)
             await lock.release()
@@ -205,7 +207,9 @@ public final class ClipboardTransaction {
             items.append(PasteboardItemSnapshot(entries: entries))
         }
         guard pasteboard.changeCount == c0 else { return nil }
-        guard started.duration(to: clock()) <= limits.snapshotDuration else { return nil }
+        let elapsed = started.duration(to: clock())
+        PrivacyLog.record(.clipboardSnapshot(items: items.count, bytes: bytes, elapsed: elapsed))
+        guard elapsed <= limits.snapshotDuration else { return nil }
         return Snapshot(changeCount: c0, items: items)
     }
 

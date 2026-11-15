@@ -19,7 +19,7 @@ nonisolated struct SpeechPlaybackSession: PlaybackSession {
     }
 
     func stop() async {
-        await speech.stop()
+        await speech.stop(session: token.sessionGeneration)
     }
 }
 

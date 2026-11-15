@@ -21,9 +21,9 @@ nonisolated final class CaptureProbeRunner: Sendable {
 
     func measure(_ token: InputToken, capture: @Sendable () async -> CaptureOutcome) async -> CaptureOutcome {
         let clock = ContinuousClock()
-        let snapshotStart = clock.now
+        // Note: this snapshot resolves promised data before the transaction
+        // runs; the transaction's own time is in the `clipboardSnapshot` event.
         let (before, countBefore) = await Self.clipboard()
-        let providerMs = Self.milliseconds(snapshotStart.duration(to: clock.now))
         let started = clock.now
         let outcome = await capture()
         let elapsedMs = Self.milliseconds(started.duration(to: clock.now))
@@ -40,8 +40,8 @@ nonisolated final class CaptureProbeRunner: Sendable {
             expectedLength: expected.count,
             capturedLength: capturedLength,
             clipboardIntact: CaptureProbe.clipboardIntact(before: before, after: after),
-            focusKept: accessibility.frontmostPID() == token.source.pid,
-            providerMs: providerMs,
+            focusKept: accessibility.frontmostPID() == token.source.pid
+                && accessibility.focusedElement(pid: token.source.pid) == token.source.focusedElement,
             elapsedMs: elapsedMs,
             changeDelta: countAfter - countBefore
         ))

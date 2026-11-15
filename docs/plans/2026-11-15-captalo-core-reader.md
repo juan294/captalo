@@ -178,7 +178,7 @@ Runtime evidence records the candidate commit, the app's `CFBundleVersion` plus 
 | Confirmed empty selection | Silence; clipboard untouched; a playing reading stops (stop gesture) | Next press | `CaptureCoordinatorTests.confirmedEmptyNeverReachesCopy` |
 | Clipboard not preservable (snapshot too large, slow or failing) | Silence; no Copy is sent | Next press; recorded per app in the matrix | `ClipboardTransactionTests.unpreservableSnapshotAbortsBeforeCopy` |
 | Clipboard ownership uncertain (detected) | Silence; the newer clipboard content is kept | Next press | `ClipboardTransactionTests.secondChangeMeansUncertainNoSpeakNoRestore`, `writeDuringSnapshotAborts` |
-| Clipboard restore fails | Silence; the clipboard holds the source app's copied text | Next press. The limitation is recorded under decision 9 | `ClipboardTransactionTests.restoreFailureDoesNotSpeak` |
+| Clipboard restore fails | Silence; the clipboard is left empty, because NSPasteboard clears before it writes (corrected during implementation, notes D7) | Next press. The limitation is recorded under decision 9 | `ClipboardTransactionTests.restoreFailureDoesNotSpeak` |
 | Shortcut modifiers still held after 500 ms | Silence; no Cmd+C posted | Next press | `CaptureCoordinatorTests.modifierTimeoutAbortsSyntheticCopy` |
 | Source app changed before Copy | Silence; no key event or menu press reaches the new app | Next press | `CaptureCoordinatorTests.sourceChangedBeforeCopyAborts` |
 | Mandatory matrix app unsupported | Phase 2 cannot be accepted | Owner approves a recorded waiver, or capture work continues | Matrix evidence gate |

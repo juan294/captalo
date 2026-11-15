@@ -10,7 +10,8 @@ import Testing
         .capture(kind: .selection, outcome: .text, layer: .menuCopy, characters: 12, elapsed: .milliseconds(80)),
         .capture(kind: .region, outcome: .failed, layer: nil, characters: 0, elapsed: .seconds(10)),
         .probe(result: .pass, layer: .accessibility, expectedLength: 300, capturedLength: 300,
-               clipboardIntact: true, focusKept: true, providerMs: 0, elapsedMs: 12, changeDelta: 0),
+               clipboardIntact: true, focusKept: true, elapsedMs: 12, changeDelta: 0),
+        .clipboardSnapshot(items: 2, bytes: 4_096, elapsed: .milliseconds(3)),
         .seamSession(state: .started),
     ]
 
@@ -57,7 +58,7 @@ private extension PrivacyEvent {
     /// The number of cases; the switch has no default.
     var arms: Int {
         switch self {
-        case .voicePrewarmed, .firstAudio, .restoreFailed, .capture, .probe, .seamSession: 6
+        case .voicePrewarmed, .firstAudio, .restoreFailed, .capture, .probe, .clipboardSnapshot, .seamSession: 7
         }
     }
 }

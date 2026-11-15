@@ -51,24 +51,40 @@ public final class AXSelectionLayer: @unchecked Sendable {
     ]
     public static let manualAccessibilityAttribute = "AXManualAccessibility"
 
+    /// After `AXManualAccessibility` is set, Chromium builds its tree
+    /// asynchronously: the focused element is re-queried up to this many
+    /// times, `retryInterval` apart (bounded at 200 ms).
+    public static let retryAttempts = 5
+    public static let retryInterval = Duration.milliseconds(40)
+
     private let ax: SelectionAccessibility
+    private let focus: FocusEnvironment
+    private let sleep: @Sendable (Duration) async -> Void
     private let lock = NSLock()
     private var manualAccessibilityPIDs: Set<Int32> = []
 
-    public init(ax: SelectionAccessibility) {
+    public init(ax: SelectionAccessibility, focus: FocusEnvironment, sleep: @escaping @Sendable (Duration) async -> Void) {
         self.ax = ax
+        self.focus = focus
+        self.sleep = sleep
     }
 
-    public func read(_ source: InputSource) -> SelectionEvidence {
-        guard let element = source.focusedElement else { return .unavailable }
-        let first = probe(element)
+    public func read(_ source: InputSource) async -> SelectionEvidence {
+        let first = source.focusedElement.map(probe) ?? .unavailable
         if case .selected = first { return first }
         guard let bundle = source.bundleID, Self.manualAccessibilityBundles.contains(bundle),
               markManualAccessibility(source.pid) else { return first }
         guard ax.setApplicationAttribute(Self.manualAccessibilityAttribute, to: true, pid: source.pid) else {
             return first
         }
-        return probe(element)
+        var latest = first
+        for _ in 0..<Self.retryAttempts {
+            await sleep(Self.retryInterval)
+            guard let element = focus.focusedElement(pid: source.pid) ?? source.focusedElement else { continue }
+            latest = probe(element)
+            if case .selected = latest { return latest }
+        }
+        return latest
     }
 
     /// True the first time it is called for a PID (once per app launch).
@@ -79,6 +95,9 @@ public final class AXSelectionLayer: @unchecked Sendable {
 
     private func probe(_ element: ElementRef) -> SelectionEvidence {
         var confirmedEmpty = false
+        // A nonzero range whose text cannot be read is evidence of a selection:
+        // it must never count as an empty one.
+        var selectionUnreadable = false
         switch ax.selectedText(element) {
         case let .value(text) where !text.isEmpty: return .selected(text)
         case .value: confirmedEmpty = true
@@ -89,6 +108,7 @@ public final class AXSelectionLayer: @unchecked Sendable {
             if case let .value(text) = ax.string(for: range, in: element), !text.isEmpty {
                 return .selected(text)
             }
+            selectionUnreadable = true
         case .value:
             confirmedEmpty = true
         default: break
@@ -96,6 +116,6 @@ public final class AXSelectionLayer: @unchecked Sendable {
         if case let .value(text) = ax.textMarkerSelection(element), !text.isEmpty {
             return .selected(text)
         }
-        return confirmedEmpty ? .confirmedEmpty : .unavailable
+        return confirmedEmpty && !selectionUnreadable ? .confirmedEmpty : .unavailable
     }
 }
