@@ -1,5 +1,6 @@
 import Foundation
 import NaturalLanguage
+import Synchronization
 
 /// A structural block of captured text. OCR produces blocks directly; a
 /// selection is split into blocks on blank lines, list markers and table rows.
@@ -15,12 +16,103 @@ public enum TextSource: String, Sendable {
     case ocr
 }
 
-/// One paragraph of speakable sentences. Block boundaries are paragraph boundaries.
+/// One paragraph of speakable sentences. Block boundaries are paragraph
+/// boundaries. A cleaned block is split into sentences on demand, one at a
+/// time, so a very large paragraph is never segmented ahead of the reading (VAL-05).
 public struct Paragraph: Equatable, Sendable {
-    public let sentences: [String]
+    private enum Content: Equatable, Sendable {
+        case sentences([String])
+        /// Cleaned, whitespace-collapsed block text.
+        case text(String)
+    }
+
+    private let content: Content
 
     public init(sentences: [String]) {
-        self.sentences = sentences
+        content = .sentences(sentences)
+    }
+
+    init(text: String) {
+        content = .text(text)
+    }
+
+    /// Every sentence at once (tests and diagnostics; the reading pipeline
+    /// takes them one at a time through `makeSentenceIterator()`).
+    public var sentences: [String] { Array(IteratorSequence(makeSentenceIterator())) }
+
+    var isEmpty: Bool {
+        switch content {
+        case let .sentences(sentences): sentences.isEmpty
+        case let .text(text): text.isEmpty
+        }
+    }
+
+    func makeSentenceIterator() -> SentenceIterator {
+        switch content {
+        case let .sentences(sentences): .list(sentences.makeIterator())
+        case let .text(text): .tokens(TokenizedSentences(text: text))
+        }
+    }
+}
+
+/// Counts sentences the tokenizer produces, so tests can check that a
+/// paragraph is segmented on demand. Production never sets `current`.
+final class SegmentationCounter: Sendable {
+    @TaskLocal static var current: SegmentationCounter?
+    private let count = Mutex(0)
+
+    func add() { count.withLock { $0 += 1 } }
+    var value: Int { count.withLock { $0 } }
+}
+
+/// Sentences of one paragraph, produced on demand.
+enum SentenceIterator: IteratorProtocol {
+    case list(IndexingIterator<[String]>)
+    case tokens(TokenizedSentences)
+
+    mutating func next() -> String? {
+        switch self {
+        case var .list(iterator):
+            defer { self = .list(iterator) }
+            return iterator.next()
+        case var .tokens(iterator):
+            defer { self = .tokens(iterator) }
+            return iterator.next()
+        }
+    }
+}
+
+/// Cleaned text through NLTokenizer one sentence at a time (step 6); when it
+/// finds no sentence, the whole text is one.
+struct TokenizedSentences: IteratorProtocol {
+    private let text: String
+    private let tokenizer = NLTokenizer(unit: .sentence)
+    private var position: String.Index
+    private var producedAny = false
+
+    init(text: String) {
+        self.text = text
+        tokenizer.string = text
+        position = text.startIndex
+    }
+
+    mutating func next() -> String? {
+        while position < text.endIndex {
+            let range = tokenizer.tokenRange(at: position)
+            // A position outside every sentence advances by one character.
+            let token = range.upperBound > position ? text[range] : ""
+            position = range.upperBound > position ? range.upperBound : text.index(after: position)
+            let sentence = token.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !sentence.isEmpty {
+                producedAny = true
+                SegmentationCounter.current?.add()
+                return sentence
+            }
+        }
+        guard !producedAny, !text.isEmpty else { return nil }
+        producedAny = true
+        SegmentationCounter.current?.add()
+        return text
     }
 }
 
@@ -33,7 +125,7 @@ public enum TextPreparer {
     where Blocks.Element == Block {
         blocks.lazy
             .map { paragraph(from: $0, source: source) }
-            .filter { !$0.sentences.isEmpty }
+            .filter { !$0.isEmpty }
     }
 
     /// Splits selected text into blocks (lazily, line by line).
@@ -45,11 +137,18 @@ public enum TextPreparer {
     /// probe: selection text is split into blocks; OCR blocks go straight into
     /// cleanup with the OCR rules; then units.
     public static func units(for content: ReadingContent) -> AnyIterator<SynthesisUnit> {
-        let (blocks, source): ([Block], TextSource) = switch content {
-        case let .text(text): (Array(blocks(fromSelection: text)), .selection)
-        case let .document(blocks): (blocks, .ocr)
+        AnyIterator(unitIterator(for: content))
+    }
+
+    /// The iterator behind `units(for:)`, with its preparation counters (tests).
+    static func unitIterator(
+        for content: ReadingContent
+    ) -> UnitChunker<LazyFilterSequence<LazyMapSequence<AnySequence<Block>, Paragraph>>>.Iterator {
+        let (blocks, source): (AnySequence<Block>, TextSource) = switch content {
+        case let .text(text): (AnySequence(blocks(fromSelection: text)), .selection)
+        case let .document(blocks): (AnySequence(blocks), .ocr)
         }
-        return AnyIterator(UnitChunker(prepare(blocks, source: source)).makeIterator())
+        return UnitChunker(prepare(blocks, source: source)).makeIterator()
     }
 
     /// False when cleanup leaves nothing to say: silence, like an empty selection.
@@ -70,10 +169,12 @@ public enum TextPreparer {
             // Code is spoken as written, minus noise and a line-start prompt symbol.
             text = collapseWhitespace(Pattern.prompt.replace(removeNoise(normalizeCharacters(raw)), ""))
         }
-        return Paragraph(sentences: sentences(in: text))
+        return Paragraph(text: text)
     }
 
     static func cleanProse(_ raw: String, source: TextSource) -> String {
+        // Not redundant for selection text: normalization is not idempotent
+        // (an NBSP or CR joined to a zero-width scalar survives one pass).
         var text = normalizeCharacters(raw)
         if source == .ocr {
             text = Pattern.ocrHyphenBreak.replace(text, "$1$2")
@@ -93,12 +194,19 @@ public enum TextPreparer {
         return collapseWhitespace(text)
     }
 
-    /// Step 1: line endings, NBSP and zero-width characters.
+    /// Step 1: line endings, NBSP and zero-width characters. Text with none
+    /// of them is returned as it is (every replacement would be a no-op).
     static func normalizeCharacters(_ text: String) -> String {
+        guard needsNormalizing(text) else { return text }
         var result = text.replacingOccurrences(of: "\r\n", with: "\n").replacingOccurrences(of: "\r", with: "\n")
         result = result.replacingOccurrences(of: "\u{00A0}", with: " ")
         result.unicodeScalars.removeAll { zeroWidth.contains($0) }
         return result
+    }
+
+    /// True when `text` holds a scalar that `normalizeCharacters` replaces or drops.
+    static func needsNormalizing(_ text: String) -> Bool {
+        text.unicodeScalars.contains { $0 == "\r" || $0 == "\u{00A0}" || ($0.value >= 0x200B && zeroWidth.contains($0)) }
     }
 
     /// Step 3: ANSI sequences, box-drawing runs and separator runs.
@@ -110,20 +218,6 @@ public enum TextPreparer {
 
     static func collapseWhitespace(_ text: String) -> String {
         text.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
-    }
-
-    /// Step 6: sentences through NLTokenizer within one block.
-    static func sentences(in text: String) -> [String] {
-        guard !text.isEmpty else { return [] }
-        let tokenizer = NLTokenizer(unit: .sentence)
-        tokenizer.string = text
-        var result: [String] = []
-        tokenizer.enumerateTokens(in: text.startIndex..<text.endIndex) { range, _ in
-            let sentence = text[range].trimmingCharacters(in: .whitespacesAndNewlines)
-            if !sentence.isEmpty { result.append(sentence) }
-            return true
-        }
-        return result.isEmpty ? [text] : result
     }
 
     static let zeroWidth: Set<Unicode.Scalar> = ["\u{200B}", "\u{200C}", "\u{200D}", "\u{2060}", "\u{FEFF}"]
@@ -173,17 +267,47 @@ public struct SelectionBlocks: Sequence {
     let text: String
 
     public func makeIterator() -> Iterator {
-        Iterator(lines: text.split(separator: "\n", omittingEmptySubsequences: false)[...])
+        Iterator(lines: Lines(rest: text[...]))
+    }
+
+    /// The text's lines, found one at a time (the same lines as splitting
+    /// on every newline, empty ones included). A byte search finds them: an
+    /// LF byte is a whole "\n" character unless a CR precedes it (CR LF is one
+    /// character, which is not a line break here).
+    struct Lines {
+        var rest: Substring?
+
+        var first: Substring? {
+            guard let rest else { return nil }
+            let bytes = rest.utf8
+            var index = bytes.startIndex
+            while let newline = bytes[index...].firstIndex(of: 0x0A) {
+                if newline == bytes.startIndex || bytes[bytes.index(before: newline)] != 0x0D {
+                    return rest[..<newline]
+                }
+                index = bytes.index(after: newline)
+            }
+            return rest
+        }
+
+        mutating func popFirst() -> Substring? {
+            guard let line = first, let current = rest else { return nil }
+            rest = line.endIndex < current.endIndex ? current[current.index(after: line.endIndex)...] : nil
+            return line
+        }
     }
 
     public struct Iterator: IteratorProtocol {
-        var lines: ArraySlice<Substring>
+        var lines: Lines
         var inFence = false
         var inTable = false
-        var pending: [Block] = []
+        var pending: Block?
 
         public mutating func next() -> Block? {
-            if !pending.isEmpty { return pending.removeFirst() }
+            if let block = pending {
+                pending = nil
+                return block
+            }
             var paragraph: [Substring] = []
             while let line = lines.popFirst() {
                 let trimmed = line.trimmingCharacters(in: .whitespaces)
@@ -194,7 +318,7 @@ public struct SelectionBlocks: Sequence {
                     continue
                 }
                 if inFence {
-                    if let block = flush(&paragraph) { pending.append(.codeLine(String(line))); return block }
+                    if let block = flush(&paragraph) { pending = .codeLine(String(line)); return block }
                     return .codeLine(String(line))
                 }
                 if trimmed.isEmpty {
@@ -204,7 +328,7 @@ public struct SelectionBlocks: Sequence {
                 }
                 if let special = special(trimmed) {
                     if let block = flush(&paragraph) {
-                        if let special { pending.append(special) }
+                        if let special { pending = special }
                         return block
                     }
                     if let special { return special }

@@ -23,6 +23,18 @@ import Testing
         #expect(flat("Markdown __strong__ stays too.") == "Markdown __strong__ stays too.")
     }
 
+    /// Character normalization is not idempotent: an NBSP or CR followed by a
+    /// zero-width scalar survives the selection-wide pass, so the per-block
+    /// pass still matters, and a CR LF left by it is one character, not a line break.
+    @Test func normalizationEdgeCasesKeepTheirOutput() {
+        #expect(flat("\u{00A0}\u{200C}> quoted.") == "quoted.")
+        #expect(spoken("a\r\u{200C}\n- item") == [["a item"]])
+        #expect(!TextPreparer.needsNormalizing("plain ’text’ é 日本"))
+        for character in ["\r", "\u{00A0}", "\u{200B}", "\u{200C}", "\u{200D}", "\u{2060}", "\u{FEFF}"] {
+            #expect(TextPreparer.needsNormalizing("x" + character + "y"))
+        }
+    }
+
     @Test func shellPipelinesAreNotTables() {
         #expect(spoken("cat log | grep x | wc -l") == [["cat log | grep x | wc -l"]])
         #expect(spoken("Run a | b now.\nThen stop.") == [["Run a | b now.", "Then stop."]])

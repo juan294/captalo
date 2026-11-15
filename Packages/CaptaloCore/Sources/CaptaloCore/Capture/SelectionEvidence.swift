@@ -1,13 +1,24 @@
 import Foundation
 import Synchronization
 
-/// The result of reading one accessibility attribute.
-public enum AXRead<Value: Sendable>: Sendable {
+/// The result of reading one accessibility attribute. `.unsupported` is an
+/// established absence; `.error` means the answer is unknown.
+public enum AXRead<Value> {
     case value(Value)
     /// The element does not support the attribute.
     case unsupported
     /// The call failed (timeout, invalid element, cannot complete).
     case error
+}
+
+extension AXRead: Sendable where Value: Sendable {}
+
+extension AXRead {
+    /// The read value, or nil for an absent or unknown answer.
+    public var value: Value? {
+        if case let .value(value) = self { return value }
+        return nil
+    }
 }
 
 public struct AXTextRange: Equatable, Sendable {

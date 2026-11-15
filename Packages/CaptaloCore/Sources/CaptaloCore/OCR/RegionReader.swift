@@ -32,9 +32,10 @@ public actor OCRSlot {
     public var isReserved: Bool { reserved }
 }
 
-/// Region OCR (plan phase 5, unit 5B). The caller waits at most `timeout`;
-/// the worker that owns the image and the Vision call ends on its own time,
-/// and the slot stays held until it does.
+/// Region OCR (plan phase 5, unit 5B). The caller waits at most `timeout`,
+/// screenshot acquisition included; the worker that owns the capture, the
+/// image and the Vision call ends on its own time, and the slot stays held
+/// until it does.
 public final class RegionReader: Sendable {
     public static let defaultTimeout = Duration.seconds(10)
 
@@ -61,60 +62,58 @@ public final class RegionReader: Sendable {
     public func read(_ token: InputToken, _ selection: RegionSelection) async -> CaptureOutcome {
         let started = ContinuousClock.now
         let outcome = await recognizeRegion(token, selection)
+        PrivacyLog.record(Self.event(for: outcome, elapsed: started.duration(to: .now)))
+        return outcome
+    }
+
+    /// The `ocr` log event for a region outcome: counts and the failure name, never text.
+    public static func event(for outcome: CaptureOutcome, elapsed: Duration) -> PrivacyEvent {
         let (failure, blocks): (CaptureFailure?, Int) = switch outcome {
         case let .failed(category): (category, 0)
         case let .document(recognized): (nil, recognized.count)
         default: (nil, 0)
         }
-        PrivacyLog.record(.ocr(outcome: .init(outcome), failure: failure, blocks: blocks,
-                               characters: outcome.capturedLength, elapsed: started.duration(to: .now)))
-        return outcome
+        return .ocr(outcome: .init(outcome), failure: failure, blocks: blocks,
+                    characters: outcome.capturedLength, elapsed: elapsed)
     }
 
     private func recognizeRegion(_ token: InputToken, _ selection: RegionSelection) async -> CaptureOutcome {
         // 1. Reserve the slot before anything awaits.
         guard await slot.reserve() else { return .failed(.ocrBusy) }
-        // 2. Capture; a failure or cancellation releases the slot.
-        let image: CGImage
-        do {
-            image = try await capturer.capture(selection)
-        } catch {
-            await slot.release()
-            // A capture cut short by a newer input is a cancel, not an OCR failure.
-            return Task.isCancelled ? .cancelled : .failed(.ocrFailed)
-        }
-        // 2a. A newer input superseded this one: drop the image, never start Vision.
-        guard await isCurrent(token) else {
-            await slot.release()
-            return .cancelled
-        }
-        // 2b, 4. The worker owns the image and the reservation; it releases the
-        // slot when the native call has returned or thrown.
-        let slot = self.slot
-        let recognizer = self.recognizer
+        // 2, 4. The worker owns the capture, the image and the reservation; it
+        // releases the slot only when the capture and any Vision call have ended.
+        let (slot, capturer, recognizer, isCurrent) = (self.slot, self.capturer, self.recognizer, self.isCurrent)
         let worker = Task { () -> Result<[TranscriptItem], any Error> in
             let result: Result<[TranscriptItem], any Error>
             do {
-                result = .success(try await recognizer.recognize(image))
+                let image = try await capturer.capture(selection)
+                // 2a. The caller gave up (timeout, cancel) or a newer input
+                // superseded this one: drop the image, never start Vision.
+                let current = await isCurrent(token)
+                result = current && !Task.isCancelled
+                    ? .success(try await recognizer.recognize(image)) : .failure(CancellationError())
             } catch {
                 result = .failure(error)
             }
             await slot.release()
             return result
         }
-        // 3. The caller waits up to `timeout`, then cancels the worker and
-        // returns. A task group would wait for the worker; this race does not.
-        let first = await Self.race(worker, timeout: timeout)
-        guard let first else {
+        // 3. The caller waits up to `timeout` across capture and recognition,
+        // then cancels the worker and returns. A task group would wait for the
+        // worker; this race does not.
+        guard let finished = await Self.race(worker, timeout: timeout) else {
             worker.cancel()
             // A cancelled caller (newer press, quit) is a cancel, never a timeout.
             return Task.isCancelled ? .cancelled : .failed(.ocrTimedOut)
         }
-        // 5. Deliver only to a current input.
+        // 5. Deliver only to a current input. A dropped image (CancellationError)
+        // happens only for an input that is no longer current, so it ends here.
         guard await isCurrent(token) else { return .cancelled }
-        switch first {
+        switch finished {
         case .failure:
-            return .failed(.ocrFailed)
+            // A capture or recognition error is an OCR failure, unless the
+            // caller was cancelled after the worker returned: that is a cancel.
+            return Task.isCancelled ? .cancelled : .failed(.ocrFailed)
         case let .success(items):
             let blocks = DocumentTranscript.blocks(items)
             guard TextPreparer.hasSpeakableText(.document(blocks)) else { return .nothingSelected }
@@ -169,30 +168,43 @@ private final class Race<Value: Sendable>: Sendable {
     }
 }
 
-/// Consecutive region failures (errors and timeouts; not empty regions).
-/// At `threshold`, the settings window's optional OCR row shows the category.
+/// Consecutive region failures (not empty regions), for the settings
+/// window's optional OCR row. Recognition errors and timeouts show after
+/// three in a row; an overlay that could not open (no Esc tap) shows at once.
 public struct OcrFailureCounter: Equatable, Sendable {
-    public static let threshold = 3
-
     public private(set) var consecutive = 0
     public private(set) var lastCategory: CaptureFailure?
 
     public init() {}
 
+    /// How many consecutive failures of this category surface it; nil when it is not counted.
+    public static func threshold(for failure: CaptureFailure) -> Int? {
+        switch failure {
+        case .ocrFailed, .ocrTimedOut: 3
+        case .overlayUnavailable: 1
+        default: nil
+        }
+    }
+
     public var surfacedCategory: CaptureFailure? {
-        consecutive >= Self.threshold ? lastCategory : nil
+        guard let lastCategory, let threshold = Self.threshold(for: lastCategory) else { return nil }
+        return consecutive >= threshold ? lastCategory : nil
     }
 
     public mutating func record(_ outcome: CaptureOutcome) {
         switch outcome {
         case .document:
-            consecutive = 0
-            lastCategory = nil
-        case let .failed(failure) where failure == .ocrFailed || failure == .ocrTimedOut:
-            consecutive += 1
+            self = OcrFailureCounter()
+        case let .failed(failure) where Self.threshold(for: failure) != nil:
+            // Recognition failures count together; an overlay failure is its own streak.
+            let sameStreak = lastCategory.map { ($0 == .overlayUnavailable) == (failure == .overlayUnavailable) } ?? false
+            consecutive = sameStreak ? consecutive + 1 : 1
             lastCategory = failure
+        case .cancelled:
+            break // can come before the overlay opened: it proves nothing
         default:
-            break
+            // Any other outcome means the overlay opened.
+            if lastCategory == .overlayUnavailable { self = OcrFailureCounter() }
         }
     }
 }

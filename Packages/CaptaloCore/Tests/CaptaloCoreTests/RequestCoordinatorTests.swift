@@ -6,10 +6,10 @@ import Testing
         let log = EventLog()
         let coordinator = makeCoordinator(log: log)
         let gate = Gate()
-        let first = await coordinator.submit(kind: .selection, source: sourceA) { _ in
+        let first = await coordinator.submit(coordinator.reservePress(), kind: .selection, source: sourceA) { _ in
             await gate.wait(); return .text("first", layer: .accessibility)
         }
-        let second = await coordinator.submit(kind: .selection, source: sourceA) { _ in
+        let second = await coordinator.submit(coordinator.reservePress(), kind: .selection, source: sourceA) { _ in
             await gate.wait(); return .text("second", layer: .accessibility)
         }
         await gate.open()
@@ -24,7 +24,7 @@ import Testing
         let token = await coordinator.beginInput(kind: .selection, source: sourceA)
         _ = await coordinator.resolve(token, .text("reading", layer: .accessibility))
         let gate = Gate()
-        _ = await coordinator.submit(kind: .region, source: sourceB) { _ in await gate.wait(); return .cancelled }
+        _ = await coordinator.submit(coordinator.reservePress(), kind: .region, source: sourceB) { _ in await gate.wait(); return .cancelled }
         // The pending input exists, but the session is untouched until it resolves.
         #expect(log.events == ["start 1:reading"])
         #expect(await coordinator.currentSession != nil)
@@ -174,7 +174,7 @@ import Testing
         _ = await coordinator.resolve(playing, .text("playing", layer: .accessibility))
         let copySent = Gate()
         let release = Gate()
-        _ = await coordinator.submit(kind: .selection, source: sourceA) { _ in
+        _ = await coordinator.submit(coordinator.reservePress(), kind: .selection, source: sourceA) { _ in
             // Models a clipboard transaction after Copy: its cleanup ignores cancellation.
             await Task {
                 await copySent.open()
@@ -205,5 +205,69 @@ import Testing
             _ = await coordinator.resolve(token, .text("Toggle me.", layer: .accessibility))
         }
         #expect(log.events == ["start 1:Toggle me.", "stop 1:Toggle me."])
+    }
+}
+
+/// VAL-01: a press reserves its order when the shortcut fires; the source
+/// lookup runs afterwards and can finish in any order.
+@Suite struct PressOrderTests {
+    /// Lookup A blocks, press B completes, then A's lookup finishes. B stays
+    /// current; A runs no capture (no Copy, speech or overlay work).
+    @Test(arguments: [InputKind.selection, .region])
+    func lateLookupOfOlderPressHasNoEffect(kindA: InputKind) async {
+        let log = EventLog()
+        let coordinator = makeCoordinator(log: log)
+        let a = coordinator.reservePress()
+        let lookupA = Gate()
+        let pressA = Task {
+            await lookupA.wait()
+            return await coordinator.submit(a, kind: kindA, source: sourceA) { _ in
+                log.append("capture A"); return kindA == .region ? .document([.paragraph("A")]) : .text("A", layer: .accessibility)
+            }
+        }
+        let b = coordinator.reservePress()
+        let tokenB = await coordinator.submit(b, kind: .selection, source: sourceB) { _ in
+            log.append("capture B"); return .text("B", layer: .accessibility)
+        }
+        await coordinator.waitForIdle()
+        await lookupA.open()
+        let tokenA = await pressA.value
+        await coordinator.waitForIdle()
+        #expect(tokenA == nil)
+        #expect(log.events == ["capture B", "start 1:B"])
+        #expect(await coordinator.currentSession == SessionToken(sessionGeneration: 1))
+        if let tokenB { #expect(await coordinator.isCurrent(tokenB)) } else { Issue.record("press B was rejected") }
+    }
+
+    /// Two presses on the playing text: the newer one stops the reading, and
+    /// the older one's late lookup must not start it again.
+    @Test func twoPressesOnSameTextStopOnce() async {
+        let log = EventLog()
+        let coordinator = makeCoordinator(log: log)
+        let playing = await coordinator.beginInput(kind: .selection, source: sourceA)
+        _ = await coordinator.resolve(playing, .text("same", layer: .accessibility))
+        let a = coordinator.reservePress()
+        let b = coordinator.reservePress()
+        _ = await coordinator.submit(b, kind: .selection, source: sourceA) { _ in .text("same", layer: .accessibility) }
+        await coordinator.waitForIdle()
+        _ = await coordinator.submit(a, kind: .selection, source: sourceA) { _ in .text("same", layer: .accessibility) }
+        await coordinator.waitForIdle()
+        #expect(log.events == ["start 1:same", "stop 1:same"])
+        #expect(await coordinator.currentSession == nil)
+    }
+
+    /// A reservation supersedes the pending input at once, before its own lookup ends.
+    @Test func reservationSupersedesPendingInput() async {
+        let log = EventLog()
+        let coordinator = makeCoordinator(log: log)
+        let gate = Gate()
+        let pending = await coordinator.submit(coordinator.reservePress(), kind: .selection, source: sourceA) { _ in
+            await gate.wait(); return .text("old", layer: .accessibility)
+        }
+        _ = coordinator.reservePress()
+        if let pending { #expect(await coordinator.isCurrent(pending) == false) } else { Issue.record("first press was rejected") }
+        await gate.open()
+        await coordinator.waitForIdle()
+        #expect(log.events.isEmpty)
     }
 }

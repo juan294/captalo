@@ -14,7 +14,10 @@ public struct SynthesisUnit: Equatable, Sendable {
 /// longer than `maxLength` is split at the last whitespace or pause
 /// punctuation before the limit, or at a grapheme-cluster boundary when an
 /// unbroken token leaves no other break. The first unit of a reading is
-/// capped at `firstMaxLength`. No unit crosses a paragraph.
+/// capped at `firstMaxLength`. No unit crosses a paragraph. Each `next()`
+/// cuts one unit; only the next sentence of the paragraph is looked ahead
+/// (to mark the paragraph end), so work before a unit never grows with the
+/// paragraph (VAL-05).
 public struct UnitChunker<Paragraphs: Sequence>: Sequence where Paragraphs.Element == Paragraph {
     public static var maxLength: Int { 400 }
     public static var firstMaxLength: Int { 160 }
@@ -31,47 +34,45 @@ public struct UnitChunker<Paragraphs: Sequence>: Sequence where Paragraphs.Eleme
 
     public struct Iterator: IteratorProtocol {
         var paragraphs: Paragraphs.Iterator
-        var queue: [SynthesisUnit] = []
+        /// The current paragraph's remaining sentences, and the one after the current sentence.
+        var sentences = SentenceIterator.list([].makeIterator())
+        var upcoming: String?
+        /// The uncut rest of the current sentence.
+        var rest: Substring = ""
+        var paragraphID = -1
+        var sentenceID = -1
         var nextUnitID = 0
-        var nextParagraphID = 0
-        var nextSentenceID = 0
         var firstUnitCut = false
         /// Paragraphs pulled from the source so far (laziness checks).
-        public private(set) var paragraphsPulled = 0
+        private(set) var paragraphsPulled = 0
 
         public mutating func next() -> SynthesisUnit? {
-            while queue.isEmpty {
-                guard let paragraph = paragraphs.next() else { return nil }
-                paragraphsPulled += 1
-                enqueue(paragraph)
-            }
-            return queue.removeFirst()
-        }
-
-        private mutating func enqueue(_ paragraph: Paragraph) {
-            let paragraphID = nextParagraphID
-            nextParagraphID += 1
-            for (sentenceIndex, sentence) in paragraph.sentences.enumerated() {
-                let sentenceID = nextSentenceID
-                nextSentenceID += 1
-                var rest = Substring(sentence)
-                var pieces: [Substring] = []
-                while !rest.isEmpty {
+            while true {
+                if !rest.isEmpty {
                     let limit = firstUnitCut ? UnitChunker.maxLength : UnitChunker.firstMaxLength
                     firstUnitCut = true
                     let (head, tail) = UnitChunker.split(rest, limit: limit)
-                    if !head.isEmpty { pieces.append(head) }
                     rest = tail
+                    // An empty head means only whitespace was left (and the tail is empty).
+                    guard !head.isEmpty else { continue }
+                    let endsSentence = tail.isEmpty
+                    defer { nextUnitID += 1 }
+                    return SynthesisUnit(
+                        id: nextUnitID, paragraphID: paragraphID, sentenceID: sentenceID, text: String(head),
+                        endsSentence: endsSentence, endsParagraph: endsSentence && upcoming == nil
+                    )
                 }
-                for (index, piece) in pieces.enumerated() {
-                    let lastPiece = index == pieces.count - 1
-                    queue.append(SynthesisUnit(
-                        id: nextUnitID, paragraphID: paragraphID, sentenceID: sentenceID, text: String(piece),
-                        endsSentence: lastPiece,
-                        endsParagraph: lastPiece && sentenceIndex == paragraph.sentences.count - 1
-                    ))
-                    nextUnitID += 1
+                if let sentence = upcoming {
+                    upcoming = sentences.next()
+                    sentenceID += 1
+                    rest = Substring(sentence)
+                    continue
                 }
+                guard let paragraph = paragraphs.next() else { return nil }
+                paragraphsPulled += 1
+                paragraphID += 1
+                sentences = paragraph.makeSentenceIterator()
+                upcoming = sentences.next()
             }
         }
     }

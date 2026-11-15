@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
 """Release-probe completeness check (plan phase 3, unit 3D, make completeness-test).
 
-Structural gate: every unit completed exactly once in order, no unit over
-35 s, queued seconds never over 105, for every bundled voice. Measurements on
-the ~20,000-character unpunctuated fixture: first audio, peak footprint, stop
-latency mid-reading and the replay span after a simulated device change.
+Structural gate: exactly one summary per manifest voice (no missing,
+duplicated or extra voice), every unit completed exactly once in order, no
+unit over 35 s, queued seconds never over 105. The long, stop and
+device-change runs must each emit their required record; a missing record is
+a failure. Stop latencies must be non-negative numbers and the stopped run's
+summary must say "stopped"; unit records for a voice a run did not read, and
+missing or mistyped fields, are named failures. Measurements on the ~20,000-character unpunctuated fixture: first
+audio, peak footprint, stop latency mid-reading and the replay span after a
+simulated device change.
 
 The speech-recognition round trip needs a test-only recognizer download that
 was not approved, so it is recorded as "not run"; the owner's listening audit
@@ -16,6 +21,7 @@ import os
 import shutil
 import subprocess
 import sys
+from contextlib import contextmanager
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -57,51 +63,105 @@ def main():
             return []
         return [json.loads(line) for line in out.read_text().splitlines()]
 
-    records = synth("completeness", "speech-completeness.txt", "--voices", ",".join(manifest["voices"]))
-    for summary in [r for r in records if r["kind"] == "summary"]:
-        voice = summary["voice"]
-        units = {r["unit"] for r in records if r["kind"] == "unit" and r["voice"] == voice}
-        unit_records = [r for r in records if r["kind"] == "unit" and r["voice"] == voice]
+    def grouped(records):
+        """A run's records by (kind, voice), built once per run."""
+        groups = {}
+        for r in records:
+            groups.setdefault((r.get("kind"), r.get("voice")), []).append(r)
+        return groups
+
+    def one(groups, label, kind, voice):
+        """The run's single `kind` record for `voice`, or a failure: a missing record never passes."""
+        found = [r for (k, _), rs in groups.items() if k == kind for r in rs]
+        if len(found) != 1 or found[0].get("voice") != voice:
+            failures.append(f"{label}: expected one {kind} record for {voice}, found "
+                            f"{[r.get('voice') for r in found] or 'none'}")
+            return None
+        return found[0]
+
+    @contextmanager
+    def field_guard(label):
+        """A missing or mistyped field is a named failure, never a traceback."""
+        try:
+            yield
+        except (KeyError, TypeError) as error:
+            failures.append(f"{label}: missing or malformed field {error}")
+
+    def only_voices(groups, label, voices):
+        """Unit records for a voice the run did not ask for fail; they are never ignored."""
+        failures.extend(f"{label}: unit records for {v}, which this run did not read"
+                        for v in sorted({str(v) for k, v in groups if k == "unit"} - set(voices)))
+
+    def reading_checks(summary, groups, voice, reassembles=True):
+        """A finished reading: every expected unit played once, in order, each unit record complete."""
+        units = groups.get(("unit", voice), [])
         checks = {
             "finished": summary["outcome"] == "finished",
-            "every expected unit played exactly once, in order": summary["playedExactlyOnceInOrder"],
-            "synthesized pieces reassemble the prepared text": summary["textReassembles"],
+            "played every expected unit": summary["expectedUnits"] > 0 and summary["units"] == summary["expectedUnits"],
+            "every expected unit played exactly once, in order": summary["playedExactlyOnceInOrder"] is True,
             "every unit record completed, with phonemes and normalized text":
-                bool(unit_records) and all(r["completed"] and r["phonemes"] > 0 and r["normalizedText"] for r in unit_records),
+                bool(units) and all(r["completed"] is True and r["phonemes"] > 0 and bool(r["normalizedText"]) for r in units),
             "no unit over 35 s": summary["maxUnitSeconds"] <= MAX_UNIT,
         }
-        failures += [f"{voice}: {name}" for name, ok in checks.items() if not ok]
-        evidence.setdefault("voices", {})[voice] = {**{k: summary[k] for k in ("units", "maxUnitSeconds", "maxQueuedSeconds", "firstAudioMs", "totalMs", "peakFootprintMB", "oversizeSplits")}, "checks": checks}
+        if reassembles:
+            checks["synthesized pieces reassemble the prepared text"] = summary["textReassembles"] is True
+        return checks
+
+    def is_duration(value):
+        return isinstance(value, (int, float)) and not isinstance(value, bool) and value >= 0
+
+    keys = ("units", "maxUnitSeconds", "maxQueuedSeconds", "firstAudioMs", "totalMs", "peakFootprintMB", "oversizeSplits")
+    records = grouped(synth("completeness", "speech-completeness.txt", "--voices", ",".join(manifest["voices"])))
+    only_voices(records, "completeness", manifest["voices"])
+    summaries = {v: rs for (k, v), rs in records.items() if k == "summary"}
+    # The exact manifest inventory: no missing, duplicated or extra voice.
+    failures += [f"{v}: no summary" for v in manifest["voices"] if v not in summaries]
+    failures += [f"{v}: {len(found)} summaries" for v, found in summaries.items() if len(found) > 1]
+    failures += [f"{v}: not in the manifest" for v in summaries if v not in manifest["voices"]]
+    for voice in [v for v in manifest["voices"] if len(summaries.get(v, [])) == 1]:
+        summary = summaries[voice][0]
+        with field_guard(voice):
+            checks = reading_checks(summary, records, voice)
+            failures.extend(f"{voice}: {name}" for name, ok in checks.items() if not ok)
+            evidence.setdefault("voices", {})[voice] = {**{k: summary[k] for k in keys}, "checks": checks}
 
     voice = manifest["voices"][0]
-    long_full = [r for r in synth("long", "speech-long-unpunctuated.txt", "--voices", voice) if r["kind"] == "summary"]
-    long_stop = [r for r in synth("long-stop", "speech-long-unpunctuated.txt", "--voices", voice, "--pace", "20",
-                                  "--stop-after-units", "5") if r["kind"] == "stop"]
-    long_device = [r for r in synth("long-device", "speech-long-unpunctuated.txt", "--voices", voice, "--pace", "20",
-                                    "--device-change-after-units", "3") if r["kind"] in ("deviceChange", "summary")]
-    if long_full:
-        s = long_full[0]
-        evidence["long"] = {k: s[k] for k in ("units", "maxUnitSeconds", "maxQueuedSeconds", "firstAudioMs", "totalMs", "peakFootprintMB", "oversizeSplits")}
-        if s["outcome"] != "finished" or not s["playedExactlyOnceInOrder"] or not s["textReassembles"] or s["maxUnitSeconds"] > MAX_UNIT:
-            failures.append("long fixture: structural check failed")
-    if long_stop:
-        evidence["stop"] = {k: long_stop[0][k] for k in ("stopToSilenceMs", "stopToIdleMs")}
-    device = [r for r in long_device if r["kind"] == "deviceChange"]
-    device_summary = [r for r in long_device if r["kind"] == "summary"]
-    if device:
-        evidence["deviceChange"] = {"replayedUnits": device[0]["replayedUnits"], "replaySpanSeconds": device[0]["replaySpanSeconds"]}
-        if len(device[0]["replayedUnits"]) != 1:
-            failures.append("device change: expected exactly one replayed (audible) unit")
-    if device_summary:
-        d = device_summary[0]
-        evidence["pacedQueue"] = {"maxQueuedSeconds": d["maxQueuedSeconds"], "maxRetained": d["maxRetained"]}
-        if d["outcome"] != "finished" or not d["playedExactlyOnceInOrder"]:
-            failures.append("device change: reading did not finish with every unit once, in order")
-        # The paced run fills the queue, so the bound is exercised, not vacuous.
-        if not 0 < d["maxQueuedSeconds"] <= MAX_QUEUED:
-            failures.append(f"paced queue bound: maxQueuedSeconds {d['maxQueuedSeconds']} not in (0, {MAX_QUEUED}]")
-    else:
-        failures.append("device change: no paced summary")
+    long_full = grouped(synth("long", "speech-long-unpunctuated.txt", "--voices", voice))
+    long_stop = grouped(synth("long-stop", "speech-long-unpunctuated.txt", "--voices", voice, "--pace", "20",
+                              "--stop-after-units", "5"))
+    long_device = grouped(synth("long-device", "speech-long-unpunctuated.txt", "--voices", voice, "--pace", "20",
+                                "--device-change-after-units", "3"))
+    for label, groups in (("long", long_full), ("long-stop", long_stop), ("long-device", long_device)):
+        only_voices(groups, label, [voice])
+
+    if s := one(long_full, "long", "summary", voice):
+        with field_guard("long"):
+            evidence["long"] = {k: s[k] for k in keys}
+            failures.extend(f"long fixture: {name}" for name, ok in reading_checks(s, long_full, voice).items() if not ok)
+    stop, stop_summary = one(long_stop, "long-stop", "stop", voice), one(long_stop, "long-stop", "summary", voice)
+    if stop:
+        with field_guard("long-stop"):
+            evidence["stop"] = {k: stop[k] for k in ("stopToSilenceMs", "stopToIdleMs")}
+            failures.extend(f"stop: {k} {stop[k]!r} is not a non-negative number"
+                            for k in ("stopToSilenceMs", "stopToIdleMs") if not is_duration(stop[k]))
+    if stop_summary:
+        with field_guard("long-stop"):
+            if stop_summary["outcome"] != "stopped":
+                failures.append(f"stop: outcome {stop_summary['outcome']!r}, expected 'stopped'")
+    if device := one(long_device, "long-device", "deviceChange", voice):
+        with field_guard("long-device"):
+            evidence["deviceChange"] = {"replayedUnits": device["replayedUnits"], "replaySpanSeconds": device["replaySpanSeconds"]}
+            if len(device["replayedUnits"]) != 1:
+                failures.append("device change: expected exactly one replayed (audible) unit")
+    if d := one(long_device, "long-device", "summary", voice):
+        with field_guard("long-device"):
+            evidence["pacedQueue"] = {"maxQueuedSeconds": d["maxQueuedSeconds"], "maxRetained": d["maxRetained"]}
+            # As before, text reassembly is checked on the unpaced runs only.
+            failures.extend(f"device change: {name}" for name, ok in
+                            reading_checks(d, long_device, voice, reassembles=False).items() if not ok)
+            # The paced run fills the queue, so the bound is exercised, not vacuous.
+            if not 0 < d["maxQueuedSeconds"] <= MAX_QUEUED:
+                failures.append(f"paced queue bound: maxQueuedSeconds {d['maxQueuedSeconds']} not in (0, {MAX_QUEUED}]")
 
     evidence["failures"] = failures
     target = ROOT / ".local" / "completeness" / f"{stamp}.json"

@@ -180,6 +180,48 @@ struct Fixture {
         lease.release()
     }
 
+    /// VAL-07: install A, install B, damage B, upgrade to C. The outgoing
+    /// current (B) fails validation, so it never becomes the rollback version:
+    /// valid A stays previous and damaged B is reclaimed.
+    @Test func damagedOutgoingVersionNeverReplacesValidPrevious() throws {
+        let f = try Fixture(version: "a"); defer { f.cleanup() }
+        var versions: [(bundle: URL, manifest: ModelManifest)] = []
+        for name in ["a", "b", "c"] {
+            let bundle = f.base.appendingPathComponent("version-\(name)")
+            try Fixture.write(bundle, ["kokoro/vocab.json": "{\"version\": \"\(name)\"}", "kokoro/voices/af_heart.bin": name])
+            versions.append((bundle, try ModelManifest.scan(bundle, voices: ["af_heart"])))
+        }
+        let store = ModelStore(root: f.root)
+        let a = try store.activate(from: versions[0].bundle, manifest: versions[0].manifest)
+        let b = try store.activate(from: versions[1].bundle, manifest: versions[1].manifest)
+        try f.corrupt("kokoro/vocab.json", in: b)
+        let c = try store.activate(from: versions[2].bundle, manifest: versions[2].manifest)
+        #expect(Set(f.entries().filter(ModelStore.isHash)) == [a.lastPathComponent, c.lastPathComponent])
+        #expect(ManifestValidator.validate(a, against: versions[0].manifest) == nil)
+        #expect(store.currentDirectory(for: versions[2].manifest) == .success(c))
+        // A later healthy upgrade still promotes the valid outgoing version (C) and reclaims A.
+        let dBundle = f.base.appendingPathComponent("version-d")
+        try Fixture.write(dBundle, ["kokoro/vocab.json": "{\"version\": \"d\"}"])
+        let d = try store.activate(from: dBundle, manifest: try ModelManifest.scan(dBundle, voices: ["af_heart"]))
+        #expect(Set(f.entries().filter(ModelStore.isHash)) == [c.lastPathComponent, d.lastPathComponent])
+    }
+
+    /// N4: an unreadable manifest record is rewritten at the next activation,
+    /// so its version can still become the rollback version.
+    @Test func unreadableManifestRecordIsRewritten() throws {
+        let f = try Fixture(version: "a"); defer { f.cleanup() }
+        let store = ModelStore(root: f.root)
+        let a = try store.activate(from: f.bundle, manifest: f.manifest)
+        let record = f.root.appendingPathComponent(".manifests/\(f.manifest.contentHash).json")
+        try Data("not a manifest".utf8).write(to: record)
+        try store.activate(from: f.bundle, manifest: f.manifest) // the next launch
+        #expect(try ModelManifest.load(from: record) == f.manifest)
+        let bBundle = f.base.appendingPathComponent("version-b")
+        try Fixture.write(bBundle, ["kokoro/vocab.json": "{\"version\": \"b\"}"])
+        let b = try store.activate(from: bBundle, manifest: try ModelManifest.scan(bBundle, voices: ["af_heart"]))
+        #expect(Set(f.entries().filter(ModelStore.isHash)) == [a.lastPathComponent, b.lastPathComponent])
+    }
+
     @Test func damagedStoreRefusesBeforeEngine() async throws {
         let f = try Fixture(); defer { f.cleanup() }
         let store = ModelStore(root: f.root)

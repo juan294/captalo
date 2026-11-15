@@ -4,25 +4,46 @@ import CaptaloCore
 /// The region overlay (plan phase 5, unit 5A; gate 0 choices in the notes).
 /// One borderless, non-activating panel per screen that never becomes key,
 /// so the source app stays frontmost with its key window. Esc is caught by a
-/// session event tap (Accessibility is already granted) and swallowed, so it
-/// never reaches the source app. Every exit tears down in one place.
+/// session event tap (Accessibility is already granted) and swallowed whole,
+/// keyDown and keyUp, so it never reaches the source app (VAL-08). Every
+/// exit tears down in one place.
 @MainActor
 final class RegionOverlayController {
+    enum Outcome {
+        case selected(RegionSelection)
+        case cancelled
+        /// The Esc tap could not be created; no panel was shown.
+        case escapeUnavailable
+    }
+
     private var panels: [RegionPanel] = []
     private var tracker: RegionSelectionTracker?
     private var continuation: CheckedContinuation<RegionSelection?, Never>?
     private var screenObserver: NSObjectProtocol?
-    private var escapeTap: EscapeTap?
+    private var escape: EscapeContainment?
     /// Set by a cancel that arrives before the overlay is shown.
     private var cancelled = false
 
-    /// Shows the overlay and returns the selected region, or nil for any cancel.
-    func select() async -> RegionSelection? {
-        if cancelled { return nil }
-        return await withCheckedContinuation { continuation in
+    /// Shows the overlay and returns the selected region or why there is none.
+    func select() async -> Outcome {
+        if cancelled { return .cancelled }
+        // The tap comes first: panels without a working Esc are never shown.
+        let escape = EscapeContainment(tap: SessionKeyTap(), schedule: { delay, body in
+            Task { @MainActor in
+                try? await Task.sleep(for: delay)
+                body()
+            }
+        }) { [weak self] in
+            // Torn down after the tap callback returns, not inside it.
+            DispatchQueue.main.async { self?.tracker?.handle(.escape) }
+        }
+        guard escape.start() else { return .escapeUnavailable }
+        self.escape = escape
+        let selection = await withCheckedContinuation { continuation in
             self.continuation = continuation
             show()
         }
+        return selection.map(Outcome.selected) ?? .cancelled
     }
 
     /// A newer input superseded the region press (before or after the overlay opened).
@@ -55,9 +76,6 @@ final class RegionOverlayController {
         ) { [weak self] _ in
             MainActor.assumeIsolated { self?.tracker?.handle(.screensChanged) }
         }
-        escapeTap = EscapeTap { [weak self] in
-            self?.tracker?.handle(.escape)
-        }
     }
 
     private func tearDown(_ selection: RegionSelection?) {
@@ -66,8 +84,9 @@ final class RegionOverlayController {
         NSCursor.pop()
         if let screenObserver { NotificationCenter.default.removeObserver(screenObserver) }
         screenObserver = nil
-        escapeTap?.invalidate()
-        escapeTap = nil
+        // Kept until a held Esc's keyUp (bounded), so the source never sees it.
+        escape?.finish()
+        escape = nil
         tracker = nil
         let continuation = self.continuation
         self.continuation = nil
@@ -138,50 +157,68 @@ final class RegionView: NSView {
     }
 }
 
-/// Swallows Esc while the overlay is visible, so the source app never sees it.
+/// A session `CGEventTap` for keyDown and keyUp, on the main run loop.
+/// `EscapeContainment` decides what it swallows.
 @MainActor
-final class EscapeTap {
+final class SessionKeyTap: KeyEventTap {
     private var source: CFRunLoopSource?
-    private let box: Box
+    private let box = Box()
 
-    final class Box {
-        let onEscape: () -> Void
+    nonisolated final class Box: @unchecked Sendable {
+        var handler: (@MainActor (KeyEvent) -> Bool)?
         var tap: CFMachPort?
-        init(_ onEscape: @escaping () -> Void) { self.onEscape = onEscape }
     }
 
-    init(onEscape: @escaping () -> Void) {
-        box = Box(onEscape)
-        let mask = CGEventMask(1 << CGEventType.keyDown.rawValue)
+    func install(_ handler: @escaping @MainActor (KeyEvent) -> Bool) -> Bool {
+        let mask = CGEventMask(1 << CGEventType.keyDown.rawValue) | CGEventMask(1 << CGEventType.keyUp.rawValue)
         let callback: CGEventTapCallBack = { _, type, event, info in
             guard let info else { return Unmanaged.passUnretained(event) }
-            let box = Unmanaged<EscapeTap.Box>.fromOpaque(info).takeUnretainedValue()
+            let box = Unmanaged<SessionKeyTap.Box>.fromOpaque(info).takeUnretainedValue()
             // The system disables a tap that is slow or interrupted; turn it back on.
             if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
                 if let tap = box.tap { CGEvent.tapEnable(tap: tap, enable: true) }
                 return Unmanaged.passUnretained(event)
             }
-            guard type == .keyDown, event.getIntegerValueField(.keyboardEventKeycode) == 53 else {
-                return Unmanaged.passUnretained(event)
+            let phase: KeyEvent.Phase
+            switch type {
+            case .keyDown: phase = .down
+            case .keyUp: phase = .up
+            default: return Unmanaged.passUnretained(event)
             }
-            DispatchQueue.main.async { box.onEscape() }
-            return nil
+            // Only Esc is ever swallowed: every other key passes without a handler call.
+            let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
+            guard keyCode == KeyEvent.escapeKeyCode else { return Unmanaged.passUnretained(event) }
+            let key = KeyEvent(phase: phase, keyCode: keyCode,
+                               isRepeat: event.getIntegerValueField(.keyboardEventAutorepeat) != 0)
+            // The run loop source is on the main run loop, so this is the main thread.
+            let swallow = MainActor.assumeIsolated { box.handler?(key) ?? false }
+            return swallow ? nil : Unmanaged.passUnretained(event)
         }
-        let tap = CGEvent.tapCreate(tap: .cgSessionEventTap, place: .headInsertEventTap, options: .defaultTap,
-                                eventsOfInterest: mask, callback: callback,
-                                userInfo: Unmanaged.passUnretained(box).toOpaque())
+        guard let tap = CGEvent.tapCreate(tap: .cgSessionEventTap, place: .headInsertEventTap, options: .defaultTap,
+                                          eventsOfInterest: mask, callback: callback,
+                                          userInfo: Unmanaged.passUnretained(box).toOpaque()) else { return false }
+        guard let source = CFMachPortCreateRunLoopSource(nil, tap, 0) else {
+            CFMachPortInvalidate(tap)
+            return false
+        }
+        box.handler = handler
         box.tap = tap
-        if let tap {
-            source = CFMachPortCreateRunLoopSource(nil, tap, 0)
-            CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
-            CGEvent.tapEnable(tap: tap, enable: true)
-        }
+        self.source = source
+        CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
+        CGEvent.tapEnable(tap: tap, enable: true)
+        return true
     }
 
-    func invalidate() {
+    /// A tap dropped without `remove()` must not outlive the box its callback reads.
+    isolated deinit {
+        remove()
+    }
+
+    func remove() {
         if let tap = box.tap { CGEvent.tapEnable(tap: tap, enable: false); CFMachPortInvalidate(tap) }
         if let source { CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes) }
         source = nil
         box.tap = nil
+        box.handler = nil
     }
 }

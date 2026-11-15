@@ -106,3 +106,55 @@ import Testing
         #expect(iterator.paragraphsPulled == 4)
     }
 }
+
+/// VAL-05: preparation stays lazy within one very large paragraph, through
+/// the production chain `TextPreparer.units(for:)`.
+@Suite struct LargeParagraphPreparationTests {
+    static let sentenceCount = 20_000
+    /// About 0.7 MB in a single paragraph (no blank line).
+    static let paragraph = (0..<sentenceCount).map { "Sentence number \($0) reads aloud." }.joined(separator: " ")
+
+    @Test func firstUnitThroughTheProductionChain() {
+        let units = TextPreparer.units(for: .text(Self.paragraph))
+        #expect(units.next()?.text == "Sentence number 0 reads aloud.")
+        #expect(units.next()?.text == "Sentence number 1 reads aloud.")
+    }
+
+    /// The tokenizer and the chunker both run on demand: the first unit costs
+    /// one sentence (plus one looked ahead) and one unit, and stopping midway
+    /// stops preparation. Segmenting or cutting the whole paragraph up front
+    /// (even behind a lazy chunker) fails this test (N1).
+    @Test func paragraphIsSegmentedOnDemand() {
+        let counter = SegmentationCounter()
+        SegmentationCounter.$current.withValue(counter) {
+            var iterator = TextPreparer.unitIterator(for: .text(Self.paragraph))
+            #expect(iterator.next()?.text == "Sentence number 0 reads aloud.")
+            #expect(counter.value <= 2)
+            #expect(iterator.nextUnitID == 1)
+            for _ in 0..<3 { _ = iterator.next() } // the audible unit plus the lookahead, then stop
+            #expect(counter.value <= 5)
+            #expect(iterator.nextUnitID == 4)
+        }
+        let whole = SegmentationCounter()
+        SegmentationCounter.$current.withValue(whole) { _ = Paragraph(text: Self.paragraph).sentences }
+        #expect(whole.value == Self.sentenceCount) // the counter sees every tokenized sentence
+    }
+
+    @Test func oneHugeSentenceIsCutOnDemand() {
+        // 200,000 characters with no sentence end: 500 units of at most 400 characters.
+        let sentence = Array(repeating: "word", count: 40_000).joined(separator: " ")
+        var iterator = TextPreparer.unitIterator(for: .text(sentence))
+        let first = iterator.next()
+        #expect(first.map { $0.text.count <= UnitChunker<[Paragraph]>.firstMaxLength } == true)
+        #expect(first?.endsSentence == false)
+        #expect(iterator.nextUnitID == 1)
+    }
+
+    @Test func lazyUnitsMatchTheWholeParagraph() {
+        let all = Array(AnySequence { TextPreparer.units(for: .text(Self.paragraph)) })
+        #expect(all.count == Self.sentenceCount)
+        #expect(all.map(\.id) == Array(0..<Self.sentenceCount))
+        #expect(all.last?.endsParagraph == true)
+        #expect(all.dropLast().allSatisfy { !$0.endsParagraph && $0.endsSentence })
+    }
+}

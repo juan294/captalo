@@ -19,26 +19,12 @@ nonisolated enum AX {
         prepared(AXUIElementCreateSystemWide())
     }
 
-    enum Status { case success, unsupported, error }
-
-    /// The one AX error policy: unsupported attributes and missing values
-    /// are `.unsupported`; every other failure is `.error`.
-    static func status(_ error: AXError) -> Status {
-        switch error {
-        case .success: .success
-        case .attributeUnsupported, .parameterizedAttributeUnsupported, .noValue: .unsupported
-        default: .error
-        }
-    }
-
+    /// Every read goes through the one AX error policy, `AXStatus` in
+    /// CaptaloCore: unsupported attributes and missing values are
+    /// `.unsupported`; every other failure is `.error`.
     static func classify<T>(_ error: AXError, _ value: CFTypeRef?, _ convert: (CFTypeRef) -> T?) -> AXRead<T> {
-        switch status(error) {
-        case .success:
-            guard let value, let converted = convert(value) else { return .error }
-            return .value(converted)
-        case .unsupported: return .unsupported
-        case .error: return .error
-        }
+        let raw: AXRawResult<CFTypeRef> = if error == .success, let value { .value(value) } else { .failed(error.rawValue) }
+        return AXStatus.classify(raw, convert)
     }
 
     static func read<T>(_ element: AXUIElement, _ attribute: String, _ convert: (CFTypeRef) -> T?) -> AXRead<T> {
@@ -57,28 +43,20 @@ nonisolated enum AX {
         CFGetTypeID(value) == AXUIElementGetTypeID() ? (value as! AXUIElement) : nil
     }
 
-    /// `AXRead` needs a Sendable value; elements are read with this local form.
-    enum ElementRead {
-        case value(AXUIElement)
-        case unsupported
-        case error
+    static func element(_ parent: AXUIElement, _ attribute: String) -> AXRead<AXUIElement> {
+        read(parent, attribute) { asElement($0).map(prepared) }
     }
 
-    static func element(_ parent: AXUIElement, _ attribute: String) -> ElementRead {
-        var value: CFTypeRef?
-        switch status(AXUIElementCopyAttributeValue(parent, attribute as CFString, &value)) {
-        case .success:
-            guard let value, let element = asElement(value) else { return .error }
-            return .value(prepared(element))
-        case .unsupported: return .unsupported
-        case .error: return .error
+    /// One value from `AXUIElementCopyMultipleAttributeValues`, as a raw
+    /// result for `AXStatus.classify`: a failed attribute arrives as an
+    /// AXValue holding its AXError, and an absent value as CFNull.
+    static func entry(_ value: AnyObject) -> AXRawResult<CFTypeRef> {
+        if CFGetTypeID(value) == CFNullGetTypeID() { return .null }
+        if CFGetTypeID(value) == AXValueGetTypeID(), AXValueGetType(value as! AXValue) == .axError {
+            var error = AXError.failure
+            _ = AXValueGetValue(value as! AXValue, .axError, &error)
+            return .failed(error.rawValue)
         }
-    }
-
-    static func children(_ parent: AXUIElement) -> [AXUIElement] {
-        var value: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(parent, kAXChildrenAttribute as CFString, &value) == .success,
-              let children = value as? [AXUIElement] else { return [] }
-        return children.map(prepared)
+        return .value(value)
     }
 }

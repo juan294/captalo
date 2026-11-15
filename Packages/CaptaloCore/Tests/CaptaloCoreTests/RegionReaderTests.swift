@@ -96,6 +96,8 @@ let words = [TranscriptItem(.paragraph("Read this region."), bounds: CGRect(x: 0
         read.cancel()
         await capturer.gate.open()
         #expect(await read.value == .cancelled)
+        // The worker releases the slot when the capture ends, not when the caller returns.
+        await eventually { await !slot.isReserved }
         #expect(await !slot.isReserved)
     }
 
@@ -113,6 +115,56 @@ let words = [TranscriptItem(.paragraph("Read this region."), bounds: CGRect(x: 0
         #expect(await slot.isReserved)
         await recognizer.gate.open()
         await eventually { await !slot.isReserved }
+    }
+
+    /// VAL-09: the caller deadline covers screenshot acquisition. A blocked capture
+    /// times the caller out on schedule; the slot stays held until the capture
+    /// ends, and an image that arrives after the caller gave up never reaches Vision.
+    @Test func callerDeadlineCoversBlockedCapture() async {
+        let capturer = BlockedCapturer(blocked: true)
+        let recognizer = BlockedRecognizer(items: words)
+        let slot = OCRSlot()
+        let read = Task { await reader(capturer, recognizer, slot: slot, timeout: .milliseconds(50)).read(regionToken, selection) }
+        await eventually { capturer.calls.withLock { $0 } == 1 }
+        let watchdog = Self.openAfterTwoSeconds(capturer.gate) // a regression fails instead of hanging
+        defer { watchdog.cancel() }
+        let started = ContinuousClock.now
+        let outcome = await read.value
+        #expect(outcome == .failed(.ocrTimedOut))
+        #expect(started.duration(to: .now) < .seconds(1))
+        #expect(await slot.isReserved) // the capture is still running
+        await capturer.gate.open()
+        await eventually { await !slot.isReserved }
+        #expect(await !slot.isReserved)
+        #expect(recognizer.calls.withLock { $0 } == 0)
+    }
+
+    /// VAL-09: cancelling the caller during a blocked capture ends the wait at
+    /// once; the slot stays held until the capture ends, and Vision never starts.
+    @Test func callerCancellationCoversBlockedCapture() async {
+        let capturer = BlockedCapturer(blocked: true)
+        let recognizer = BlockedRecognizer(items: words)
+        let slot = OCRSlot()
+        let read = Task { await reader(capturer, recognizer, slot: slot, timeout: .seconds(60)).read(regionToken, selection) }
+        await eventually { capturer.calls.withLock { $0 } == 1 }
+        let watchdog = Self.openAfterTwoSeconds(capturer.gate) // a regression fails instead of hanging
+        defer { watchdog.cancel() }
+        let cancelled = ContinuousClock.now
+        read.cancel()
+        #expect(await read.value == .cancelled)
+        #expect(cancelled.duration(to: .now) < .seconds(1))
+        #expect(await slot.isReserved) // the capture is still running
+        await capturer.gate.open()
+        await eventually { await !slot.isReserved }
+        #expect(await !slot.isReserved)
+        #expect(recognizer.calls.withLock { $0 } == 0)
+    }
+
+    static func openAfterTwoSeconds(_ gate: Gate) -> Task<Void, Never> {
+        Task {
+            guard (try? await Task.sleep(for: .seconds(2))) != nil else { return }
+            await gate.open()
+        }
     }
 
     /// A caller already cancelled before the race starts never waits.
@@ -200,7 +252,7 @@ let words = [TranscriptItem(.paragraph("Read this region."), bounds: CGRect(x: 0
         let slot = OCRSlot()
         let regionReader = RegionReader(capturer: BlockedCapturer(), recognizer: recognizer, slot: slot,
                                         isCurrent: { await coordinator.isCurrent($0) }, timeout: .milliseconds(30))
-        await coordinator.submit(kind: .region, source: sourceA) { token in await regionReader.read(token, selection) }
+        await coordinator.submit(coordinator.reservePress(), kind: .region, source: sourceA) { token in await regionReader.read(token, selection) }
         await coordinator.waitForIdle()
         await recognizer.gate.open()
         await eventually { await !slot.isReserved }
@@ -243,6 +295,29 @@ let words = [TranscriptItem(.paragraph("Read this region."), bounds: CGRect(x: 0
         #expect(counter.consecutive == 1)
     }
 
+    /// The Esc tap could not be created while Accessibility still looks
+    /// granted: the press must not fail silently (review of VAL-08).
+    @Test func overlayFailureIsNoticedAtOnce() {
+        var counter = OcrFailureCounter()
+        counter.record(.failed(.overlayUnavailable))
+        #expect(counter.surfacedCategory == .overlayUnavailable)
+        // A cancel proves nothing about the tap; the notice stays.
+        counter.record(.cancelled)
+        #expect(counter.surfacedCategory == .overlayUnavailable)
+        // An overlay that opened clears it, even with nothing found.
+        counter.record(.nothingSelected)
+        #expect(counter.surfacedCategory == nil)
+        counter.record(.failed(.overlayUnavailable))
+        counter.record(.document([.paragraph("read")]))
+        #expect(counter.surfacedCategory == nil)
+    }
+
+    /// The log line names the failure and carries no text.
+    @Test func overlayFailureLogLine() {
+        let event = RegionReader.event(for: .failed(.overlayUnavailable), elapsed: .milliseconds(3))
+        #expect(event.rendered == "ocr outcome=failed failure=overlayUnavailable blocks=0 characters=0 elapsedMs=3")
+    }
+
     @Test func successResetsCounter() {
         var counter = OcrFailureCounter()
         for _ in 0..<3 { counter.record(.failed(.ocrFailed)) }
@@ -276,7 +351,7 @@ struct ReadingPlayback: PlaybackSession {
         await eventually { sink.pendingCount == 4 } // the lookahead is full
         // The overlay stays open longer than the lookahead, then is cancelled.
         let gate = Gate()
-        await coordinator.submit(kind: .region, source: sourceA) { _ in await gate.wait(); return .cancelled }
+        await coordinator.submit(coordinator.reservePress(), kind: .region, source: sourceA) { _ in await gate.wait(); return .cancelled }
         sink.playNext()
         await eventually { sink.pendingCount == 4 }
         await gate.open()
@@ -319,13 +394,13 @@ struct ReadingPlayback: PlaybackSession {
         #expect(log.events == ["start 1:playing", "stop 1:playing", "start 2:From the screen."])
     }
 
-    @Test func selectionPressSupersedesPendingRegion() async {
+    @Test func selectionPressSupersedesPendingRegion() async throws {
         let log = EventLog()
         let coordinator = makeCoordinator(log: log)
         let gate = Gate()
-        let region = await coordinator.submit(kind: .region, source: sourceA) { _ in
+        let region = try #require(await coordinator.submit(coordinator.reservePress(), kind: .region, source: sourceA) { _ in
             await gate.wait(); return .document([.paragraph("late region")])
-        }
+        })
         let selection = await coordinator.beginInput(kind: .selection, source: sourceA)
         #expect(await !coordinator.isCurrent(region))
         _ = await coordinator.resolve(selection, .text("selected", layer: .accessibility))

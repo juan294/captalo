@@ -146,6 +146,55 @@ Plan: `2026-11-15-captalo-core-reader.md` (revision 4, accepted 2026-11-15). Imp
 - Chose: all selection logic lives in `RegionSelectionTracker` (CaptaloCore), which the test drives with `.screensChanged`; the controller only forwards events and tears down in one `tearDown`. The observer wiring, panel order-out, cursor pop and tap invalidation are owner checks (manual criteria 3 to 5).
 - Why: adding an app test target is new test infrastructure outside this plan's scope; the logic that decides the outcome is tested.
 
+### D23. RPI installation update to v2.2.1 (validation repair)
+
+- Plan said: verification step 2 is `rpi-distribution.py check`.
+- Found: the validation run on `b639189` failed this check (exit 2) because the local cc-rpi source moved to v2.2.1 (`909d202`) after the phase 5 verification.
+- Chose: the same reviewed update procedure as D3. The plan's only operations were `.rpi/distribution.json`, `.rpi/manifest.json` and one new baseline, applied as its own commit (`04d23e0`). The optional push receipt gate the tool mentions was not enabled; that is a policy change for the owner.
+- Why: the gate must pass, and the update changes no skill, rule or instruction body.
+
+### D24. An unreadable menu stops the synthetic Copy (VAL-02)
+
+- Plan said: the menu layer presses Copy when it finds it; synthetic Cmd+C runs only when Copy is known to be absent.
+- Found: read errors on a menu child list or a key-equivalent attribute were treated as "no Copy", so an unreadable menu authorized Cmd+C.
+- Chose: the walk lives in `CaptaloCore` (`MenuCopyFinder`, `AXStatus`). Only "attribute unsupported", "no value" and CFNull count as absence. Any other AX error keeps the result unknown, and the capture ends with `menuUnreadable` and no key event. A Copy item found in a readable branch is still pressed.
+- Why: the plan forbids Cmd+C when Copy availability is unknown. Apps whose menus time out now get a "could not read" result where they used to get a synthetic copy. The capture matrix should watch for this.
+
+### D25. Esc containment holds the tap until the keyUp (VAL-08)
+
+- Plan said: Esc cancels the region overlay and never reaches the source app.
+- Found: only keyDown was swallowed, and a nil event tap left panels on screen without Esc.
+- Chose: `EscapeContainment` (`CaptaloCore`) swallows the accepted Esc keyDown, its repeats and its keyUp, and keeps the tap after the overlay closes until that keyUp, for at most 2 s. An Esc already held when the overlay opens passes through. If the tap cannot be created, no panel is shown, the press ends with `overlayUnavailable`, the failure notice shows at once and settings open. This supersedes the phase 5 dispositions N3 ("not changed") and N7 (press order, now VAL-01).
+- Why: one path with a bounded lifetime. An Esc held longer than 2 s still leaks its keyUp. Real event behavior is still a gate 0 owner check (D20).
+
+### D26. One engine call at a time; stop cancels synthesis in flight (VAL-04)
+
+- Plan said: at most one synthesis in flight; stop is immediate.
+- Found: a replaced session's synthesis kept running while the next session started its own, and repair or lease release did not wait for it. The pinned FluidAudio does not serialize whole calls.
+- Chose: `SynthesisGate` (`CaptaloCore`) admits one engine call at a time in arrival order, and a waiter cancelled before its turn never enters. `KokoroSynthesizer.stop()` (repair and lease release) waits for the active call. `ReadingSession.stop()` cancels its pipeline, so FluidAudio's cancellation checks end stale work early. Probe stop-to-idle went from 824 ms to 113 ms (one run each).
+- Why: playback stop stays immediate. A hung CoreML call would also hold up a reinstall; that follows from the design.
+
+### D27. Model store keeps a manifest record per version (VAL-07)
+
+- Plan said: retain the most recent previous valid version.
+- Found: the outgoing current version became "previous" only because it existed, so a damaged version could replace the last valid one.
+- Chose: each installed version has a record at `<store>/.manifests/<hash>.json`. The outgoing version is promoted only when it validates against its record. A missing, unreadable or mismatched record is rewritten when that version is current. Each version change hashes the outgoing version once more (about 95 MB).
+- Why: validity needs the content check. A store written before this change has no record for its current version and loses that rollback on its first upgrade; the app is unreleased, so no fallback was added.
+
+### D28. Text cleanup still runs over the whole block (VAL-05 residual)
+
+- Plan said: preparation is lazy, so first audio and stop do not wait for the whole text.
+- Found: the eager parts the validation named (block array, line split, per-paragraph unit queue with `removeFirst`) are now lazy. The regex cleanup and character normalization still run over one whole block before its first sentence. No window cut can be proven byte-identical: several rules (`markdownLink`, `inlineCode`, the ANSI OSC form, emphasis and strike) match across sentence boundaries with no length limit, and NLTokenizer sentence boundaries depend on the whole paragraph.
+- Chose: keep whole-block cleanup and make it cheaper with identical output (no-op normalization skipped, lines found by byte search). Measured time to first unit for one paragraph: 0.69 MB from 0.131 s to 0.065 s, 2.79 MB from 0.514 s to 0.272 s. Output was identical over 72,000 generated cases.
+- Why: correct units matter more than bounded work on multi-megabyte single paragraphs. This is an S3 residual for the owner: accept it as a known issue, or ask for a cleanup redesign.
+
+### D29. Preference tests delete their domain out of process (test hygiene)
+
+- Plan said: tests use disposable preference domains.
+- Found: `defaults delete` and `removePersistentDomain` left empty plist files in `~/Library/Preferences`. In-process deletion was written back by cfprefsd 2 to 12 s later.
+- Chose: the Python and Swift test helpers delete their own exact disposable domain with `/usr/bin/defaults delete`, then remove that exact plist and assert it is gone. Real app domains are never touched.
+- Why: the test leaves no files. The cfprefsd write-back cause is inferred from probes. Files left by earlier runs (44 `scripttest-*` and about 150 `tests.<UUID>`) were not deleted; that is an owner decision.
+
 ## Phase 1 handoff (2026-11-15)
 
 - Candidate: branch `feat/core-reader`, commits `a000427` (rename), `7f7737a` (cc-rpi v2.2.0), `6eb0b4a` (foundation), `556c148` (review repairs) and the simplify commit that carries this note. `make verify` (8 checks: whitespace, rpi-installation, core tests debug and release, unsigned Debug and Release builds, log-audit, script-test) passed on the simplify candidate; evidence in the worktree's ignored `.rpi/local/verification.json`.
@@ -206,3 +255,25 @@ Plan: `2026-11-15-captalo-core-reader.md` (revision 4, accepted 2026-11-15). Imp
 - Simplify pass (four reviewers). Applied: one `units(for: ReadingContent)` chain and one `hasSpeakableText(_: ReadingContent)` (the OCR emptiness check now uses the chunker the reading uses; the dead `units(for:source:)` OCR branch is gone); one `RegionGeometry.rect(from:to:clampedTo:)` for the drawn and captured rectangle; the race timer as a local; one `pressCanSpeak()` gate, one `currentSourceOrNone()` and `quit()` for both shortcuts; `requestScreenRecording()` reused by the press; repaint only the changed rectangle; the tap port stored once; `Block.plainText` public and reused by the probe; one `switch` for the log fields; in-place column append; a stale doc comment removed. Skipped, with reason: one `captured(ReadingContent, layer:)` success case (touches the phase 2 selection path and its tests; the two cases stay explicit); dropping `.capture` or `.ocr` duplication in the log (the spec names both events); a `pressDecision` in CaptaloCore (the shared app gate removes the copy; the decision stays two lines); `regionPressRequirement` as a Bool (kept for owner decision 8 traceability and its named test); removing `globalRect` (used by the probe and the geometry tests); a fixed cancel delay in the probe (the full-run timing makes the cancel land mid-run on any machine; about 0.45 s per verify); one probe process and one `swift build` call (small, and separate processes keep each fixture isolated); computing the transcript string once per outcome (a few KB per region press).
 - Not done, owner or signing required (D1): every phase 5 manual criterion (scanned PDF, PNG fixtures and code screenshot by ear, focus and Esc in TextEdit, full-screen app, second display, Screen Recording revoke and grant, permission survival after `make install`, OCR performance, network off), and gate 0 questions 1 to 3.
 - Resources: none new. The probe builds in `Packages/CaptaloOCR/.build` (ignored, reproducible); the gate 0 spike stayed in the session scratchpad and is not merged.
+
+## Validation repair handoff (2026-11-15)
+
+- Input: the `rpi-validate` report on `b639189` (ignored `docs/agents/validation-report.md`): not ready, 11 findings (VAL-01 to VAL-04 S2, VAL-05 to VAL-11 S3) and a failed `rpi-installation` check. Repairs were made in three local worktrees (`fix/val-a` capture and app, `fix/val-b` speech and text, `fix/val-c` OCR and scripts), integrated in `fix/val-integ`, then merged into `develop`.
+- Commits: `04d23e0` (RPI metadata, D23); `0588640`, `0b728de` (VAL-01, 02, 08, 10); `25e3cb6`, `9abb7d6`, `35500c6`, `03aece3`, `de38cd4` (VAL-03, 04, 05, 07); `a7ddca5`, `fa18d96`, `d5ce67a`, `b955aee`, `c6c67fb` (VAL-06, 09, 11); simplify `579d6f3`, `a73fe2c`, `85c5134`.
+- Dispositions, all with a regression that failed before its fix (red output kept in the session scratchpad):
+  - VAL-01 fixed: `RequestCoordinator.reservePress()` takes an ordered ticket when the shortcut fires, before the detached source lookup; a stale ticket runs no capture (`PressOrderTests`).
+  - VAL-02 fixed (D24): `MenuCopyFinder` and `AXStatus` in CaptaloCore (`MenuCopyFinderTests`, `AXStatusTests`).
+  - VAL-03 fixed: failed device-recovery entries leave the queue and the reading ends with `.voiceError` (two `ReadingSessionTests`).
+  - VAL-04 fixed (D26): `SynthesisGate`, gated `KokoroSynthesizer`, `SynthesisLifecycleTests.replacedSessionsShareOneEngineCallAndRepairWaitsForIt`.
+  - VAL-05 fixed with an owner residual (D28): lazy blocks, lines and sentences; `LargeParagraphPreparationTests`, `paragraphIsSegmentedOnDemand`, `normalizationEdgeCasesKeepTheirOutput`.
+  - VAL-06 fixed: `completeness-test` requires the exact voice inventory, every required record and valid payloads (`CompletenessHarnessTests`, 10 invalid-payload subtests). It is still a structural check; listening remains the completeness gate.
+  - VAL-07 fixed (D27): `damagedOutgoingVersionNeverReplacesValidPrevious`, `unreadableManifestRecordIsRewritten`.
+  - VAL-08 fixed (D25): `EscapeContainmentTests`.
+  - VAL-09 fixed: one worker owns capture, the currency check, Vision and the slot release, and the caller races the whole worker (`callerDeadlineCoversBlockedCapture`, `callerCancellationCoversBlockedCapture`). `cancelledCaptureIsACancelNotAFailure` now waits for the slot release, because the slot is freed when the capture ends, not when the caller returns.
+  - VAL-10 fixed: `PressGate` refreshes a cached false before it decides (`PressGateTests.firstPressAfterGrantReads`).
+  - VAL-11 fixed: `defaults-restore` verifies the domain is absent before it writes `.restored`; `is_empty` moved to `defaults-common.sh`.
+- Independent review (three fresh read-only reviewers, one per area, with reverts in scratch copies): 0 blockers. Should-fix items, all repaired: the AX error mapping had no test (now `AXStatus` in CaptaloCore); completeness payloads were not validated; test plists were left behind (D29); first-unit cleanup cost (D28). Nits repaired: autorepeat Esc held before the overlay, silent tap failure while trusted, teardown inside the tap callback (deferred to the main queue), stale comment, test gaps for eager segmentation and gate hand-off cancellation, unreadable manifest records. Not changed, with reason: a superseded input is cancelled when the newer press submits rather than at reservation (its result is already dropped, cosmetic); a capture that never returns keeps the OCR slot and later presses report busy (design); a store from before D27 loses one rollback (unreleased app).
+- Simplify pass (four reviewers). Applied: the ticket-less `submit` removed so tests use the app path; `RegionFailureState` folded into `OcrFailureCounter` with a per-category threshold, and one outcome-to-log mapping (`RegionReader.event`); `AX.Status` removed in favor of `AXStatus.classify`; `PressGate` reads `canSpeak` once; the tap callback passes non-Esc keys before any handler work; the worker returns a cancellation error instead of nil; public test counters removed from `UnitChunker` and `Paragraph` uses synthesized equality; test fakes reuse `EventLog`, `Gate` and `FakeSynthesizer`; the completeness harness uses a field guard and groups records once; `defaults-restore` checks an absent domain once. Behavior change: an overlay failure now starts its own failure streak in `OcrFailureCounter`. Skipped, with reason: one scalar normalization pass (changed output in about 5% of generated lines); `KokoroEngine: Synthesizer` (needs a public raw-engine `synthesize` that would bypass the gate); sharing one lock primitive with the clipboard `AsyncSerialLock` (changes phase 2 code outside this diff); deferring the outgoing-version hash (D27 needs the content check); reusing `RegionReader.race` in speech tests.
+- Verification: `make verify` on `31453de` (all repairs, review repairs and simplify merged): 15 of 15 checks exit 0, tree unchanged during the run, recorded 2026-11-15T14:50:28Z (CaptaloCore 205 tests, CaptaloSpeech 20, script suite 31). Only this note changed afterwards; the merged `develop` was verified again before reporting.
+- Still open, owner or signing required (D1): every native and manual criterion listed in the validation report's "Remaining acceptance evidence" (signed install, capture matrix, listening and performance verdicts, shell behavior, gate 0 questions 1 to 3 and the phase 5 manual list). Owner decisions: D28 (accept or redesign), deleting the empty test plists left by earlier runs, and the earlier open items (D9 fork push, final voice list, `.local/setup`).
+- Resources: the repair worktrees and branches were removed after the merge; their ignored build caches went with them. Nineteen orphaned `swiftpm-testing-helper` processes from this session's earlier phase 5 runs (idle, about 30 MB each) were stopped.
