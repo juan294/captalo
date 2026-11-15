@@ -200,15 +200,22 @@ class FetchModelsTests(unittest.TestCase):
 class DefaultsBackupTests(unittest.TestCase):
     """Round trip on a disposable defaults domain, removed afterwards."""
 
+    prefix = "com.thecreativetoken.captalo.scripttest-"
+
     def setUp(self):
         import uuid
-        self.domain = f"com.thecreativetoken.captalo.scripttest-{uuid.uuid4().hex[:8]}"
+        self.suffix = uuid.uuid4().hex[:8]
+        self.domain = self.prefix + self.suffix
         self.tmp = tempfile.TemporaryDirectory()
         self.env = dict(os.environ, CAPTALO_DEFAULTS_DOMAIN=self.domain, CAPTALO_DEFAULTS_DIR=self.tmp.name)
 
     def tearDown(self):
         subprocess.run(["defaults", "delete", self.domain], capture_output=True)
+        # The delete leaves an empty plist; remove only the one this test's unique domain created.
+        plist = Path.home() / "Library" / "Preferences" / f"{self.prefix}{self.suffix}.plist"
+        plist.unlink(missing_ok=True)
         self.tmp.cleanup()
+        self.assertFalse(plist.exists(), "disposable plist left behind")
 
     def run_script(self, name):
         return subprocess.run([str(SCRIPTS / name)], env=self.env, capture_output=True, text=True, check=False)
@@ -335,7 +342,9 @@ out.write_text((pathlib.Path(__file__).parent / "records" / (out.stem + ".jsonl"
                     status = completeness.main()
             finally:
                 completeness.ROOT, completeness.probe_path, sys.argv = saved
-            evidence = json.loads(next((root / ".local" / "completeness").glob("*.json")).read_text())
+            written = list((root / ".local" / "completeness").glob("*.json"))
+            self.assertEqual(len(written), 1, "the harness wrote no evidence")
+            evidence = json.loads(written[0].read_text())
             return status, evidence["failures"]
 
     def assert_fails(self, runs, expected):
@@ -363,6 +372,49 @@ out.write_text((pathlib.Path(__file__).parent / "records" / (out.stem + ".jsonl"
         runs = self.valid_runs()
         runs["completeness"].append(summary_record("af_one"))
         self.assert_fails(runs, "af_one: 2 summaries")
+
+    def test_each_invalid_payload_fails(self):
+        def edit(label, match, **fields):
+            def mutate(runs):
+                record = next(r for r in runs[label] if all(r.get(k) == v for k, v in match.items()))
+                record.update(fields)
+            return mutate
+
+        def drop(label, match, field=None):
+            def mutate(runs):
+                targets = [r for r in runs[label] if all(r.get(k) == v for k, v in match.items())]
+                if field is None:
+                    runs[label] = [r for r in runs[label] if r not in targets]
+                else:
+                    for r in targets:
+                        del r[field]
+            return mutate
+
+        def add(label, *records):
+            return lambda runs: runs[label].extend(records)
+
+        cases = {
+            "stop silence null": (edit("long-stop", {"kind": "stop"}, stopToSilenceMs=None), "stop: stopToSilenceMs"),
+            "stop idle null": (edit("long-stop", {"kind": "stop"}, stopToIdleMs=None), "stop: stopToIdleMs"),
+            "stop summary missing": (drop("long-stop", {"kind": "summary"}), "long-stop: expected one summary record"),
+            "stop summary finished": (edit("long-stop", {"kind": "summary"}, outcome="finished"), "stop: outcome"),
+            "long without unit records": (drop("long", {"kind": "unit"}), "long fixture: every unit record completed"),
+            "units short of expected": (edit("completeness", {"kind": "summary", "voice": "af_one"}, units=0, expectedUnits=5),
+                                        "af_one: played every expected unit"),
+            "flag as a string": (edit("completeness", {"kind": "summary", "voice": "af_one"}, playedExactlyOnceInOrder="false"),
+                                 "af_one: every expected unit played exactly once"),
+            "device unit for another voice": (edit("long-device", {"kind": "unit"}, voice="af_two"),
+                                              "long-device: unit records for af_two"),
+            "unit records for an unknown voice": (add("completeness", unit_record("af_extra")),
+                                                  "completeness: unit records for af_extra"),
+            "missing summary field": (drop("completeness", {"kind": "summary", "voice": "af_one"}, field="maxUnitSeconds"),
+                                      "af_one: missing or malformed field"),
+        }
+        for name, (mutate, expected) in cases.items():
+            with self.subTest(name):
+                runs = self.valid_runs()
+                mutate(runs)
+                self.assert_fails(runs, expected)
 
     def test_voice_outside_the_manifest_fails(self):
         runs = self.valid_runs()
