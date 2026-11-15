@@ -1,5 +1,6 @@
 import Foundation
 import NaturalLanguage
+import Synchronization
 
 /// A structural block of captured text. OCR produces blocks directly; a
 /// selection is split into blocks on blank lines, list markers and table rows.
@@ -58,6 +59,16 @@ public struct Paragraph: Equatable, Sendable {
     }
 }
 
+/// Counts sentences the tokenizer produces, so tests can check that a
+/// paragraph is segmented on demand. Production never sets `current`.
+final class SegmentationCounter: Sendable {
+    @TaskLocal static var current: SegmentationCounter?
+    private let count = Mutex(0)
+
+    func add() { count.withLock { $0 += 1 } }
+    var value: Int { count.withLock { $0 } }
+}
+
 /// Sentences of one paragraph, produced on demand. Cleaned text goes through
 /// NLTokenizer one sentence at a time (step 6); when it finds no sentence, the
 /// whole text is one.
@@ -94,11 +105,13 @@ struct SentenceIterator: IteratorProtocol {
             let sentence = token.trimmingCharacters(in: .whitespacesAndNewlines)
             if !sentence.isEmpty {
                 producedAny = true
+                SegmentationCounter.current?.add()
                 return sentence
             }
         }
         guard !producedAny, !text.isEmpty else { return nil }
         producedAny = true
+        SegmentationCounter.current?.add()
         return text
     }
 }

@@ -206,6 +206,22 @@ struct Fixture {
         #expect(Set(f.entries().filter(ModelStore.isHash)) == [c.lastPathComponent, d.lastPathComponent])
     }
 
+    /// N4: an unreadable manifest record is rewritten at the next activation,
+    /// so its version can still become the rollback version.
+    @Test func unreadableManifestRecordIsRewritten() throws {
+        let f = try Fixture(version: "a"); defer { f.cleanup() }
+        let store = ModelStore(root: f.root)
+        let a = try store.activate(from: f.bundle, manifest: f.manifest)
+        let record = f.root.appendingPathComponent(".manifests/\(f.manifest.contentHash).json")
+        try Data("not a manifest".utf8).write(to: record)
+        try store.activate(from: f.bundle, manifest: f.manifest) // the next launch
+        #expect(try ModelManifest.load(from: record) == f.manifest)
+        let bBundle = f.base.appendingPathComponent("version-b")
+        try Fixture.write(bBundle, ["kokoro/vocab.json": "{\"version\": \"b\"}"])
+        let b = try store.activate(from: bBundle, manifest: try ModelManifest.scan(bBundle, voices: ["af_heart"]))
+        #expect(Set(f.entries().filter(ModelStore.isHash)) == [a.lastPathComponent, b.lastPathComponent])
+    }
+
     @Test func damagedStoreRefusesBeforeEngine() async throws {
         let f = try Fixture(); defer { f.cleanup() }
         let store = ModelStore(root: f.root)

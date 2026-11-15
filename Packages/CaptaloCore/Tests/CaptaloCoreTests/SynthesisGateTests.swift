@@ -83,6 +83,23 @@ final class CancellableSynthesizer: Synthesizer {
     }
 }
 
+/// Runs its tasks' jobs only when the test calls `runAll()`, so a test can
+/// act between a continuation's resumption and the moment its task runs.
+final class ManualExecutor: TaskExecutor {
+    private let jobs = Mutex<[UnownedJob]>([])
+
+    func enqueue(_ job: consuming ExecutorJob) {
+        let job = UnownedJob(job)
+        jobs.withLock { $0.append(job) }
+    }
+
+    func runAll() {
+        while let job = jobs.withLock({ $0.isEmpty ? nil : $0.removeFirst() }) {
+            job.runSynchronously(on: asUnownedTaskExecutor())
+        }
+    }
+}
+
 /// Names in the order they entered the gate.
 final class EntryOrder: Sendable {
     let names = Mutex<[String]>([])
@@ -141,6 +158,34 @@ final class EntryOrder: Sendable {
         gate.leave()
         #expect(await current.value)
         #expect(order.list == ["current"])
+        gate.leave()
+    }
+
+    /// N2: `leave()` hands the engine to a waiter, which is cancelled before
+    /// its task runs again. It must not enter, and must pass the engine on.
+    @Test func waiterCancelledAfterHandOffPassesTheEngineOn() async {
+        let gate = SynthesisGate()
+        let order = EntryOrder()
+        try? await gate.enter() // the active call
+        let executor = ManualExecutor()
+        let stale = Task(executorPreference: executor) { () -> Bool in
+            do { try await gate.enter() } catch { return false }
+            order.append("stale")
+            return true
+        }
+        executor.runAll() // the stale reading's call starts waiting
+        #expect(gate.waiting == 1)
+        let next = enter(gate, "next", order)
+        await waiters(gate, 2)
+        gate.leave() // hands the engine to the stale waiter; its task has not run yet
+        #expect(gate.waiting == 1)
+        stale.cancel() // after the hand-off: no waiter left to remove
+        executor.runAll()
+        let staleEntered = await stale.value
+        #expect(!staleEntered)
+        if staleEntered { gate.leave() } // keep a failing run from hanging
+        #expect(await next.value)
+        #expect(order.list == ["next"])
         gate.leave()
     }
 
