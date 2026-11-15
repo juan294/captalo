@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """Release-probe completeness check (plan phase 3, unit 3D, make completeness-test).
 
-Structural gate: every unit completed exactly once in order, no unit over
-35 s, queued seconds never over 105, for every bundled voice. Measurements on
-the ~20,000-character unpunctuated fixture: first audio, peak footprint, stop
-latency mid-reading and the replay span after a simulated device change.
+Structural gate: exactly one summary per manifest voice (no missing,
+duplicated or extra voice), every unit completed exactly once in order, no
+unit over 35 s, queued seconds never over 105. The long, stop and
+device-change runs must each emit their required record; a missing record is
+a failure. Measurements on the ~20,000-character unpunctuated fixture: first
+audio, peak footprint, stop latency mid-reading and the replay span after a
+simulated device change.
 
 The speech-recognition round trip needs a test-only recognizer download that
 was not approved, so it is recorded as "not run"; the owner's listening audit
@@ -57,10 +60,26 @@ def main():
             return []
         return [json.loads(line) for line in out.read_text().splitlines()]
 
+    def one(records, label, kind, voice):
+        """The run's single `kind` record for `voice`, or a failure: a missing record never passes."""
+        found = [r for r in records if r["kind"] == kind]
+        if len(found) != 1 or found[0]["voice"] != voice:
+            failures.append(f"{label}: expected one {kind} record for {voice}, found "
+                            f"{[r['voice'] for r in found] or 'none'}")
+            return None
+        return found[0]
+
     records = synth("completeness", "speech-completeness.txt", "--voices", ",".join(manifest["voices"]))
-    for summary in [r for r in records if r["kind"] == "summary"]:
-        voice = summary["voice"]
-        units = {r["unit"] for r in records if r["kind"] == "unit" and r["voice"] == voice}
+    summaries = {}
+    for r in records:
+        if r["kind"] == "summary":
+            summaries.setdefault(r["voice"], []).append(r)
+    # The exact manifest inventory: no missing, duplicated or extra voice.
+    failures += [f"{v}: no summary" for v in manifest["voices"] if v not in summaries]
+    failures += [f"{v}: {len(found)} summaries" for v, found in summaries.items() if len(found) > 1]
+    failures += [f"{v}: not in the manifest" for v in summaries if v not in manifest["voices"]]
+    for voice in [v for v in manifest["voices"] if len(summaries.get(v, [])) == 1]:
+        summary = summaries[voice][0]
         unit_records = [r for r in records if r["kind"] == "unit" and r["voice"] == voice]
         checks = {
             "finished": summary["outcome"] == "finished",
@@ -74,34 +93,30 @@ def main():
         evidence.setdefault("voices", {})[voice] = {**{k: summary[k] for k in ("units", "maxUnitSeconds", "maxQueuedSeconds", "firstAudioMs", "totalMs", "peakFootprintMB", "oversizeSplits")}, "checks": checks}
 
     voice = manifest["voices"][0]
-    long_full = [r for r in synth("long", "speech-long-unpunctuated.txt", "--voices", voice) if r["kind"] == "summary"]
-    long_stop = [r for r in synth("long-stop", "speech-long-unpunctuated.txt", "--voices", voice, "--pace", "20",
-                                  "--stop-after-units", "5") if r["kind"] == "stop"]
-    long_device = [r for r in synth("long-device", "speech-long-unpunctuated.txt", "--voices", voice, "--pace", "20",
-                                    "--device-change-after-units", "3") if r["kind"] in ("deviceChange", "summary")]
-    if long_full:
-        s = long_full[0]
+    s = one(synth("long", "speech-long-unpunctuated.txt", "--voices", voice), "long", "summary", voice)
+    stop = one(synth("long-stop", "speech-long-unpunctuated.txt", "--voices", voice, "--pace", "20",
+                     "--stop-after-units", "5"), "long-stop", "stop", voice)
+    long_device = synth("long-device", "speech-long-unpunctuated.txt", "--voices", voice, "--pace", "20",
+                        "--device-change-after-units", "3")
+    device = one(long_device, "long-device", "deviceChange", voice)
+    d = one(long_device, "long-device", "summary", voice)
+    if s:
         evidence["long"] = {k: s[k] for k in ("units", "maxUnitSeconds", "maxQueuedSeconds", "firstAudioMs", "totalMs", "peakFootprintMB", "oversizeSplits")}
         if s["outcome"] != "finished" or not s["playedExactlyOnceInOrder"] or not s["textReassembles"] or s["maxUnitSeconds"] > MAX_UNIT:
             failures.append("long fixture: structural check failed")
-    if long_stop:
-        evidence["stop"] = {k: long_stop[0][k] for k in ("stopToSilenceMs", "stopToIdleMs")}
-    device = [r for r in long_device if r["kind"] == "deviceChange"]
-    device_summary = [r for r in long_device if r["kind"] == "summary"]
+    if stop:
+        evidence["stop"] = {k: stop[k] for k in ("stopToSilenceMs", "stopToIdleMs")}
     if device:
-        evidence["deviceChange"] = {"replayedUnits": device[0]["replayedUnits"], "replaySpanSeconds": device[0]["replaySpanSeconds"]}
-        if len(device[0]["replayedUnits"]) != 1:
+        evidence["deviceChange"] = {"replayedUnits": device["replayedUnits"], "replaySpanSeconds": device["replaySpanSeconds"]}
+        if len(device["replayedUnits"]) != 1:
             failures.append("device change: expected exactly one replayed (audible) unit")
-    if device_summary:
-        d = device_summary[0]
+    if d:
         evidence["pacedQueue"] = {"maxQueuedSeconds": d["maxQueuedSeconds"], "maxRetained": d["maxRetained"]}
         if d["outcome"] != "finished" or not d["playedExactlyOnceInOrder"]:
             failures.append("device change: reading did not finish with every unit once, in order")
         # The paced run fills the queue, so the bound is exercised, not vacuous.
         if not 0 < d["maxQueuedSeconds"] <= MAX_QUEUED:
             failures.append(f"paced queue bound: maxQueuedSeconds {d['maxQueuedSeconds']} not in (0, {MAX_QUEUED}]")
-    else:
-        failures.append("device change: no paced summary")
 
     evidence["failures"] = failures
     target = ROOT / ".local" / "completeness" / f"{stamp}.json"
