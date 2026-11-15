@@ -1,0 +1,45 @@
+#!/bin/sh
+# Phase 4 code search: the inherited shell is gone and the built app is an
+# agent app. Phase 5: no legacy window capture anywhere in the app, and no
+# image write in Captalo/Services/OCR or the CaptaloOCR library. Regex search; a grep error or a
+# missing build product is a failure, never a pass.
+set -u
+ROOT=$(cd "$(dirname "$0")/.." && pwd)
+status=0
+OUT=$(mktemp -t captalo-shell-audit)
+# $1: pattern, $2: directory
+forbid() {
+  grep -rnE "$1" "$2" > "$OUT" 2>&1
+  code=$?
+  if [ $code -eq 0 ]; then
+    echo "shell-audit: found /$1/ in ${2#"$ROOT"/}" >&2
+    cat "$OUT" >&2
+    status=1
+  elif [ $code -ne 1 ]; then
+    echo "shell-audit: grep failed ($code) for /$1/" >&2
+    status=1
+  fi
+}
+for pattern in 'MenuBarExtra' 'setActivationPolicy[[:space:]]*\([^)]*regular' 'RegisterEventHotKey' \
+               'pronunciationRules' 'wordsSpoken' 'pauseForVoiceApps' '[Ss]tudio' 'NSStatusItem' 'NSStatusBar' 'NSPopover' \
+               'CGWindowListCreateImage'; do
+  forbid "$pattern" "$ROOT/Captalo"
+done
+[ -d "$ROOT/Captalo/Services/OCR" ] || { echo "shell-audit: Captalo/Services/OCR is missing" >&2; status=1; }
+# The capture adapter and the Vision library the app links (the probe may read fixtures).
+for pattern in 'write\(to:' 'pngData' 'CGImageDestination'; do
+  forbid "$pattern" "$ROOT/Captalo/Services/OCR"
+  forbid "$pattern" "$ROOT/Packages/CaptaloOCR/Sources/CaptaloOCR"
+done
+rm -f "$OUT"
+checked=0
+for config in Debug Release; do
+  plist="$ROOT/.local/build/DerivedData/Build/Products/$config/Captalo.app/Contents/Info.plist"
+  [ -f "$plist" ] || continue
+  checked=$((checked + 1))
+  value=$(/usr/libexec/PlistBuddy -c "Print :LSUIElement" "$plist" 2>/dev/null || echo missing)
+  [ "$value" = "true" ] || { echo "shell-audit: $config LSUIElement is $value" >&2; status=1; }
+done
+[ $checked -gt 0 ] || { echo "shell-audit: no built app to check; run make build-unsigned" >&2; status=1; }
+[ $status -eq 0 ] && echo "shell-audit: passed"
+exit $status

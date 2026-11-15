@@ -1,0 +1,9 @@
+#!/bin/sh
+# Builds the Release speech probe (production CaptaloSpeech code) and prints its path.
+set -eu
+: "${DEVELOPER_DIR:=/Applications/Xcode-beta.app/Contents/Developer}"
+export DEVELOPER_DIR
+ROOT=$(cd "$(dirname "$0")/.." && pwd)
+"$ROOT/Scripts/prepare-fluidaudio" >/dev/null
+swift build -c release --package-path "$ROOT/Packages/CaptaloSpeech" --product captalo-speech-probe >&2
+echo "$(swift build -c release --package-path "$ROOT/Packages/CaptaloSpeech" --show-bin-path)/captalo-speech-probe"

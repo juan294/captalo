@@ -1,0 +1,45 @@
+#!/usr/bin/env python3
+"""Fail when app code logs directly instead of through CaptaloCore's PrivacyLog.
+
+Searches Swift files under the given roots (default: Captalo/) for print,
+debugPrint, dump, NSLog, os_log, os_signpost, Logger and OSLog calls. PrivacyLog itself lives in Packages/CaptaloCore,
+outside the searched roots.
+"""
+import re
+import sys
+from pathlib import Path
+
+PATTERN = re.compile(r"\b(print|debugPrint|dump|NSLog|os_log|os_signpost|Logger|OSLog)\s*\(|\b(Logger|OSLog)\.init\b")
+
+
+def audit(roots):
+    hits = []
+    for root in roots:
+        for path in sorted(Path(root).rglob("*.swift")):
+            for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+                stripped = line.strip()
+                if stripped.startswith("//"):
+                    continue
+                if PATTERN.search(line):
+                    hits.append(f"{path}:{number}: {stripped}")
+    return hits
+
+
+def main(argv):
+    roots = argv or ["Captalo"]
+    missing = [r for r in roots if not Path(r).is_dir()]
+    if missing:
+        print(f"log-audit: missing directory {missing[0]}", file=sys.stderr)
+        return 2
+    hits = audit(roots)
+    for hit in hits:
+        print(hit)
+    if hits:
+        print(f"log-audit: {len(hits)} direct logging call(s); use PrivacyLog", file=sys.stderr)
+        return 1
+    print(f"log-audit: no direct logging under {', '.join(roots)}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

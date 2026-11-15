@@ -1,0 +1,246 @@
+#!/usr/bin/env python3
+"""Verify and install a signed Cáptalo build at the fixed path, replacing (never merging).
+
+Usage: Scripts/install --config Debug|Release --app <built Captalo.app>
+Run it through `make install`, which checks the signing identity and builds first.
+
+Only the integration owner runs this. It quits only the task-owned process
+recorded in the main checkout's .local/build/install-record.json, keeps one
+rollback copy in .local/build/install-previous/, and writes a new record.
+"""
+import argparse
+import datetime
+import json
+import os
+import plistlib
+import shutil
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+BUNDLE_ID = "com.thecreativetoken.captalo"
+INSTALLED = Path("/Applications/Captalo.app")
+
+
+class InstallError(Exception):
+    """A stop condition. The message is printed and the exit status is non-zero."""
+
+    def __init__(self, message, status=1):
+        super().__init__(message)
+        self.status = status
+
+
+def utc_stamp():
+    return datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+
+
+def git(*args):
+    return subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True, check=False).stdout.strip()
+
+
+def state_root():
+    """`.local/build` of the main checkout (Git common directory's parent), shared by worktrees."""
+    common = git("rev-parse", "--path-format=absolute", "--git-common-dir")
+    return (Path(common).parent if common else ROOT) / ".local" / "build"
+
+
+def info_plist(app):
+    try:
+        with open(Path(app) / "Contents" / "Info.plist", "rb") as handle:
+            return plistlib.load(handle)
+    except (OSError, plistlib.InvalidFileException):
+        return {}
+
+
+def bundle_id(app):
+    return info_plist(app).get("CFBundleIdentifier")
+
+
+def read_json(path):
+    try:
+        return json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
+def write_json(path, value):
+    Path(path).write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
+
+
+def codesign_verify(app):
+    result = subprocess.run(
+        ["codesign", "--verify", "--strict", "--deep", str(app)],
+        capture_output=True, text=True, check=False,
+    )
+    return result.returncode == 0, (result.stdout + result.stderr).strip()
+
+
+def codesign_field(args, prefix, app):
+    """The value after `prefix` in `codesign <args> app` output, or None."""
+    result = subprocess.run(["codesign", *args, str(app)], capture_output=True, text=True, check=False)
+    for line in (result.stdout + result.stderr).splitlines():
+        if line.startswith(prefix):
+            return line[len(prefix):]
+    return None
+
+
+def running_pids(executable):
+    """PIDs whose executable path is exactly `executable`."""
+    result = subprocess.run(["ps", "-axo", "pid=,comm="], capture_output=True, text=True, check=False)
+    pids = []
+    for line in result.stdout.splitlines():
+        parts = line.strip().split(None, 1)
+        if len(parts) == 2 and parts[1] == str(executable):
+            pids.append(int(parts[0]))
+    return pids
+
+
+def poll_until(predicate, timeout, interval):
+    """Calls `predicate` until it returns a truthy value or `timeout` seconds pass."""
+    deadline = time.monotonic() + timeout
+    while True:
+        value = predicate()
+        if value or time.monotonic() > deadline:
+            return value
+        time.sleep(interval)
+
+
+def quit_recorded(record, executable, pids_fn=running_pids, kill=os.kill, wait_seconds=5.0):
+    """Quit only the recorded process. Any other process at that path is a stop."""
+    pids = pids_fn(executable)
+    recorded = record.get("pid") if record else None
+    others = [pid for pid in pids if pid != recorded]
+    if others:
+        raise InstallError(
+            f"A Cáptalo process that is not in the install record is running (PID {', '.join(map(str, others))}). "
+            "Quit it yourself, then run make install again. Nothing was changed."
+        )
+    if recorded not in pids:
+        return False
+    kill(recorded, 15)
+    if not poll_until(lambda: recorded not in pids_fn(executable), wait_seconds, 0.1):
+        raise InstallError(f"Recorded Cáptalo process {recorded} did not quit within {wait_seconds:.0f} s.")
+    return True
+
+
+def stage(built_app, staging_dir, verify=codesign_verify):
+    staging_dir = Path(staging_dir)
+    if staging_dir.exists():
+        shutil.rmtree(staging_dir)
+    staging_dir.mkdir(parents=True)
+    staged = staging_dir / "Captalo.app"
+    subprocess.run(["ditto", str(built_app), str(staged)], check=True)
+    ok, detail = verify(staged)
+    if not ok:
+        raise InstallError(f"Staged copy failed strict verification; the installed app is untouched.\n{detail}")
+    return staged
+
+
+def check_install_target(installed):
+    """Stop, touching nothing, when the fixed path holds another app."""
+    installed = Path(installed)
+    if installed.exists():
+        existing = bundle_id(installed)
+        if existing != BUNDLE_ID:
+            raise InstallError(
+                f"{installed} exists with bundle ID {existing!r}, not {BUNDLE_ID}. Nothing was changed."
+            )
+
+
+def replace(staged, installed, previous_dir, verify=codesign_verify, move=shutil.move):
+    """Move the old install aside, move the staged copy in, verify, roll back on failure."""
+    installed = Path(installed)
+    previous_dir = Path(previous_dir)
+    rollback = previous_dir / "Captalo.app"
+    check_install_target(installed)
+    had_previous = installed.exists()
+    if had_previous:
+        if rollback.exists():
+            shutil.rmtree(rollback)
+        previous_dir.mkdir(parents=True, exist_ok=True)
+        move(str(installed), str(rollback))
+    try:
+        move(str(staged), str(installed))
+    except OSError as error:
+        if had_previous and not installed.exists():
+            shutil.move(str(rollback), str(installed))
+        raise InstallError(f"Moving the staged app into place failed ({error}); the previous app was restored."
+                           if had_previous else f"Moving the staged app into place failed ({error}).")
+    ok, detail = verify(installed)
+    if ok:
+        return
+    shutil.rmtree(installed)
+    if rollback.exists():
+        shutil.move(str(rollback), str(installed))
+        restored_ok, restored_detail = verify(installed)
+        state = "restored and verified" if restored_ok else f"restored but failed verification:\n{restored_detail}"
+        raise InstallError(f"Installed copy failed strict verification; the previous app was {state}.\n{detail}")
+    raise InstallError(f"Installed copy failed strict verification and there was no previous app.\n{detail}")
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--config", required=True, choices=["Debug", "Release"])
+    parser.add_argument("--app", required=True, type=Path, help="the signed app that make build produced")
+    parser.add_argument("--no-open", action="store_true", help="install without launching")
+    args = parser.parse_args(argv)
+
+    build_root = state_root()
+    executable = INSTALLED / "Contents" / "MacOS" / "Captalo"
+    record_path = build_root / "install-record.json"
+    log_dir = build_root / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    stamp = utc_stamp()
+    log_path = log_dir / f"install-{args.config}-{stamp}.log"
+
+    try:
+        staged = stage(args.app, build_root / "install-staging")
+        previous = read_json(record_path)
+        check_install_target(INSTALLED)
+        quit_app = quit_recorded(previous, executable)
+        try:
+            replace(staged, INSTALLED, build_root / "install-previous")
+        except InstallError:
+            if quit_app and INSTALLED.exists() and not args.no_open:
+                subprocess.run(["open", str(INSTALLED)], check=False)
+            raise
+
+        print("Previous install record:", json.dumps(
+            {k: (previous or {}).get(k) for k in ("build_info", "worktree", "config", "installed_at")}))
+        requirement = codesign_field(["-d", "-r-"], "designated => ", INSTALLED)
+        record = {
+            "schema_version": 1,
+            "app": str(INSTALLED),
+            "bundle_id": BUNDLE_ID,
+            "bundle_version": info_plist(INSTALLED).get("CFBundleVersion"),
+            "config": args.config,
+            # Commit and dirty flag come from the bundle itself, written before signing.
+            "build_info": read_json(INSTALLED / "Contents" / "Resources" / "build-info.json"),
+            "worktree": str(ROOT),
+            "signing_authority": codesign_field(["-dv"], "Authority=", INSTALLED),
+            "designated_requirement": requirement,
+            "installed_at": stamp,
+            "pid": None,
+        }
+        write_json(record_path, record)
+        if not args.no_open:
+            subprocess.run(["open", str(INSTALLED)], check=True)
+            pids = poll_until(lambda: running_pids(executable), 10.0, 0.2)
+            record["pid"] = pids[0] if pids else None
+            write_json(record_path, record)
+        print(f"Installed {args.config} at {INSTALLED}; record {record_path}")
+        print(f"designated => {requirement}")
+        return 0
+    except (InstallError, OSError, subprocess.CalledProcessError) as error:
+        status = error.status if isinstance(error, InstallError) else 1
+        message = f"install: {error}"
+        print(message, file=sys.stderr)
+        with open(log_path, "a", encoding="utf-8") as log:
+            log.write(message + "\n")
+        return status
+
+
+if __name__ == "__main__":
+    sys.exit(main())

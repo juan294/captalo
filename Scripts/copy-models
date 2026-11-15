@@ -1,0 +1,19 @@
+#!/bin/sh
+# Xcode Run Script phase: copies the verified voice files (.local/models, see
+# make fetch-models) and Models.manifest.json into the app's Resources before
+# Xcode signs the bundle. Inputs and outputs are the xcfilelists written with
+# the manifest (line N of the input list is copied to line N of the output
+# list), so the phase stays sandboxed: it overwrites only its declared
+# outputs. A missing file fails the build.
+set -eu
+dest="${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}"
+paste -d '\t' "$SCRIPT_INPUT_FILE_LIST_0" "$SCRIPT_OUTPUT_FILE_LIST_0" | while IFS="$(printf '\t')" read -r src out; do
+  [ -n "$src" ] || continue
+  if [ ! -f "$src" ]; then
+    echo "error: missing voice file $src; run make fetch-models" >&2
+    exit 1
+  fi
+  mkdir -p "$(dirname "$out")"
+  cp "$src" "$out"
+done
+cp "$SRCROOT/Models.manifest.json" "$dest/Models.manifest.json"

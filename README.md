@@ -2,7 +2,7 @@
 
 Hear visible text and understand it with less effort. Cáptalo is a local macOS read-aloud utility derived from [Shreysid/Sotto](https://github.com/Shreysid/Sotto).
 
-**Status:** development fork. Workspace and workflow configuration are installed; no Cáptalo release is available. The inherited Xcode project, executable, bundle identifier and interface still use Sotto names. Screen-region OCR and the quieter interface are proposed work, not shipped features.
+**Status:** development fork. Workspace and workflow configuration are installed; no Cáptalo release is available. The app identity is Cáptalo. The core reader (selection reading, the quiet agent-app shell and screen-region OCR) is built on `develop` and passes its automated checks; runtime acceptance on a signed install is still pending, so none of it is a shipped feature.
 
 ## Intended experience
 
@@ -21,13 +21,12 @@ The existing foundation supplies Accessibility selection capture with a clipboar
 
 ## Development
 
-Requires macOS 15+, Apple silicon for the intended local inference path, and Xcode 26 or later. Swift Package Manager resolves the pinned FluidAudio dependency. Dependencies and model assets require initial downloads; listening is intended to operate offline afterward.
+Requires macOS 26+, Apple silicon for the intended local inference path, Xcode 27 and `xcbeautify`. Swift Package Manager resolves the pinned FluidAudio dependency. Dependencies and model assets require initial downloads; listening is intended to operate offline afterward.
 
 ```sh
-open Sotto.xcodeproj
-xcodebuild -project Sotto.xcodeproj -scheme Sotto -configuration Debug \
-  -destination 'platform=macOS' -derivedDataPath .local/build/DerivedData \
-  CODE_SIGNING_ALLOWED=NO build
+make test             # CaptaloCore unit tests (debug and release)
+make build-unsigned   # Debug and Release app builds into .local/build/DerivedData
+make verify           # full sequential local gate
 ```
 
 When the global developer directory selects Command Line Tools, set `DEVELOPER_DIR` for that command to the installed Xcode developer directory. Do not change the machine-wide developer selection just for this project. A local build is not a signed or distributable release.

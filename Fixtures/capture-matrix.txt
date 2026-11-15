@@ -1,0 +1,8 @@
+Cáptalo capture fixture, paragraph one. This synthetic passage checks that a selection is read exactly as written, across 12 applications.
+
+## A Markdown heading line with **bold** words
+The second paragraph names a web address, https://example.com/docs/capture?id=42, and the number 3,141.59 so that punctuation inside tokens survives capture.
+
+The third paragraph ends the fixture. It has a list marker below and a final sentence.
+- one short list item
+That is all.

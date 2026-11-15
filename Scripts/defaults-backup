@@ -1,0 +1,34 @@
+#!/bin/bash
+# Fresh-state check, step 2 (plan phase 4): records whether the Cáptalo
+# defaults domain exists; if it does, exports it to .local/shell/, flushes
+# and verifies the copy by re-reading it, and only then deletes the domain.
+# Touches only com.thecreativetoken.captalo. Quit Cáptalo first.
+set -eu
+. "$(dirname "$0")/defaults-common.sh"
+STAMP=$(date -u +%Y%m%dT%H%M%SZ)
+mkdir -p "$DIR"
+require_quit
+# A deleted domain can still read back as an empty dictionary: empty means absent.
+is_empty() { [ "$(defaults export "$DOMAIN" - 2>/dev/null | plutil -convert json -o - - 2>/dev/null)" = "{}" ] || ! defaults read "$DOMAIN" >/dev/null 2>&1; }
+# One check at a time: a newer backup would hide the original values.
+LAST=$(ls -t "$DIR"/defaults-*.state 2>/dev/null | head -1)
+if [ -n "$LAST" ] && [ ! -e "${LAST%.state}.restored" ]; then
+  echo "defaults-backup: $LAST is not restored yet; run make defaults-restore first" >&2
+  exit 1
+fi
+if is_empty; then
+  echo "absent" > "$DIR/defaults-$STAMP.state"
+  echo "defaults-backup: domain absent; recorded $DIR/defaults-$STAMP.state"
+  exit 0
+fi
+BACKUP="$DIR/defaults-$STAMP.plist"
+defaults export "$DOMAIN" "$BACKUP"
+sync
+plutil -lint "$BACKUP" >/dev/null
+if ! domain_matches "$BACKUP"; then
+  echo "defaults-backup: verification failed; domain kept" >&2
+  exit 1
+fi
+echo "present" > "$DIR/defaults-$STAMP.state"
+defaults delete "$DOMAIN"
+echo "defaults-backup: exported to $BACKUP and deleted the domain"

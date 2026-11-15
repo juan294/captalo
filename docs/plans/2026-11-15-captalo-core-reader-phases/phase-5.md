@@ -22,6 +22,19 @@ A throwaway Debug spike, not merged. It answers these questions on this Mac befo
 
 The probe results choose one Esc mechanism, one capture call and the OCR lifetime contract below. Both choices are recorded in this file before 5A and 5B start ("one code path per action"). If question 1 or 3 has no working answer, stop and report: the region interaction then needs a new owner decision.
 
+### Gate 0 results (2026-11-15, this Mac, Xcode 27.0 SDK)
+
+The spike ran as scratch probes outside the repository. Without Screen Recording and without a signed install (notes D1), only the API questions and question 4 could run; questions 1 to 3 need the owner at the installed app (notes D20).
+
+| Question | Result | Evidence |
+| --- | --- | --- |
+| 1 Esc without activation | Pending (runtime). Chosen: borderless `.nonactivatingPanel` per screen with `canBecomeKey == false`; Esc through a session `CGEventTap` that swallows key code 53 while the overlay is visible (Accessibility is already a required grant). No Carbon hotkey. | Owner check: Manual criterion 3 |
+| 2 Full-screen Spaces and screen changes | Pending (runtime). Panels use `.canJoinAllSpaces` and `.fullScreenAuxiliary` at `.screenSaver` level; the controller cancels on `didChangeScreenParametersNotification`. Automated coverage is the tracker only (`RegionOverlayTests.screenChangeCancels`); the controller's observer and teardown have no automated test (notes D22). | Manual criteria 4 and 5 |
+| 3 Overlay-free capture | API confirmed in the macOS 26 SDK: `SCScreenshotManager.captureImage(contentFilter:configuration:)` and `SCStreamConfiguration.sourceRect`. Chosen: `SCContentFilter(display:excludingApplications:exceptingWindows:)` excluding Cáptalo, `sourceRect` from `RegionGeometry`, output size at the display's native scale. Pixel check pending (runtime). | Manual criterion 2 |
+| 4 Native cancellation | `RecognizeDocumentsRequest` honours cancellation: cancelled at 50 ms and 300 ms into a 0.66 s warm run, it threw `VisionError.requestCancelled` 0.15 ms and 0.18 ms after the cancel. A cancel after the request finished returned its result. The very first recognition on this Mac after the SDK install took 13.5 s (a one-time system model cache); a later fresh process ran the same full recognition in 0.66 s, so a cold launch does not by itself reach the 10 s timeout. | Scratch probe, rerun 2026-11-15; `make ocr-probe` cancels a direct Vision call mid-run (it must throw) and checks the slot is free within 1 s of a caller timeout |
+
+OCR lifetime contract: the caller waits at most 10 s; the worker that owns the image and the Vision call releases the slot when the native call returns or throws. Measured release after cancel: under 1 ms on this Mac. A cancelled caller (a newer press, or quit) stops waiting at once and reports a cancel, not a timeout. Residual risk: if the system model cache is cold (after an OS or SDK update), the first region press may exceed 10 s, read nothing and count one failure; the owner's OCR performance check measures the installed app.
+
 ## Units
 
 ### 5A Overlay and geometry `[batch-eligible]`
@@ -79,14 +92,14 @@ risk: if gate 0 shows Vision ignores cancellation, the image lives until the nat
 
 ### Automated (`make verify`, including `ocr-probe`)
 
-- [ ] `RegionGeometryTests`, `RegionOverlayTests.screenChangeCancels` and `DocumentTranscriptTests` pass, including `tableRowsStayRowBlocksInOrder` and `twoColumnsLeftColumnFirst`.
-- [ ] `RegionReaderTests` (deterministic blocked capturer and blocked recognizer that return only when released by the test): `slotReservedBeforeCaptureAwaits`, `overlappingPressesCannotBothReserve`, `captureFailureReleasesSlot`, `staleCaptureCompletingAfterNewerInputNeverStartsVision`, `everyExitPathTearsDown` (success, no text, error, cancel), `callerTimesOutAt10sWhileWorkerStillRuns`, `slotHeldUntilBlockedWorkerReturns`, `secondPressWhileSlotHeldIsSilent`, `lateWorkerResultAfterTimeoutIsDiscarded`, `supersededTokenDropsResult`, `oversizeRectIsBoundedToDisplayScale`.
-- [ ] `RegionPendingTests` (with the phase 2 seam session): `cancelAfterLookaheadLeavesSessionComplete` (overlay open longer than the 3-unit lookahead, then cancel: every unit still plays once), `emptyOcrLeavesSession`, `timeoutLeavesSession`, `successfulOcrReplacesSession`, `selectionPressSupersedesPendingRegion`.
-- [ ] `OcrFailureCounterTests`: `threeConsecutiveFailuresSurfaceCategory`, `emptyRegionDoesNotCount`, `successResetsCounter`.
-- [ ] Gate 0 records the native cancellation result. `make ocr-probe` also cancels one recognition mid-run and checks that the slot is freed within the time gate 0 measured.
-- [ ] `SetupStateTests.screenRecordingIsOptionalButRequestedOnRegionPress`.
-- [ ] `make ocr-probe` matches the expected block order for both fixtures.
-- [ ] Code search: no `CGWindowListCreateImage`, and no image write (`write(to:`, `pngData`, `CGImageDestination`) in `Captalo/Services/OCR`.
+- [x] `RegionGeometryTests`, `RegionOverlayTests.screenChangeCancels` and `DocumentTranscriptTests` pass, including `tableRowsStayRowBlocksInOrder` and `twoColumnsLeftColumnFirst`.
+- [x] `RegionReaderTests` (deterministic blocked capturer and blocked recognizer that return only when released by the test): `slotReservedBeforeCaptureAwaits`, `overlappingPressesCannotBothReserve`, `captureFailureReleasesSlot`, `staleCaptureCompletingAfterNewerInputNeverStartsVision`, `everyExitPathTearsDown` (success, no text, error, cancel), `callerTimesOutAt10sWhileWorkerStillRuns`, `slotHeldUntilBlockedWorkerReturns`, `secondPressWhileSlotHeldIsSilent`, `lateWorkerResultAfterTimeoutIsDiscarded`, `supersededTokenDropsResult`, `oversizeRectIsBoundedToDisplayScale`.
+- [x] `RegionPendingTests` (with the phase 2 seam session): `cancelAfterLookaheadLeavesSessionComplete` (overlay open longer than the 3-unit lookahead, then cancel: every unit still plays once), `emptyOcrLeavesSession`, `timeoutLeavesSession`, `successfulOcrReplacesSession`, `selectionPressSupersedesPendingRegion`.
+- [x] `OcrFailureCounterTests`: `threeConsecutiveFailuresSurfaceCategory`, `emptyRegionDoesNotCount`, `successResetsCounter`.
+- [x] Gate 0 records the native cancellation result. `make ocr-probe` also cancels one recognition mid-run and checks that the slot is freed within the time gate 0 measured.
+- [x] `SetupStateTests.screenRecordingIsOptionalButRequestedOnRegionPress`.
+- [x] `make ocr-probe` matches the expected block order for both fixtures.
+- [x] Code search: no `CGWindowListCreateImage`, and no image write (`write(to:`, `pngData`, `CGImageDestination`) in `Captalo/Services/OCR`.
 
 ### Manual (owner)
 

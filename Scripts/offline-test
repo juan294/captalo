@@ -1,0 +1,213 @@
+#!/usr/bin/env python3
+"""Offline and no-download proof for the speech probe (plan phase 3, unit 3D).
+
+Claim proven when this passes: no network attempt by the probe process under
+the deny profile, and no request through the registry route. The probe starts
+no child processes (source audit below); transports in other processes are
+covered only by the FluidAudio source audit in the phase 3 evidence.
+
+Usage: Scripts/offline-test --probe PATH --bundle DIR [--manifest Models.manifest.json]
+"""
+import argparse
+import datetime
+import http.server
+import json
+import os
+import re
+import shutil
+import signal
+import socket
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+RECORDER = r'''
+import http.server, sys
+log = open(sys.argv[2], "a", buffering=1)
+class H(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        log.write(self.path + "\n")
+        self.send_response(404); self.end_headers()
+    do_HEAD = do_GET
+    def log_message(self, *a): pass
+http.server.HTTPServer(("127.0.0.1", int(sys.argv[1])), H).serve_forever()
+'''
+
+
+def free_port():
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
+def profile(port):
+    return (
+        "(version 1)\n(allow default)\n"
+        "(deny network-outbound (with send-signal SIGKILL))\n"
+        f'(allow network-outbound (remote ip "localhost:{port}"))\n'
+    )
+
+
+class Harness:
+    def __init__(self, args):
+        stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        self.run = ROOT / ".local" / "offline-test" / f"run-{stamp}"
+        self.home = self.run / "HOME"
+        self.home.mkdir(parents=True)
+        self.probe = args.probe
+        self.bundle = args.bundle
+        self.manifest_path = args.manifest
+        self.manifest = json.loads(Path(args.manifest).read_text())
+        self.port = free_port()
+        self.log = self.run / "recorder.log"
+        self.log.touch()
+        self.profile = self.run / "deny.sb"
+        self.profile.write_text(profile(self.port))
+        self.failures = []
+        self.children_seen = []
+        self.recorder = None
+
+    def start_recorder(self):
+        self.recorder = subprocess.Popen([sys.executable, "-I", "-c", RECORDER, str(self.port), str(self.log)])
+        (self.run / "pids.json").write_text(json.dumps({"recorder": self.recorder.pid, "port": self.port}))
+        for _ in range(100):
+            try:
+                socket.create_connection(("127.0.0.1", self.port), timeout=0.1).close()
+                return
+            except OSError:
+                time.sleep(0.05)
+        raise RuntimeError("recorder did not start")
+
+    def stop_recorder(self):
+        # Only the recorded PID.
+        if self.recorder and self.recorder.poll() is None:
+            os.kill(self.recorder.pid, signal.SIGTERM)
+            try:
+                self.recorder.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                os.kill(self.recorder.pid, signal.SIGKILL)
+
+    def requests(self):
+        return [line for line in self.log.read_text().splitlines() if line]
+
+    def sandboxed(self, *probe_args, label, timeout=900):
+        """Runs the probe under the deny profile; samples its children while it runs."""
+        env = {"HOME": str(self.home), "PATH": "/usr/bin:/bin", "TMPDIR": str(self.run / "tmp")}
+        (self.run / "tmp").mkdir(exist_ok=True)
+        command = ["sandbox-exec", "-f", str(self.profile), str(self.probe), *probe_args]
+        log = open(self.run / f"{label}.log", "w")
+        process = subprocess.Popen(command, env=env, stdout=log, stderr=subprocess.STDOUT)
+        deadline = time.monotonic() + timeout
+        while process.poll() is None:
+            # sandbox-exec execs the probe in place, so the probe is this PID.
+            children = subprocess.run(["pgrep", "-P", str(process.pid)], capture_output=True, text=True).stdout.split()
+            if children:
+                self.children_seen.append((label, children))
+            if time.monotonic() > deadline:
+                process.kill()
+                process.wait()
+                log.close()
+                self.failures.append(f"{label}: timed out after {timeout} s")
+                return None
+            time.sleep(0.05)
+        log.close()
+        return process.returncode
+
+    def expect(self, condition, message):
+        if not condition:
+            self.failures.append(message)
+            print(f"FAIL {message}")
+        else:
+            print(f"ok   {message}")
+
+    def store_files(self, store):
+        current = (store / "current").read_text().strip()
+        base = store / current
+        return {str(p.relative_to(base)) for p in base.rglob("*") if p.is_file()}
+
+    def run_all(self):
+        self.start_recorder()
+        # Positive controls: the allowed route works and is recorded; any other route is killed.
+        code = self.sandboxed("control-request", "--url", f"http://127.0.0.1:{self.port}/control", label="control-recorder")
+        self.expect(code == 0 and self.requests() == ["/control"], "control: recorder request allowed and logged")
+        code = self.sandboxed("control-request", "--url", "https://example.com/", label="control-external")
+        self.expect(code in (-9, 137), f"control: external request killed by the profile (exit {code})")
+
+        registry = f"http://127.0.0.1:{self.port}"
+        voices = ",".join(self.manifest["voices"])
+        fixture = str(ROOT / "Fixtures" / "speech-completeness.txt")
+        store = self.run / "store"
+        for label in ("fresh", "warm"):
+            out = self.run / f"{label}.jsonl"
+            code = self.sandboxed("synthesize", "--bundle", str(self.bundle), "--store", str(store),
+                                  "--manifest", str(self.manifest_path), "--fixture", fixture, "--voices", voices,
+                                  "--registry", registry, "--out", str(out), label=label)
+            self.expect(code == 0, f"{label} store: every voice synthesized (exit {code})")
+            summaries = [json.loads(l) for l in out.read_text().splitlines() if '"summary"' in l] if out.exists() else []
+            self.expect(len(summaries) == len(self.manifest["voices"]) and all(s["outcome"] == "finished" for s in summaries),
+                        f"{label} store: {len(summaries)} voice summaries finished")
+
+        allowed = {f["path"] for f in self.manifest["files"]} | set(self.manifest.get("generated", []))
+        extra = sorted(self.store_files(store) - allowed)
+        self.expect(not extra, f"store files within manifest and generated set (extra: {extra[:5]})")
+
+        for damage in ("delete", "corrupt"):
+            copy = self.run / f"store-{damage}"
+            shutil.copytree(store, copy, symlinks=True)
+            current = copy / (copy / "current").read_text().strip()
+            victim = current / self.manifest["files"][-1]["path"]
+            if damage == "delete":
+                victim.unlink()
+            else:
+                victim.write_bytes(b"x" * victim.stat().st_size)
+            before = len(self.requests())
+            code = self.sandboxed("synthesize", "--bundle", str(self.bundle), "--store", str(copy),
+                                  "--manifest", str(self.manifest_path), "--fixture", fixture, "--voices", voices,
+                                  "--registry", registry, "--no-activate", "yes", "--out", str(self.run / f"{damage}.jsonl"),
+                                  label=f"damaged-{damage}")
+            # Exit 4 means the store failed validation and no engine was built.
+            self.expect(code == 4, f"damaged store ({damage}): refused before the engine (exit {code})")
+            self.expect(len(self.requests()) == before, f"damaged store ({damage}): no registry request")
+
+        self.expect(self.requests() == ["/control"], f"recorder saw only the control request ({self.requests()[:5]})")
+        self.expect(not (self.home / ".cache").exists(), "run HOME has no .cache")
+        spawn = subprocess.run(["grep", "-rnE", r"\bProcess\(|posix_spawn|NSTask|\bsystem\(", str(ROOT / "Packages/CaptaloSpeech/Sources")],
+                               capture_output=True, text=True)
+        # grep exits 1 for "no match"; any other status is an audit failure, not a pass.
+        self.expect(spawn.returncode == 1, f"source audit: the probe and CaptaloSpeech start no child processes (grep exit {spawn.returncode})")
+        self.expect(not self.children_seen, f"no child process seen while the probe ran (sampled every 50 ms: {self.children_seen[:3]})")
+
+
+def interrupted(signum, _frame):
+    raise KeyboardInterrupt(f"signal {signum}")
+
+
+def main():
+    signal.signal(signal.SIGTERM, interrupted)
+    signal.signal(signal.SIGHUP, interrupted)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--probe", required=True, type=Path)
+    parser.add_argument("--bundle", required=True, type=Path)
+    parser.add_argument("--manifest", default=ROOT / "Models.manifest.json", type=Path)
+    args = parser.parse_args()
+    harness = Harness(args)
+    try:
+        harness.run_all()
+    except (Exception, KeyboardInterrupt) as error:  # any harness error or signal is a failure
+        harness.failures.append(f"harness error: {error!r}")
+        print(f"FAIL harness error: {error!r}")
+    finally:
+        harness.stop_recorder()
+    if harness.failures:
+        print(f"offline-test: {len(harness.failures)} failure(s); evidence kept in {harness.run}")
+        return 1
+    shutil.rmtree(harness.run)
+    print("offline-test: passed (no network attempt by the probe process under the deny profile; "
+          "no request through the registry route)")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

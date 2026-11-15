@@ -1,0 +1,34 @@
+#!/bin/sh
+# Reviewed manifest update: rescans .local/models and shows the diff. With
+# --write it replaces Models.manifest.json (keeping its generated list) and
+# the Xcode copy-phase file lists.
+# Usage: Scripts/update-model-manifest [--write] [voice,voice,...]
+set -eu
+ROOT=$(cd "$(dirname "$0")/.." && pwd)
+PROBE=$("$ROOT/Scripts/model-tool")
+WRITE=no
+if [ "${1:-}" = "--write" ]; then WRITE=yes; shift; fi
+GENERATED=$(python3 -c 'import json,sys; print(",".join(json.load(open(sys.argv[1])).get("generated", [])))' "$ROOT/Models.manifest.json")
+VOICES=${1:-$(python3 -c 'import json,sys; print(",".join(json.load(open(sys.argv[1]))["voices"]))' "$ROOT/Models.manifest.json")}
+TMP=$(mktemp)
+"$PROBE" manifest --models "$ROOT/.local/models" --voices "$VOICES" --generated "$GENERATED" --out "$TMP"
+if diff -u "$ROOT/Models.manifest.json" "$TMP"; then
+  echo "update-model-manifest: no change"
+  rm -f "$TMP"
+  exit 0
+fi
+if [ "$WRITE" != yes ]; then
+  rm -f "$TMP"
+  echo "update-model-manifest: review the diff above, then run again with --write" >&2
+  exit 1
+fi
+mv "$TMP" "$ROOT/Models.manifest.json"
+python3 - "$ROOT" <<'PY'
+import json, sys
+root = sys.argv[1]
+files = [f["path"] for f in json.load(open(f"{root}/Models.manifest.json"))["files"]]
+open(f"{root}/Scripts/models-input.xcfilelist", "w").write("".join(f"$(SRCROOT)/.local/models/{p}\n" for p in files))
+open(f"{root}/Scripts/models-output.xcfilelist", "w").write(
+    "".join(f"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/Models/{p}\n" for p in files))
+print(f"{len(files)} files in the copy-phase lists")
+PY

@@ -104,9 +104,9 @@ Synthetic Copy is used only when the app has no Copy menu item and `CopyPolicy` 
 
 ### Automated (`make verify`)
 
-- [ ] `RequestCoordinatorTests`: `rapidPressesOnlyLastResolves`, `newInputDoesNotTouchPlayingSession`, `textOutcomePromotesAndStopsOldSession`, `stopGestureStopsSession`, `failedInputLeavesSession`, `delayedOldResultIsDropped`, `staleSessionCallbackDropped`, `quitLetsOpenCleanupFinish`.
-- [ ] `CaptureCoordinatorTests`: `axTextWinsAndPasteboardUntouched`, `confirmedEmptyNeverReachesCopy`, `unavailableUsesMenuCopyWhenPolicyAllows`, `copyPolicyBlocksVSCodeWithUnsupported`, `disabledCopyItemMeansNothingSelectedAndNoKeyEvent`, `syntheticCopyOnlyWhenNoCopyItem`, `modifierTimeoutAbortsSyntheticCopy`, `sourceChangedBeforeCopyAborts`, `chromiumGetsManualAccessibilityOnce`, `neverSetsEnhancedUserInterface`, `untrustedReturnsPermissionMissingBeforeAnyLayer`.
-- [ ] `ClipboardTransactionTests` (real named pasteboard), each checking the race its name states:
+- [x] `RequestCoordinatorTests`: `rapidPressesOnlyLastResolves`, `newInputDoesNotTouchPlayingSession`, `textOutcomePromotesAndStopsOldSession`, `stopGestureStopsSession`, `failedInputLeavesSession`, `delayedOldResultIsDropped`, `staleSessionCallbackDropped`, `quitLetsOpenCleanupFinish`.
+- [x] `CaptureCoordinatorTests`: `axTextWinsAndPasteboardUntouched`, `confirmedEmptyNeverReachesCopy`, `unavailableUsesMenuCopyWhenPolicyAllows`, `copyPolicyBlocksVSCodeWithUnsupported`, `disabledCopyItemMeansNothingSelectedAndNoKeyEvent`, `syntheticCopyOnlyWhenNoCopyItem`, `modifierTimeoutAbortsSyntheticCopy`, `sourceChangedBeforeCopyAborts`, `chromiumGetsManualAccessibilityOnce`, `neverSetsEnhancedUserInterface`, `untrustedReturnsPermissionMissingBeforeAnyLayer`.
+- [x] `ClipboardTransactionTests` (real named pasteboard), each checking the race its name states:
   - `unchangedPasteboardIsNeverRead`
   - `copiedTextReturnedAndOriginalRepresentationsRestored` (multi-item, multi-type, custom type; only the two marker types added)
   - `writeDuringSnapshotAborts`, `writeBeforeCopyAborts`
@@ -114,8 +114,8 @@ Synthetic Copy is used only when the app has no Copy menu item and `CopyPolicy` 
   - `cancelWhileWaitingForLockSendsNoCopy`, `cancelDuringSnapshotSendsNoCopy`
   - `noChangeWithinWindowRestoresNothing`, `overlappingTransactionsAreSerialized`, `cancelAfterCopyStillRunsScopedCleanup`, `cleanupAuthorityGrantsNoOtherEffect`, `emptyOriginalClipboardIsRestoredEmpty`, `restoreFailureDoesNotSpeak`
   - Not testable, documented under decision 9: a single foreign write inside W, and a write between the final check and the restore write.
-- [ ] `ReadingIdentityTests.sameCapturedTextTogglesStop` (fixes baseline §2: the comparison uses captured text, held as a hash).
-- [ ] `make log-audit` passes for `Captalo/Services/Capture`.
+- [x] `ReadingIdentityTests.sameCapturedTextTogglesStop` (fixes baseline §2: the comparison uses captured text, held as a hash).
+- [x] `make log-audit` passes for `Captalo/Services/Capture`.
 
 ### Manual (owner and agent)
 

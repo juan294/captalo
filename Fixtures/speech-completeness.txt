@@ -1,0 +1,17 @@
+# Speech completeness fixture
+
+The first sentence starts a reading. Every unit must play once, in order, with no missing words at the start or the end.
+
+Version 3.14 shipped on 2026-11-15 with 1,024 tests. The file Packages/CaptaloCore/Package.swift lists one library. NASA and the BBC are acronyms; so is HTML.
+
+See https://www.example.com/docs/reading?id=7 for details. A Markdown list follows:
+- the first item has **bold** words
+- the second item ends the list
+
+$ make verify
+CHECK whitespace
+PASS: 8 checks
+
+This sentence is deliberately long, so that the unit chunker has to split it at a comma or at whitespace before the four hundred character limit, which keeps one synthesis call bounded in time and memory, and it keeps going with clauses about rivers, mountains, orchards, harbours, libraries, bridges and markets, until it is clearly longer than any single unit may be, and then it ends.
+
+The last sentence closes the fixture.

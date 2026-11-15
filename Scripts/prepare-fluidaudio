@@ -1,0 +1,47 @@
+#!/bin/sh
+# Materializes the pinned, patched FluidAudio at .local/vendor/FluidAudio
+# (plan phase 3, unit 3B; notes D9). Upstream tag v0.18.3 does not compile
+# with Xcode 27, so the committed patch is applied on a local branch with a
+# fixed author and date, which gives a deterministic commit to pin.
+# Idempotent: an existing checkout at the expected commit is left alone.
+set -eu
+ROOT=$(cd "$(dirname "$0")/.." && pwd)
+DEST="$ROOT/.local/vendor/FluidAudio"
+UPSTREAM=https://github.com/FluidInference/FluidAudio.git
+TAG=v0.18.3
+TAG_COMMIT=c8b41f98eae668794dd0083bbe028fe7e6585051
+PATCH="$ROOT/Patches/fluidaudio-v0.18.3-xcode27.patch"
+BRANCH=captalo/v0.18.3-xcode27
+EXPECTED_FILE="$ROOT/Patches/fluidaudio-v0.18.3-xcode27.commit"
+
+expected=$(cat "$EXPECTED_FILE" 2>/dev/null || true)
+if [ -d "$DEST/.git" ] && [ -n "$expected" ] && [ "$(git -C "$DEST" rev-parse HEAD)" = "$expected" ] \
+   && [ -z "$(git -C "$DEST" status --porcelain)" ]; then
+  echo "FluidAudio $BRANCH at $expected"
+  exit 0
+fi
+
+rm -rf "$DEST"
+mkdir -p "$(dirname "$DEST")"
+git -c advice.detachedHead=false clone --quiet --depth 1 --branch "$TAG" "$UPSTREAM" "$DEST"
+actual_tag=$(git -C "$DEST" rev-parse HEAD)
+if [ "$actual_tag" != "$TAG_COMMIT" ]; then
+  echo "prepare-fluidaudio: $TAG resolved to $actual_tag, expected $TAG_COMMIT" >&2
+  exit 1
+fi
+git -C "$DEST" checkout --quiet -b "$BRANCH"
+git -C "$DEST" apply "$PATCH"
+git -C "$DEST" add -A
+GIT_AUTHOR_NAME="Captalo patch" GIT_AUTHOR_EMAIL="patch@captalo.invalid" GIT_AUTHOR_DATE="2026-11-15T00:00:00Z" \
+GIT_COMMITTER_NAME="Captalo patch" GIT_COMMITTER_EMAIL="patch@captalo.invalid" GIT_COMMITTER_DATE="2026-11-15T00:00:00Z" \
+  git -C "$DEST" -c commit.gpgsign=false commit --quiet -m "Build with the Xcode 27 CoreAI SDK (LFM3Audio only)"
+patched=$(git -C "$DEST" rev-parse HEAD)
+if [ -z "$expected" ]; then
+  echo "$patched" > "$EXPECTED_FILE"
+  echo "FluidAudio $BRANCH recorded at $patched (new)"
+elif [ "$patched" != "$expected" ]; then
+  echo "prepare-fluidaudio: patched commit $patched differs from recorded $expected" >&2
+  exit 1
+else
+  echo "FluidAudio $BRANCH at $patched"
+fi

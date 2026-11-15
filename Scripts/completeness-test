@@ -1,0 +1,119 @@
+#!/usr/bin/env python3
+"""Release-probe completeness check (plan phase 3, unit 3D, make completeness-test).
+
+Structural gate: every unit completed exactly once in order, no unit over
+35 s, queued seconds never over 105, for every bundled voice. Measurements on
+the ~20,000-character unpunctuated fixture: first audio, peak footprint, stop
+latency mid-reading and the replay span after a simulated device change.
+
+The speech-recognition round trip needs a test-only recognizer download that
+was not approved, so it is recorded as "not run"; the owner's listening audit
+is the completeness gate (plan, recognition calibration).
+"""
+import datetime
+import json
+import os
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+MAX_UNIT, MAX_QUEUED = 35.0, 105.0
+
+
+def probe_path():
+    # model-tool sets the Xcode developer directory default.
+    return subprocess.run([str(ROOT / "Scripts/model-tool")], capture_output=True, text=True, check=True).stdout.strip()
+
+
+def manifest_version(probe, bundle):
+    """The manifest version as the probe computes it (`verify` prints it), so the evidence cannot drift."""
+    out = subprocess.run([probe, "verify", "--models", bundle, "--manifest", str(ROOT / "Models.manifest.json")],
+                         capture_output=True, text=True).stdout
+    return out.rsplit("version ", 1)[-1].strip() if "version " in out else None
+
+
+def main():
+    stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    run = ROOT / ".local" / "completeness" / f"run-{stamp}"
+    home = run / "HOME"
+    home.mkdir(parents=True)
+    probe = probe_path()
+    bundle = sys.argv[1] if len(sys.argv) > 1 else str(ROOT / ".local/build/DerivedData/Build/Products/Release/Captalo.app/Contents/Resources/Models")
+    manifest = json.loads((ROOT / "Models.manifest.json").read_text())
+    failures, evidence = [], {"run": stamp, "bundle": bundle, "manifest": manifest_version(probe, bundle),
+                              "recognition": "not run: test recognizer download not approved"}
+
+    def synth(label, fixture, *extra):
+        out = run / f"{label}.jsonl"
+        result = subprocess.run([probe, "synthesize", "--bundle", bundle, "--store", str(run / "store"),
+                                 "--manifest", str(ROOT / "Models.manifest.json"), "--fixture", str(ROOT / "Fixtures" / fixture),
+                                 "--out", str(out), *extra], env={"HOME": str(home), "PATH": "/usr/bin:/bin"},
+                                capture_output=True, text=True)
+        (run / f"{label}.log").write_text(result.stdout + result.stderr)
+        if result.returncode != 0:
+            failures.append(f"{label}: probe exit {result.returncode}")
+            return []
+        return [json.loads(line) for line in out.read_text().splitlines()]
+
+    records = synth("completeness", "speech-completeness.txt", "--voices", ",".join(manifest["voices"]))
+    for summary in [r for r in records if r["kind"] == "summary"]:
+        voice = summary["voice"]
+        units = {r["unit"] for r in records if r["kind"] == "unit" and r["voice"] == voice}
+        unit_records = [r for r in records if r["kind"] == "unit" and r["voice"] == voice]
+        checks = {
+            "finished": summary["outcome"] == "finished",
+            "every expected unit played exactly once, in order": summary["playedExactlyOnceInOrder"],
+            "synthesized pieces reassemble the prepared text": summary["textReassembles"],
+            "every unit record completed, with phonemes and normalized text":
+                bool(unit_records) and all(r["completed"] and r["phonemes"] > 0 and r["normalizedText"] for r in unit_records),
+            "no unit over 35 s": summary["maxUnitSeconds"] <= MAX_UNIT,
+        }
+        failures += [f"{voice}: {name}" for name, ok in checks.items() if not ok]
+        evidence.setdefault("voices", {})[voice] = {**{k: summary[k] for k in ("units", "maxUnitSeconds", "maxQueuedSeconds", "firstAudioMs", "totalMs", "peakFootprintMB", "oversizeSplits")}, "checks": checks}
+
+    voice = manifest["voices"][0]
+    long_full = [r for r in synth("long", "speech-long-unpunctuated.txt", "--voices", voice) if r["kind"] == "summary"]
+    long_stop = [r for r in synth("long-stop", "speech-long-unpunctuated.txt", "--voices", voice, "--pace", "20",
+                                  "--stop-after-units", "5") if r["kind"] == "stop"]
+    long_device = [r for r in synth("long-device", "speech-long-unpunctuated.txt", "--voices", voice, "--pace", "20",
+                                    "--device-change-after-units", "3") if r["kind"] in ("deviceChange", "summary")]
+    if long_full:
+        s = long_full[0]
+        evidence["long"] = {k: s[k] for k in ("units", "maxUnitSeconds", "maxQueuedSeconds", "firstAudioMs", "totalMs", "peakFootprintMB", "oversizeSplits")}
+        if s["outcome"] != "finished" or not s["playedExactlyOnceInOrder"] or not s["textReassembles"] or s["maxUnitSeconds"] > MAX_UNIT:
+            failures.append("long fixture: structural check failed")
+    if long_stop:
+        evidence["stop"] = {k: long_stop[0][k] for k in ("stopToSilenceMs", "stopToIdleMs")}
+    device = [r for r in long_device if r["kind"] == "deviceChange"]
+    device_summary = [r for r in long_device if r["kind"] == "summary"]
+    if device:
+        evidence["deviceChange"] = {"replayedUnits": device[0]["replayedUnits"], "replaySpanSeconds": device[0]["replaySpanSeconds"]}
+        if len(device[0]["replayedUnits"]) != 1:
+            failures.append("device change: expected exactly one replayed (audible) unit")
+    if device_summary:
+        d = device_summary[0]
+        evidence["pacedQueue"] = {"maxQueuedSeconds": d["maxQueuedSeconds"], "maxRetained": d["maxRetained"]}
+        if d["outcome"] != "finished" or not d["playedExactlyOnceInOrder"]:
+            failures.append("device change: reading did not finish with every unit once, in order")
+        # The paced run fills the queue, so the bound is exercised, not vacuous.
+        if not 0 < d["maxQueuedSeconds"] <= MAX_QUEUED:
+            failures.append(f"paced queue bound: maxQueuedSeconds {d['maxQueuedSeconds']} not in (0, {MAX_QUEUED}]")
+    else:
+        failures.append("device change: no paced summary")
+
+    evidence["failures"] = failures
+    target = ROOT / ".local" / "completeness" / f"{stamp}.json"
+    target.write_text(json.dumps(evidence, indent=2) + "\n")
+    print(json.dumps(evidence, indent=2))
+    if failures:
+        print(f"completeness-test: {len(failures)} failure(s); run kept in {run}")
+        return 1
+    shutil.rmtree(run)
+    print(f"completeness-test: structural checks passed; evidence {target}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

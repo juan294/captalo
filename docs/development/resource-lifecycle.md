@@ -19,18 +19,23 @@ The canonical workspace is `/Users/juan/code/captalo`. Parallel code tasks use i
 
 ## Build and inspection
 
-From the repository root, use a task-specific derived-data directory. Setup uses:
+From the repository root, use the Makefile. Builds use `.local/build/DerivedData`; logs go to `.local/build/logs/`.
 
 ```sh
-DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer xcodebuild -project Sotto.xcodeproj -scheme Sotto -configuration Debug -derivedDataPath .local/setup/DerivedData CODE_SIGNING_ALLOWED=NO build
+make build-unsigned   # Debug and Release, CODE_SIGNING_ALLOWED=NO
+make test             # CaptaloCore tests
 ```
 
-This command builds and exits; it does not launch the app, download the runtime voice, or start a service. Package resolution may download build dependencies. Other developers select their installed full Xcode. Do not change global `xcode-select` as part of a project task.
+These commands build and exit; they do not launch the app, download the runtime voice, or start a service. Package resolution may download build dependencies. Other developers set `DEVELOPER_DIR` to their installed full Xcode. Do not change global `xcode-select` as part of a project task.
 
-Before removing an owned build directory, verify its resolved path, task record, current worktree, and all live Xcode/build consumers. No automatic teardown command is installed because setup artifacts are deliberately retained. Never run broad cache, Docker, or application-support cleanup.
+`make install` is the integration owner's command. It writes `/Applications/Captalo.app` (task-owned only when its bundle ID is `com.thecreativetoken.captalo`), `.local/build/install-record.json` (commit, worktree, configuration, designated requirement, launched PID), `.local/build/install-staging/` and one rollback copy in `.local/build/install-previous/`. It quits only the PID in the record and stops if another process runs from the fixed path.
+
+`.local/setup/DerivedData/` is the stale setup build cache from before the rename. Remove it only with owner authorization after checking that no Xcode process uses it.
+
+Before removing an owned build directory, verify its resolved path, task record, current worktree, and all live Xcode/build consumers. Never run broad cache, Docker, or application-support cleanup.
 
 ## Future runtime testing
 
-Record exact process IDs, app bundle identity, build path, fixture directory and intended finish action before launching a test app. The inherited bundle is still Sotto; launching it may share preference/model locations with another installation. Establish isolation before treating any runtime state as disposable. Stop only the verified task-owned app process. Permission changes and model deletion require their own explicit authorization.
+Record exact process IDs, app bundle identity, build path, fixture directory and intended finish action before launching a test app. The app uses its own bundle ID and defaults domain (`com.thecreativetoken.captalo`); the upstream `com.Shreysid.Sotto` domain is never touched. Until phase 3 removes it, the inherited speech code can create the shared `~/.cache/fluidaudio` directory, which other FluidAudio consumers may use. Establish isolation before treating any runtime state as disposable. Stop only the verified task-owned app process. Permission changes and model deletion require their own explicit authorization.
 
 At task completion report stopped processes, retained assets, the owner, and the next review action. For setup, retain the build cache and logs for the next Cáptalo session; no app or service launch is required.
