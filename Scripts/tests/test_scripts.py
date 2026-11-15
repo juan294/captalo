@@ -273,6 +273,45 @@ class DefaultsBackupTests(unittest.TestCase):
                 self.assertEqual(list(Path(self.tmp.name).glob("defaults-*.restored")), [])
                 self.assertEqual(self.read("reading.speed"), "1.2")
 
+    def stub_failing(self, *verbs):
+        """A `defaults` on PATH whose `verbs` fail without touching the domain; other verbs are real."""
+        stub = Path(self.tmp.name) / "bin"
+        stub.mkdir(exist_ok=True)
+        (stub / "defaults").write_text(
+            f'#!/bin/bash\ncase "$1" in {"|".join(verbs)}) echo "stub: $1 failed" >&2; exit 1;; esac\n'
+            'exec /usr/bin/defaults "$@"\n')
+        (stub / "defaults").chmod(0o755)
+        self.env["PATH"] = f"{stub}:{os.environ['PATH']}"
+
+    def test_unreadable_domain_is_never_marked_restored(self):
+        """VAL-11: an inspection failure is not proof of absence."""
+        for has_values in (False, True):
+            with self.subTest(has_values=has_values):
+                self.env["PATH"] = os.environ["PATH"]
+                subprocess.run(["defaults", "delete", self.domain], capture_output=True)
+                for marker in Path(self.tmp.name).glob("defaults-*"):
+                    marker.unlink()
+                self.assertEqual(self.run_script("defaults-backup").returncode, 0)
+                if has_values:
+                    subprocess.run(["defaults", "write", self.domain, "reading.speed", "-float", "1.2"], check=True)
+                self.stub_failing("export", "read", "delete")
+                restore = self.run_script("defaults-restore")
+                self.assertNotEqual(restore.returncode, 0, restore.stdout)
+                self.assertIn("cannot read", restore.stderr)
+                self.assertEqual(list(Path(self.tmp.name).glob("defaults-*.restored")), [])
+                if has_values:
+                    self.assertEqual(self.read("reading.speed"), "1.2")
+
+    def test_backup_of_an_unreadable_domain_records_nothing(self):
+        """VAL-11: backup never records `absent` from a failed inspection."""
+        subprocess.run(["defaults", "write", self.domain, "reading.voice", "af_bella"], check=True)
+        self.stub_failing("export", "read")
+        backup = self.run_script("defaults-backup")
+        self.assertNotEqual(backup.returncode, 0, backup.stdout)
+        self.assertIn("cannot read", backup.stderr)
+        self.assertEqual(list(Path(self.tmp.name).glob("defaults-*")), [])
+        self.assertEqual(self.read("reading.voice"), "af_bella")
+
     def test_already_absent_domain_is_restored_without_a_delete(self):
         self.assertEqual(self.run_script("defaults-backup").returncode, 0)
         self.stub_delete(1)  # nothing to delete, so a delete must not be needed
@@ -415,6 +454,41 @@ out.write_text((pathlib.Path(__file__).parent / "records" / (out.stem + ".jsonl"
                 runs = self.valid_runs()
                 mutate(runs)
                 self.assert_fails(runs, expected)
+
+    def with_units(self, runs, label, ids, expected, splits=0, voice="af_one"):
+        """Replaces `voice`'s unit records in `label` with `ids` (one record per piece)."""
+        runs[label] = [r for r in runs[label] if not (r["kind"] == "unit" and r["voice"] == voice)]
+        runs[label] += [unit_record(voice, i) for i in ids]
+        summary = next(r for r in runs[label] if r["kind"] == "summary" and r["voice"] == voice)
+        summary.update(units=expected, expectedUnits=expected, oversizeSplits=splits)
+        return runs
+
+    def test_split_unit_pieces_pass(self):
+        """A runtime split records one piece per half, under the same unit ID."""
+        runs = self.with_units(self.valid_runs(), "completeness", [0, 0, 1], expected=2, splits=1)
+        self.assertEqual(self.run_harness(runs), (0, []))
+
+    def test_unit_inventory_mismatches_fail(self):
+        """VAL-06: unit records must cover IDs 0..expectedUnits-1, each once (split pieces adjacent)."""
+        cases = {
+            "one unit dropped, summary intact": ("completeness", [0], 2, 0),
+            "unit duplicated": ("completeness", [0, 1, 0], 2, 0),
+            "adjacent duplicate without a split": ("completeness", [0, 0, 1], 2, 0),
+            "ID outside the inventory": ("completeness", [0, 1, 5], 2, 0),
+            "long run missing a unit": ("long", [1], 2, 0),
+            "device run missing a unit": ("long-device", [0, 2], 3, 0),
+        }
+        for name, (label, ids, expected, splits) in cases.items():
+            with self.subTest(name):
+                voice = "af_one"
+                runs = self.with_units(self.valid_runs(), label, ids, expected, splits, voice)
+                self.assert_fails(runs, "unit records cover")
+
+    def test_stopped_run_units_must_be_a_prefix(self):
+        runs = self.valid_runs()
+        runs["long-stop"] = [r for r in runs["long-stop"] if r["kind"] != "unit"] + [unit_record("af_one", 1)]
+        next(r for r in runs["long-stop"] if r["kind"] == "summary").update(expectedUnits=4)
+        self.assert_fails(runs, "stop: unit records")
 
     def test_voice_outside_the_manifest_fails(self):
         runs = self.valid_runs()

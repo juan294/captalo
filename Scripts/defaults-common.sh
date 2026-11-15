@@ -11,8 +11,29 @@ require_quit() {
   fi
 }
 
-# A deleted domain can still read back as an empty dictionary: empty means absent.
-is_empty() { [ "$(defaults export "$DOMAIN" - 2>/dev/null | plutil -convert json -o - - 2>/dev/null)" = "{}" ] || ! defaults read "$DOMAIN" >/dev/null 2>&1; }
+# Prints the domain's state from positive evidence only: `absent` when the
+# export succeeds as an empty dictionary (a deleted or never-written domain
+# exports as one), `present` when it succeeds with keys, and `unreadable`
+# when the export or its conversion fails. A failed inspection never counts
+# as absent.
+domain_state() {
+  local exported json
+  exported=$(defaults export "$DOMAIN" - 2>/dev/null) || { echo unreadable; return; }
+  json=$(printf '%s' "$exported" | plutil -convert json -o - - 2>/dev/null) || { echo unreadable; return; }
+  case $json in
+    "{}") echo absent ;;
+    "{"*) echo present ;;
+    *) echo unreadable ;;
+  esac
+}
+
+# Exits 1 when the state is unreadable; nothing is recorded or marked.
+require_readable() {
+  if [ "$1" = unreadable ]; then
+    echo "$(basename "$0"): cannot read $DOMAIN; nothing recorded or marked" >&2
+    exit 1
+  fi
+}
 
 # Normalized XML of a plist file, for byte comparison.
 xml() { plutil -convert xml1 -o - "$1"; }
