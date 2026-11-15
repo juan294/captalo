@@ -7,25 +7,10 @@ import SwiftUI
 final class CaptaloAppState: ObservableObject {
     static let shared = CaptaloAppState()
 
-    static let speedSteps: [Float] = [0.75, 0.85, 1.0, 1.15, 1.25, 1.35]
-
-    enum DefaultsKey {
-        static let wordsSpoken = "stats.wordsSpoken"
-        static let totalDictationSeconds = "stats.totalDictationSeconds"
-        static let pronunciationRules = "speech.pronunciationRules"
-        static let globalShortcut = "globalShortcut"
-    }
-
     /// Voice and speed sync to `readingSettings` (read off the main actor) on every change.
     @Published var speed: Float = 1.0 {
         didSet { readingSettings.set(voice: voice, speed: speed) }
     }
-    @Published var pauseForVoiceApps = true
-    @Published var showMenuBarStatus = true
-    @Published var status = "Preparing local voice..."
-    @Published var wordsSpoken: Int
-    @Published var totalDictationSeconds: Double
-    @Published var latestFirstAudio: Duration?
     @Published var voiceState: VoiceInstallState = .checking
     @Published var voice: String {
         didSet { readingSettings.set(voice: voice, speed: speed) }
@@ -33,10 +18,6 @@ final class CaptaloAppState: ObservableObject {
     /// "The last reading stopped because of a voice error." until the next reading.
     @Published var lastReadingError: String?
     @Published var accessibilityPermissionGranted: Bool
-    @Published var statusIcon = WaveStatusIconAnimator.image(phase: 0)
-    @Published var shortcut: GlobalShortcut
-    @Published var shortcutError: String?
-    @Published var pronunciationRules: [PronunciationRule]
 
     let speechService = SpeechService()
     /// Voice and speed as the reading pipeline sees them (read off the main actor).
@@ -87,53 +68,19 @@ final class CaptaloAppState: ObservableObject {
     #if DEBUG
     lazy var captureProbe = CaptureProbeRunner(accessibility: accessibility)
     #endif
-    var dictationSessionStartedAt: ContinuousClock.Instant?
-    lazy var waveAnimator = WaveStatusIconAnimator { [weak self] image in
-        self?.statusIcon = image
-    }
-
-    var onShortcutChanged: ((GlobalShortcut) -> Void)?
-    var onOpenStudio: (() -> Void)?
     /// Opens the settings window when the voice needs attention.
     var onVoiceAttentionRequired: (() -> Void)?
     var onAccessibilityPermissionRequired: (() -> Void)?
 
     private init() {
-        wordsSpoken = UserDefaults.standard.integer(forKey: DefaultsKey.wordsSpoken)
-        totalDictationSeconds = UserDefaults.standard.double(forKey: DefaultsKey.totalDictationSeconds)
-        accessibilityPermissionGranted = accessibility.isProcessTrusted()
-        pronunciationRules = Self.loadPronunciationRules()
+        accessibilityPermissionGranted = AXIsProcessTrusted()
         let initialVoice = speechService.voices.first ?? ReadingSettings.defaultVoice
         voice = initialVoice
         readingSettings.set(voice: initialVoice, speed: 1.0)
-
-        if let data = UserDefaults.standard.data(forKey: DefaultsKey.globalShortcut),
-           let saved = try? JSONDecoder().decode(GlobalShortcut.self, from: data) {
-            shortcut = saved
-        } else {
-            shortcut = .default
-        }
-    }
-
-    var isProcessing: Bool {
-        ["Preparing", "Loading", "Reading", "Generating", "Speaking"].contains {
-            status.hasPrefix($0)
-        }
-    }
-
-    var speedIndex: Int {
-        Self.speedSteps.indices.min {
-            abs(Self.speedSteps[$0] - speed) < abs(Self.speedSteps[$1] - speed)
-        } ?? 2
     }
 
     var canSpeak: Bool {
         voiceState.canSpeak
-    }
-
-    func updateStatus(_ text: String) {
-        status = text
-        waveAnimator.setAnimating(isProcessing)
     }
 }
 

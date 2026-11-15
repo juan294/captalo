@@ -7,7 +7,6 @@ extension CaptaloAppState {
     /// Installs the bundled voice (or repairs it) and starts the engine.
     func prepareVoice() {
         voiceState = .checking
-        updateStatus("Preparing local voice...")
         let service = speechService
         Task { apply(await service.prepare()) }
     }
@@ -17,7 +16,6 @@ extension CaptaloAppState {
     func reinstallVoice() {
         let wasReading = speechService.isReading
         voiceState = .checking
-        updateStatus("Reinstalling voice...")
         let service = speechService
         let requests = self.requests
         Task {
@@ -34,7 +32,6 @@ extension CaptaloAppState {
             NSApplication.shared.terminate(nil)
         case let .state(state):
             voiceState = state
-            updateStatus(state.statusText)
             if !state.canSpeak { onVoiceAttentionRequired?() }
         }
     }

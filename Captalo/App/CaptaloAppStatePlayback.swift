@@ -6,7 +6,6 @@ extension CaptaloAppState {
     /// source at once; trust, capture and the stop gesture run in the coordinators.
     func speakSelection() {
         if !isCaptureProbeActive, !canSpeak {
-            updateStatus(voiceState.statusText)
             onVoiceAttentionRequired?()
             return
         }
@@ -35,23 +34,5 @@ extension CaptaloAppState {
         #else
         false
         #endif
-    }
-
-    func stopSpeaking() {
-        finishDictationSession()
-        Task { await requests.stopSession() }
-        updateStatus("Stopped")
-    }
-
-    func startDictationSession() {
-        dictationSessionStartedAt = .now
-    }
-
-    func finishDictationSession() {
-        guard let started = dictationSessionStartedAt else { return }
-
-        totalDictationSeconds += started.duration(to: .now).seconds
-        dictationSessionStartedAt = nil
-        UserDefaults.standard.set(totalDictationSeconds, forKey: DefaultsKey.totalDictationSeconds)
     }
 }
