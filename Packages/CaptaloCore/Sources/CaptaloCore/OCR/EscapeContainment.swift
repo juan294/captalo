@@ -28,26 +28,33 @@ public protocol KeyEventTap: AnyObject {
 }
 
 /// Keeps Esc from the source app while the region overlay is visible
-/// (plan phase 5, unit 5A; VAL-08). The accepted Esc gesture is swallowed
-/// whole: its keyDown, autorepeats and keyUp. When the overlay closes while
-/// that Esc is still held, the tap stays until the keyUp, or `keyUpBound`.
+/// (plan phase 5, unit 5A; VAL-08, D25). The accepted Esc gesture is
+/// swallowed whole, however long it is held: its keyDown, autorepeats and
+/// keyUp. When the overlay closes while that Esc is held, the tap stays until
+/// the keyUp; every `keyUpBound` it reads the physical key state, and removes
+/// the tap once the key is up even if the keyUp was never delivered.
 @MainActor
 public final class EscapeContainment {
     public typealias Schedule = @MainActor (Duration, @escaping @MainActor () -> Void) -> Void
-    /// How long a closed overlay keeps the tap for the keyUp of an accepted Esc.
+    /// How often a closed overlay that still holds the tap checks whether Esc is up.
     public static let keyUpBound = Duration.seconds(2)
+    /// Whether Esc is physically down now (production: the combined session key state).
+    public typealias KeyState = @MainActor () -> Bool
 
     private let tap: any KeyEventTap
     private let schedule: Schedule
     private let onEscape: @MainActor () -> Void
+    private let isEscapeDown: KeyState
     /// An accepted Esc whose keyUp has not arrived.
     private var escapeHeld = false
     private var closed = false
     private var removed = false
 
-    public init(tap: any KeyEventTap, schedule: @escaping Schedule, onEscape: @escaping @MainActor () -> Void) {
+    public init(tap: any KeyEventTap, schedule: @escaping Schedule, isEscapeDown: @escaping KeyState,
+                onEscape: @escaping @MainActor () -> Void) {
         self.tap = tap
         self.schedule = schedule
+        self.isEscapeDown = isEscapeDown
         self.onEscape = onEscape
     }
 
@@ -57,13 +64,26 @@ public final class EscapeContainment {
         tap.install { [weak self] event in self?.handle(event) ?? false }
     }
 
-    /// The overlay closed (any exit). Removes the tap now, or after the held Esc's keyUp.
+    /// The overlay closed (any exit). Removes the tap now, or after the held Esc is released.
     public func finish() {
         closed = true
         guard escapeHeld else { return removeTap() }
+        scheduleKeyCheck()
+    }
+
+    private func scheduleKeyCheck() {
         // Strong on purpose: the closed overlay drops its reference, and the
-        // tap must still be removed after the keyUp or at the bound.
-        schedule(Self.keyUpBound) { self.removeTap() }
+        // tap must still be removed once Esc is up.
+        schedule(Self.keyUpBound) { self.checkKey() }
+    }
+
+    /// Keeps the tap while the accepted Esc is still down; removes it once the
+    /// key is up, even when its keyUp never reached the tap.
+    private func checkKey() {
+        guard !removed else { return }
+        if escapeHeld, isEscapeDown() { return scheduleKeyCheck() }
+        escapeHeld = false
+        removeTap()
     }
 
     private func handle(_ event: KeyEvent) -> Bool {
