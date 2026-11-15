@@ -10,13 +10,15 @@ STATE=$(ls -t "$DIR"/defaults-*.state 2>/dev/null | head -1)
 require_quit
 if [ "$(cat "$STATE")" = "absent" ]; then
   # Already absent needs no delete; a failed delete, or values left behind, is never marked restored.
-  if ! is_empty && ! defaults delete "$DOMAIN" >/dev/null; then
-    echo "defaults-restore: deleting $DOMAIN failed; backup not marked restored" >&2
-    exit 1
-  fi
   if ! is_empty; then
-    echo "defaults-restore: $DOMAIN still has values after the delete; backup not marked restored" >&2
-    exit 1
+    if ! defaults delete "$DOMAIN" >/dev/null; then
+      echo "defaults-restore: deleting $DOMAIN failed; backup not marked restored" >&2
+      exit 1
+    fi
+    if ! is_empty; then
+      echo "defaults-restore: $DOMAIN still has values after the delete; backup not marked restored" >&2
+      exit 1
+    fi
   fi
   touch "${STATE%.state}.restored"
   echo "defaults-restore: domain was absent before; verified it is absent again"
