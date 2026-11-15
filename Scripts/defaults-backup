@@ -8,8 +8,6 @@ set -eu
 STAMP=$(date -u +%Y%m%dT%H%M%SZ)
 mkdir -p "$DIR"
 require_quit
-# A deleted domain can still read back as an empty dictionary: empty means absent.
-is_empty() { [ "$(defaults export "$DOMAIN" - 2>/dev/null | plutil -convert json -o - - 2>/dev/null)" = "{}" ] || ! defaults read "$DOMAIN" >/dev/null 2>&1; }
 # One check at a time: a newer backup would hide the original values.
 LAST=$(ls -t "$DIR"/defaults-*.state 2>/dev/null | head -1)
 if [ -n "$LAST" ] && [ ! -e "${LAST%.state}.restored" ]; then

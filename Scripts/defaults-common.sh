@@ -11,6 +11,9 @@ require_quit() {
   fi
 }
 
+# A deleted domain can still read back as an empty dictionary: empty means absent.
+is_empty() { [ "$(defaults export "$DOMAIN" - 2>/dev/null | plutil -convert json -o - - 2>/dev/null)" = "{}" ] || ! defaults read "$DOMAIN" >/dev/null 2>&1; }
+
 # Normalized XML of a plist file, for byte comparison.
 xml() { plutil -convert xml1 -o - "$1"; }
 
