@@ -32,13 +32,13 @@ extension CaptaloAppState {
             NSApplication.shared.terminate(nil)
         case let .state(state):
             voiceState = state
-            if !state.canSpeak { onVoiceAttentionRequired?() }
+            requireSetup()
         }
     }
 
     func reportVoiceError() {
         lastReadingError = "The last reading stopped because of a voice error."
-        onVoiceAttentionRequired?()
+        onSetupRequired?()
     }
 
     func setVoice(_ name: String) {
@@ -56,6 +56,15 @@ extension CaptaloAppState {
 }
 
 extension VoiceInstallState {
+    /// The settings window's repair button, if the state has one.
+    var repairLabel: String? {
+        switch self {
+        case .damaged, .failed: "Reinstall voice"
+        case .installFailed: "Retry"
+        case .checking, .ready, .bundleInvalid: nil
+        }
+    }
+
     var statusText: String {
         switch self {
         case .checking: "Preparing local voice..."

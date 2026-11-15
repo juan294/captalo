@@ -46,12 +46,12 @@ br: .ready -> launch silent; window only on reopen
 
 ### Automated (`make verify`)
 
-- [ ] `SetupStateTests`: `missingReadShortcutRequiresSetup`, `untrustedRequiresAccessibility`, `damagedVoiceListedFirst`, `allRequiredPresentIsReady`, `missingScreenRecordingDoesNotRequireSetup`, `lastVoiceErrorShownButDoesNotBlockReady`.
-- [ ] `ShortcutValidationTests.identicalBindingsRejected`.
-- [ ] `LoginItemStateTests`: each `SMAppService.Status` value maps to its row text and action. A register error maps to a visible message.
-- [ ] Code search finds no `MenuBarExtra`, `setActivationPolicy(.regular)`, `RegisterEventHotKey` (in Cáptalo code), `pronunciationRules`, `wordsSpoken`, `pauseForVoiceApps` or `Studio` in `Captalo/`.
-- [ ] `PlistBuddy -c "Print :LSUIElement"` on the installed app prints `true`.
-- [ ] The Release build passes in Swift 6 mode with no new warning suppressions.
+- [x] `SetupStateTests`: `missingReadShortcutRequiresSetup`, `untrustedRequiresAccessibility`, `damagedVoiceListedFirst`, `allRequiredPresentIsReady`, `missingScreenRecordingDoesNotRequireSetup`, `lastVoiceErrorShownButDoesNotBlockReady`.
+- [x] `ShortcutValidationTests.identicalBindingsRejected`.
+- [x] `LoginItemStateTests`: each `SMAppService.Status` value maps to its row text and action. A register error maps to a visible message.
+- [x] Code search finds no `MenuBarExtra`, `setActivationPolicy(.regular)`, `RegisterEventHotKey` (in Cáptalo code), `pronunciationRules`, `wordsSpoken`, `pauseForVoiceApps` or `Studio` in `Captalo/`.
+- [ ] (Built Debug and Release products print `true`, checked by `make shell-audit`; installed app pending signing, D1) `PlistBuddy -c "Print :LSUIElement"` on the installed app prints `true`.
+- [x] The Release build passes in Swift 6 mode with no new warning suppressions.
 
 ### Manual
 

@@ -55,7 +55,7 @@ struct SettingsView: View {
             }
 
             Section {
-                if let error = state.lastReadingError {
+                if state.setup.showsVoiceError, let error = state.lastReadingError {
                     Text(error).foregroundStyle(.orange)
                 }
                 HStack {
@@ -65,8 +65,7 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 480)
-        .onAppear(perform: state.refreshSetup)
+        .frame(width: SettingsWindowController.width)
     }
 
     private var voiceRow: some View {
@@ -85,14 +84,11 @@ struct SettingsView: View {
                     ForEach(state.speechService.voices, id: \.self) { name in
                         Button("Sample \(name)") { state.playSample(name) }
                     }
-                case .damaged, .failed:
+                default:
                     Text(state.voiceState.statusText).foregroundStyle(.secondary)
-                    Button("Reinstall voice", action: state.reinstallVoice)
-                case .installFailed:
-                    Text(state.voiceState.statusText).foregroundStyle(.secondary)
-                    Button("Retry", action: state.reinstallVoice)
-                case .bundleInvalid:
-                    Text(state.voiceState.statusText).foregroundStyle(.secondary)
+                    if let label = state.voiceState.repairLabel {
+                        Button(label, action: state.reinstallVoice)
+                    }
                 }
             }
         }
@@ -100,7 +96,7 @@ struct SettingsView: View {
 
     private var speedIndex: Binding<Double> {
         Binding(
-            get: { Double(ReadingPreferences.speedSteps.firstIndex(of: state.speed) ?? 2) },
+            get: { Double(ReadingPreferences.speedIndex(of: state.speed)) },
             set: { state.setSpeed(ReadingPreferences.speedSteps[Int($0.rounded())]) }
         )
     }

@@ -1,6 +1,5 @@
 import AppKit
 import CaptaloCore
-import Combine
 import KeyboardShortcuts
 import ServiceManagement
 
@@ -11,7 +10,8 @@ extension CaptaloAppState {
 
     func setSpeed(_ value: Float) {
         // Kokoro's own speed, fixed per reading: applies from the next reading.
-        speed = ReadingPreferences.snap(value)
+        let snapped = ReadingPreferences.snap(value)
+        if snapped != speed { speed = snapped }
     }
 
     // MARK: Setup
@@ -20,7 +20,7 @@ extension CaptaloAppState {
         SetupEnvironment(
             voice: voiceState,
             accessibilityTrusted: accessibilityPermissionGranted,
-            readShortcutSet: KeyboardShortcuts.getShortcut(for: .readSelection) != nil,
+            readShortcutSet: readShortcutSet,
             lastReadingError: lastReadingError != nil
         )
     }
@@ -39,20 +39,21 @@ extension CaptaloAppState {
     /// entry probe), so the row says what to do if the shortcut does nothing.
     var shortcutNotice: String? {
         if let shortcutRejection { return shortcutRejection }
-        return KeyboardShortcuts.getShortcut(for: .readSelection) == nil
+        return !readShortcutSet
             ? "Choose a shortcut to read the selected text."
             : "If this shortcut does nothing, another app may use it; choose another."
     }
 
     /// Rejects a binding identical to the other Cáptalo shortcut (none until region reading).
     func readShortcutChanged(_ shortcut: KeyboardShortcuts.Shortcut?) {
-        shortcutRejection = nil
+        var rejection: String?
         if let shortcut, let other = otherShortcut(than: .readSelection),
            ShortcutValidation.validate(Self.binding(shortcut), other: Self.binding(other)) == .identicalToOther {
             KeyboardShortcuts.setShortcut(nil, for: .readSelection)
-            shortcutRejection = "That shortcut is already used by Cáptalo's other shortcut; choose another."
+            rejection = "That shortcut is already used by Cáptalo's other shortcut; choose another."
         }
-        objectWillChange.send()
+        shortcutRejection = rejection
+        readShortcutSet = KeyboardShortcuts.getShortcut(for: .readSelection) != nil
     }
 
     func otherShortcut(than name: KeyboardShortcuts.Name) -> KeyboardShortcuts.Shortcut? {
@@ -66,7 +67,8 @@ extension CaptaloAppState {
     // MARK: Launch at login
 
     func refreshLoginItem(registerError: String? = nil) {
-        loginItem = LoginItemRow.make(status: LoginItemStatus(SMAppService.mainApp.status), registerError: registerError)
+        let row = LoginItemRow.make(status: LoginItemStatus(SMAppService.mainApp.status), registerError: registerError)
+        if row != loginItem { loginItem = row }
     }
 
     func setLaunchAtLogin(_ enabled: Bool) {

@@ -5,9 +5,11 @@ import SwiftUI
 /// again, when required setup is missing, or when the voice needs attention.
 @MainActor
 final class SettingsWindowController: NSWindowController {
+    static let width: CGFloat = 480
+
     init(state: CaptaloAppState) {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 480, height: 560),
+            contentRect: NSRect(x: 0, y: 0, width: Self.width, height: 560),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false

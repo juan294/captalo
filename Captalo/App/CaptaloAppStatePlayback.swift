@@ -8,13 +8,14 @@ extension CaptaloAppState {
         if !isCaptureProbeActive {
             // The voice is still being prepared at launch: ignore the press (not a failure).
             if voiceState == .checking { return }
-            // A failed press with required setup missing opens the settings window.
-            if !setup.isReady {
-                onVoiceAttentionRequired?()
+            // The shortcut fired, so it is set: a failed press means the voice or the permission.
+            if !voiceState.canSpeak || !accessibilityPermissionGranted {
+                refreshAccessibilityPermission()
+                requireSetup()
                 return
             }
         }
-        lastReadingError = nil
+        if lastReadingError != nil { lastReadingError = nil }
         let capture = selectionCapture
         let accessibility = self.accessibility
         let requests = self.requests
@@ -26,7 +27,10 @@ extension CaptaloAppState {
             await requests.submit(kind: .selection, source: source) { token in
                 let outcome = await capture(token)
                 if outcome == .permissionMissing {
-                    await MainActor.run { CaptaloAppState.shared.refreshAccessibilityPermission() }
+                    await MainActor.run {
+                        CaptaloAppState.shared.refreshAccessibilityPermission()
+                        CaptaloAppState.shared.requireSetup()
+                    }
                 }
                 return outcome
             }

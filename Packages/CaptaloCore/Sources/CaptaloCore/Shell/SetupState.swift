@@ -39,7 +39,8 @@ public struct SetupState: Equatable, Sendable {
 
     public static func evaluate(_ env: SetupEnvironment) -> SetupState {
         var required: [SetupItem] = []
-        if env.voice != .ready { required.append(.voice) }
+        // A voice still being checked at launch is pending, not missing.
+        if env.voice != .ready, env.voice != .checking { required.append(.voice) }
         if !env.accessibilityTrusted { required.append(.accessibility) }
         if !env.readShortcutSet { required.append(.readShortcut) }
         var optional: [SetupItem] = []

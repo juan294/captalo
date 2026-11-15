@@ -4,19 +4,12 @@
 # and verifies the copy by re-reading it, and only then deletes the domain.
 # Touches only com.thecreativetoken.captalo. Quit Cáptalo first.
 set -eu
-# CAPTALO_DEFAULTS_DOMAIN and CAPTALO_DEFAULTS_DIR exist only for the script tests.
-DOMAIN=${CAPTALO_DEFAULTS_DOMAIN:-com.thecreativetoken.captalo}
-ROOT=$(cd "$(dirname "$0")/.." && pwd)
-DIR=${CAPTALO_DEFAULTS_DIR:-"$ROOT/.local/shell"}
+. "$(dirname "$0")/defaults-common.sh"
 STAMP=$(date -u +%Y%m%dT%H%M%SZ)
 mkdir -p "$DIR"
-if pgrep -f '^/Applications/Captalo.app/Contents/MacOS/Captalo( |$)' >/dev/null; then
-  echo "defaults-backup: Cáptalo is running; quit it first (make install records its PID)." >&2
-  exit 1
-fi
+require_quit
 # A deleted domain can still read back as an empty dictionary: empty means absent.
 is_empty() { [ "$(defaults export "$DOMAIN" - 2>/dev/null | plutil -convert json -o - - 2>/dev/null)" = "{}" ] || ! defaults read "$DOMAIN" >/dev/null 2>&1; }
-xml() { plutil -convert xml1 -o - "$1"; }
 # One check at a time: a newer backup would hide the original values.
 LAST=$(ls -t "$DIR"/defaults-*.state 2>/dev/null | head -1)
 if [ -n "$LAST" ] && [ ! -e "${LAST%.state}.restored" ]; then
@@ -32,14 +25,10 @@ BACKUP="$DIR/defaults-$STAMP.plist"
 defaults export "$DOMAIN" "$BACKUP"
 sync
 plutil -lint "$BACKUP" >/dev/null
-LIVE=$(mktemp -t captalo-defaults)
-defaults export "$DOMAIN" "$LIVE"
-if ! xml "$LIVE" | cmp -s - <(xml "$BACKUP"); then
-  rm -f "$LIVE"
+if ! domain_matches "$BACKUP"; then
   echo "defaults-backup: verification failed; domain kept" >&2
   exit 1
 fi
-rm -f "$LIVE"
 echo "present" > "$DIR/defaults-$STAMP.state"
 defaults delete "$DOMAIN"
 echo "defaults-backup: exported to $BACKUP and deleted the domain"

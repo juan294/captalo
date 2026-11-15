@@ -23,6 +23,12 @@ import Testing
         #expect(SetupState.evaluate(env).requiredMissing == [.voice, .accessibility, .readShortcut])
     }
 
+    @Test func checkingVoiceIsPendingNotMissing() {
+        var env = ready
+        env.voice = .checking
+        #expect(SetupState.evaluate(env).isReady)
+    }
+
     @Test func allRequiredPresentIsReady() {
         let state = SetupState.evaluate(ready)
         #expect(state.isReady)

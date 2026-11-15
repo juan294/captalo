@@ -1,5 +1,6 @@
 import CaptaloCore
 import Combine
+import KeyboardShortcuts
 import Synchronization
 import SwiftUI
 
@@ -19,12 +20,14 @@ final class CaptaloAppState: ObservableObject {
     @Published var loginItem = LoginItemRow.make(status: .notRegistered)
     /// Shown under the recorder after a binding was rejected.
     @Published var shortcutRejection: String?
+    /// Cached: whether a read shortcut is recorded (updated by the recorder).
+    @Published var readShortcutSet = KeyboardShortcuts.getShortcut(for: .readSelection) != nil
     /// "The last reading stopped because of a voice error." until the next reading.
     @Published var lastReadingError: String?
     @Published var accessibilityPermissionGranted: Bool
 
     let speechService = SpeechService()
-    /// Injected for tests; the app uses the standard domain.
+    /// Where speed and voice persist (the app's standard domain).
     let defaults: UserDefaults
     /// Voice and speed as the reading pipeline sees them (read off the main actor).
     let readingSettings = ReadingSettings()
@@ -79,17 +82,22 @@ final class CaptaloAppState: ObservableObject {
     #if DEBUG
     lazy var captureProbe = CaptureProbeRunner(accessibility: accessibility)
     #endif
-    /// Opens the settings window when the voice needs attention.
-    var onVoiceAttentionRequired: (() -> Void)?
-    var onAccessibilityPermissionRequired: (() -> Void)?
+    /// Shows the settings window.
+    var onSetupRequired: (() -> Void)?
 
     private init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        accessibilityPermissionGranted = AXIsProcessTrusted()
+        accessibilityPermissionGranted = accessibility.isProcessTrusted()
         let saved = ReadingPreferences.load(from: defaults, voices: speechService.voices)
         speed = saved.speed
         voice = saved.voice
         readingSettings.set(voice: saved.voice, speed: saved.speed)
+    }
+
+    /// Opens the settings window when required setup is missing (launch, a
+    /// failed press, a voice that needs attention). The one place that decides.
+    func requireSetup() {
+        if !setup.isReady { onSetupRequired?() }
     }
 
     private func preferencesChanged() {
@@ -97,15 +105,11 @@ final class CaptaloAppState: ObservableObject {
         ReadingPreferences(speed: speed, voice: voice).save(to: defaults)
     }
 
-    var canSpeak: Bool {
-        voiceState.canSpeak
-    }
 }
 
 /// The voice and speed a new reading uses. A change applies from the next reading.
 nonisolated final class ReadingSettings: Sendable {
-    static let defaultVoice = "af_heart"
-    private let state = Mutex<(voice: String, speed: Float)>((ReadingSettings.defaultVoice, 1.0))
+    private let state = Mutex<(voice: String, speed: Float)>((ReadingPreferences.defaultVoice, ReadingPreferences.defaultSpeed))
 
     var current: (voice: String, speed: Float) { state.withLock { $0 } }
 

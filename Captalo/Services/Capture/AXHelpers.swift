@@ -19,17 +19,25 @@ nonisolated enum AX {
         prepared(AXUIElementCreateSystemWide())
     }
 
-    /// Maps an AX result to `AXRead`: unsupported attributes and missing
-    /// values are `.unsupported`; every other error is `.error`.
-    static func classify<T>(_ status: AXError, _ value: CFTypeRef?, _ convert: (CFTypeRef) -> T?) -> AXRead<T> {
-        switch status {
+    enum Status { case success, unsupported, error }
+
+    /// The one AX error policy: unsupported attributes and missing values
+    /// are `.unsupported`; every other failure is `.error`.
+    static func status(_ error: AXError) -> Status {
+        switch error {
+        case .success: .success
+        case .attributeUnsupported, .parameterizedAttributeUnsupported, .noValue: .unsupported
+        default: .error
+        }
+    }
+
+    static func classify<T>(_ error: AXError, _ value: CFTypeRef?, _ convert: (CFTypeRef) -> T?) -> AXRead<T> {
+        switch status(error) {
         case .success:
             guard let value, let converted = convert(value) else { return .error }
             return .value(converted)
-        case .attributeUnsupported, .parameterizedAttributeUnsupported, .noValue:
-            return .unsupported
-        default:
-            return .error
+        case .unsupported: return .unsupported
+        case .error: return .error
         }
     }
 
@@ -58,14 +66,12 @@ nonisolated enum AX {
 
     static func element(_ parent: AXUIElement, _ attribute: String) -> ElementRead {
         var value: CFTypeRef?
-        switch AXUIElementCopyAttributeValue(parent, attribute as CFString, &value) {
+        switch status(AXUIElementCopyAttributeValue(parent, attribute as CFString, &value)) {
         case .success:
             guard let value, let element = asElement(value) else { return .error }
             return .value(prepared(element))
-        case .attributeUnsupported, .noValue:
-            return .unsupported
-        default:
-            return .error
+        case .unsupported: return .unsupported
+        case .error: return .error
         }
     }
 

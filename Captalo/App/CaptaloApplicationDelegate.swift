@@ -8,17 +8,14 @@ final class CaptaloApplicationDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let state = CaptaloAppState.shared
-        state.onVoiceAttentionRequired = { [weak self] in self?.showSettings() }
-        state.onAccessibilityPermissionRequired = { [weak self] in self?.showSettings() }
+        state.onSetupRequired = { [weak self] in self?.showSettings() }
         KeyboardShortcuts.onKeyDown(for: .readSelection) {
             CaptaloAppState.shared.speakSelection()
         }
-        state.refreshSetup()
+        state.refreshAccessibilityPermission()
         state.prepareVoice()
-        // Required setup missing (voice is still checking here): open the window at launch.
-        if state.setup.requiredMissing.contains(where: { $0 != .voice }) {
-            showSettings()
-        }
+        // Required setup missing (a voice still checking is pending): open the window at launch.
+        state.requireSetup()
     }
 
     /// Opening Cáptalo again (Spotlight, Finder) shows the settings window.
