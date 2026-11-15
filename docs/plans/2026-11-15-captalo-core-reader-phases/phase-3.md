@@ -144,9 +144,9 @@ fail: missing, reordered or oversize unit, queue bound exceeded -> non-zero exit
 
 ### Automated (`make verify`, including `bundle-check`, `offline-test`, `completeness-test`)
 
-- [ ] `TextPreparerTests`: every positive and negative fixture matches. Removing the emphasis rule makes `markdownEmphasisNotSpoken` fail.
-- [ ] `UnitChunkerTests`: `oneUnitPerShortSentence`, `longSentenceSplitAtLastBreakBefore400`, `unpunctuatedTextSplitAtWhitespace`, `unbrokenTokenOver400HardSplitAtGraphemeBoundary`, `unbrokenTokenInFirstUnitHardSplitAt160`, `hardSplitNeverBreaksAGraphemeCluster`, `firstUnitCappedAt160`, `noUnitCrossesParagraph`, `lazyProductionDoesNotPreparePastLookahead`. The phase 1 characterization tests are retired, and the retirement is noted in the commit.
-- [ ] `ReadingSessionTests` (in-memory Synthesizer and AudioSink):
+- [x] `TextPreparerTests`: every positive and negative fixture matches. Removing the emphasis rule makes `markdownEmphasisNotSpoken` fail.
+- [x] `UnitChunkerTests`: `oneUnitPerShortSentence`, `longSentenceSplitAtLastBreakBefore400`, `unpunctuatedTextSplitAtWhitespace`, `unbrokenTokenOver400HardSplitAtGraphemeBoundary`, `unbrokenTokenInFirstUnitHardSplitAt160`, `hardSplitNeverBreaksAGraphemeCluster`, `firstUnitCappedAt160`, `noUnitCrossesParagraph`, `lazyProductionDoesNotPreparePastLookahead`. The phase 1 characterization tests are retired, and the retirement is noted in the commit.
+- [x] `ReadingSessionTests` (in-memory Synthesizer and AudioSink):
   - `synthesisNeverRunsMoreThan3Ahead`, `atMostOneInFlightUnit`, `queuedSecondsNeverExceedBound`
   - `playedBuffersAreReleased` (retained buffers ≤ 4 across 2,000 units)
   - `allUnitsPlayedExactlyOnceInOrder`, `deviceChangeReplaysCurrentUnitOnly`
@@ -154,16 +154,16 @@ fail: missing, reordered or oversize unit, queue bound exceeded -> non-zero exit
   - `oversizeResultIsSplitAndReSynthesizedInOrder`, `minimumPieceStillOversizeEndsWithVoiceError`, `oversizeResultNeverEnqueued`
   - `stopDuringFirstSynthesisSilencesAtOnceAndDropsResult`, `repeatedReplacementLeavesOneSession`
   - `staleCallbackAfterEngineRestartIgnored`, `speedChangeAppliesFromNextReading`
-- [ ] `ModelStoreTests` (temp directories; disk-full injected at the owned file-copier boundary):
+- [x] `ModelStoreTests` (temp directories; disk-full injected at the owned file-copier boundary):
   - `freshInstallActivatesAtomically`, `interruptedStagingIsRemovedAndRetried`
   - `corruptExistingHashIsQuarantinedAndReplaced`, `failedReplacementRollsBackQuarantine`, `loneQuarantineRestoredAfterCrash`
   - `leasedStoreIsNotQuarantinedOrReclaimed`, `upgradeDuringPlaybackActivatesForNextReading`, `retentionKeepsCurrentPreviousAndLeased`
   - `damagedStoreRefusesBeforeEngine`, `repairReinstallsFromBundle`, `secondConsumerCannotTakeStoreLock`
   - `diskFullReportsNeededSpaceAndLeavesNoStaging`, `concurrentActivateInstallsOnce`, `fetchScriptRejectsBytesNotMatchingManifest`
-- [ ] `KokoroContractTests` (real frontend, Release and Debug): a 400-character unpunctuated unit synthesizes in one result under 35 s at the slowest and fastest supported speeds for every bundled voice, or triggers the oversize split and still completes. A number, a file name, an acronym and a URL each yield non-empty phonemes and `normalizedText`.
-- [ ] `make offline-test` passes for every final bundled voice, both positive controls behave as expected, and the recorder is stopped on every exit path.
-- [ ] `make completeness-test` passes its structural checks. The recognition check's gating status and threshold are recorded.
-- [ ] `Package.resolved` pins FluidAudio by exact revision, and the fork-or-upstream choice and the source-audit result are recorded.
+- [x] `KokoroContractTests` (real frontend, Release and Debug): a 400-character unpunctuated unit synthesizes in one result under 35 s at the slowest and fastest supported speeds for every bundled voice, or triggers the oversize split and still completes. A number, a file name, an acronym and a URL each yield non-empty phonemes and `normalizedText`.
+- [x] `make offline-test` passes for every final bundled voice, both positive controls behave as expected, and the recorder is stopped on every exit path.
+- [x] `make completeness-test` passes its structural checks. The recognition check's gating status and threshold are recorded.
+- [ ] (Met in substance by the recorded local commit `6fe650eb`; fork push pending owner confirmation, notes D9) `Package.resolved` pins FluidAudio by exact revision, and the fork-or-upstream choice and the source-audit result are recorded.
 
 ### Manual (owner)
 

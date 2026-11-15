@@ -18,7 +18,6 @@ public struct SynthesisUnit: Equatable, Sendable {
 public struct UnitChunker<Paragraphs: Sequence>: Sequence where Paragraphs.Element == Paragraph {
     public static var maxLength: Int { 400 }
     public static var firstMaxLength: Int { 160 }
-    static var pauseCharacters: Set<Character> { [",", ";", ":", "—", "–", ")", "]"] }
 
     let paragraphs: Paragraphs
 
@@ -80,8 +79,8 @@ public struct UnitChunker<Paragraphs: Sequence>: Sequence where Paragraphs.Eleme
     /// The head (at most `limit` characters, trimmed) and the rest (trimmed).
     static func split(_ text: Substring, limit: Int) -> (Substring, Substring) {
         let trimmed = text.drop(while: \.isWhitespace)
-        guard trimmed.count > limit else { return (trimmed.trimmingTrailingWhitespace, "") }
-        let windowEnd = trimmed.index(trimmed.startIndex, offsetBy: limit)
+        guard let windowEnd = trimmed.index(trimmed.startIndex, offsetBy: limit, limitedBy: trimmed.endIndex),
+              windowEnd < trimmed.endIndex else { return (trimmed.trimmingTrailingWhitespace, "") }
         // A break exactly at the limit: the head is the full window.
         if trimmed[windowEnd].isWhitespace {
             return (trimmed[..<windowEnd].trimmingTrailingWhitespace, trimmed[windowEnd...].drop(while: \.isWhitespace))
@@ -94,7 +93,7 @@ public struct UnitChunker<Paragraphs: Sequence>: Sequence where Paragraphs.Eleme
             if character.isWhitespace, previous > trimmed.startIndex {
                 return (trimmed[..<previous].trimmingTrailingWhitespace, trimmed[previous...].drop(while: \.isWhitespace))
             }
-            if pauseCharacters.contains(character) {
+            if unitPauseCharacters.contains(character) {
                 return (trimmed[..<index], trimmed[index...].drop(while: \.isWhitespace))
             }
             index = previous
@@ -111,3 +110,6 @@ extension Substring {
         return self[startIndex..<end]
     }
 }
+
+/// Pause punctuation a unit may end at.
+private let unitPauseCharacters: Set<Character> = [",", ";", ":", "—", "–", ")", "]"]

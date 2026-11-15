@@ -20,7 +20,7 @@ import Testing
         // Allowed tokens: an event name, then key=value pairs whose value is
         // an integer or a known enum raw value.
         var enumValues = Set(["neuralEngine", "cpuAndGPU", "true", "false", "none", "started", "stopped", "finished"])
-        enumValues.formUnion(["selection", "region", "sample", "text", "nothingSelected", "unsupported", "permissionMissing", "cancelled", "failed"])
+        enumValues.formUnion(["selection", "region", "text", "nothingSelected", "unsupported", "permissionMissing", "cancelled", "failed"])
         enumValues.formUnion(["accessibility", "menuCopy", "syntheticCopy", "ocr", "pass", "fail"])
         for event in Self.allCases {
             let parts = event.rendered.split(separator: " ")

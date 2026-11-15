@@ -16,7 +16,10 @@ final class CaptaloAppState: ObservableObject {
         static let globalShortcut = "globalShortcut"
     }
 
-    @Published var speed: Float = 1.0
+    /// Voice and speed sync to `readingSettings` (read off the main actor) on every change.
+    @Published var speed: Float = 1.0 {
+        didSet { readingSettings.set(voice: voice, speed: speed) }
+    }
     @Published var pauseForVoiceApps = true
     @Published var showMenuBarStatus = true
     @Published var status = "Preparing local voice..."
@@ -24,7 +27,9 @@ final class CaptaloAppState: ObservableObject {
     @Published var totalDictationSeconds: Double
     @Published var latestFirstAudio: Duration?
     @Published var voiceState: VoiceInstallState = .checking
-    @Published var voice: String
+    @Published var voice: String {
+        didSet { readingSettings.set(voice: voice, speed: speed) }
+    }
     /// "The last reading stopped because of a voice error." until the next reading.
     @Published var lastReadingError: String?
     @Published var accessibilityPermissionGranted: Bool
@@ -75,7 +80,7 @@ final class CaptaloAppState: ObservableObject {
         return { token in
             let outcome = await capture.capture(token)
             // Text that cleanup removes completely is silence, like an empty selection.
-            if case let .text(text, _) = outcome, !SpeechService.hasSpeakableText(text) { return .nothingSelected }
+            if case let .text(text, _) = outcome, !TextPreparer.hasSpeakableText(text) { return .nothingSelected }
             return outcome
         }
     }()
@@ -98,9 +103,9 @@ final class CaptaloAppState: ObservableObject {
         totalDictationSeconds = UserDefaults.standard.double(forKey: DefaultsKey.totalDictationSeconds)
         accessibilityPermissionGranted = accessibility.isProcessTrusted()
         pronunciationRules = Self.loadPronunciationRules()
-        let defaultVoice = speechService.voices.first ?? "af_heart"
-        voice = defaultVoice
-        readingSettings.set(voice: defaultVoice, speed: 1.0)
+        let initialVoice = speechService.voices.first ?? ReadingSettings.defaultVoice
+        voice = initialVoice
+        readingSettings.set(voice: initialVoice, speed: 1.0)
 
         if let data = UserDefaults.standard.data(forKey: DefaultsKey.globalShortcut),
            let saved = try? JSONDecoder().decode(GlobalShortcut.self, from: data) {
@@ -134,7 +139,8 @@ final class CaptaloAppState: ObservableObject {
 
 /// The voice and speed a new reading uses. A change applies from the next reading.
 nonisolated final class ReadingSettings: Sendable {
-    private let state = Mutex<(voice: String, speed: Float)>(("af_heart", 1.0))
+    static let defaultVoice = "af_heart"
+    private let state = Mutex<(voice: String, speed: Float)>((ReadingSettings.defaultVoice, 1.0))
 
     var current: (voice: String, speed: Float) { state.withLock { $0 } }
 

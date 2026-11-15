@@ -14,8 +14,6 @@ public struct ElementRef: Hashable, @unchecked Sendable {
 public enum InputKind: String, Sendable {
     case selection
     case region
-    /// A reading the app starts itself (the voice sample button).
-    case sample
 }
 
 /// Where a press came from, recorded when the shortcut fires.

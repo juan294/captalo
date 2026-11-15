@@ -11,11 +11,7 @@ if [ "${1:-}" = "--write" ]; then WRITE=yes; shift; fi
 GENERATED=$(python3 -c 'import json,sys; print(",".join(json.load(open(sys.argv[1])).get("generated", [])))' "$ROOT/Models.manifest.json")
 VOICES=${1:-$(python3 -c 'import json,sys; print(",".join(json.load(open(sys.argv[1]))["voices"]))' "$ROOT/Models.manifest.json")}
 TMP=$(mktemp)
-if [ -n "$GENERATED" ]; then
-  "$PROBE" manifest --models "$ROOT/.local/models" --voices "$VOICES" --generated "$GENERATED" --out "$TMP"
-else
-  "$PROBE" manifest --models "$ROOT/.local/models" --voices "$VOICES" --out "$TMP"
-fi
+"$PROBE" manifest --models "$ROOT/.local/models" --voices "$VOICES" --generated "$GENERATED" --out "$TMP"
 if diff -u "$ROOT/Models.manifest.json" "$TMP"; then
   echo "update-model-manifest: no change"
   rm -f "$TMP"

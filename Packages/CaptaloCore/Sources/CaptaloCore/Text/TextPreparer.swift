@@ -41,6 +41,19 @@ public enum TextPreparer {
         SelectionBlocks(text: normalizeCharacters(text))
     }
 
+    /// The one text-to-units chain used by the app and the probe: blocks
+    /// (selection text is split; OCR text is one paragraph until phase 5),
+    /// cleanup, then units.
+    public static func units(for text: String, source: TextSource) -> AnyIterator<SynthesisUnit> {
+        let blocks = source == .selection ? Array(blocks(fromSelection: text)) : [Block.paragraph(text)]
+        return AnyIterator(UnitChunker(prepare(blocks, source: source)).makeIterator())
+    }
+
+    /// False when cleanup leaves nothing to say: silence, like an empty selection.
+    public static func hasSpeakableText(_ text: String, source: TextSource = .selection) -> Bool {
+        units(for: text, source: source).next() != nil
+    }
+
     // MARK: - Per-block cleanup
 
     static func paragraph(from block: Block, source: TextSource) -> Paragraph {
@@ -125,6 +138,13 @@ struct Pattern: @unchecked Sendable {
         regex.stringByReplacingMatches(in: text, range: NSRange(text.startIndex..., in: text), withTemplate: template)
     }
 
+    func matches(_ text: String) -> Bool {
+        regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil
+    }
+
+    static let headingLine = Pattern(#"^#{1,6}\s+\S"#)
+    static let listLine = Pattern(#"^(?:[-*+•]|\d{1,3}[.)])\s+\S"#)
+
     static let ansi = Pattern(#"\x{1B}(?:\[[0-9;?]*[ -/]*[@-~]|\][^\x{07}\x{1B}]*(?:\x{07}|\x{1B}\\)|[@-Z\\-_])"#)
     static let boxDrawing = Pattern(#"[\x{2500}-\x{259F}]+"#)
     static let separatorRun = Pattern(#"[-=_*~]{4,}"#)
@@ -201,7 +221,7 @@ public struct SelectionBlocks: Sequence {
                 inTable = true
                 return .some(nil)
             }
-            let nextIsSeparator = lines.first.map { Self.isSeparatorRow($0.trimmingCharacters(in: .whitespaces)) } ?? false
+            let nextIsSeparator = lines.first.map { Self.isSeparatorRow(String($0)) } ?? false
             if line.contains("|"), line.hasPrefix("|") || inTable || nextIsSeparator {
                 inTable = true
                 var cells = line.split(separator: "|", omittingEmptySubsequences: false)
@@ -210,17 +230,18 @@ public struct SelectionBlocks: Sequence {
                 if cells.last == "" { cells.removeLast() }
                 return .some(.tableRow(cells))
             }
-            if line.range(of: #"^#{1,6}\s+\S"#, options: .regularExpression) != nil {
+            if Pattern.headingLine.matches(line) {
                 return .some(.paragraph(line))
             }
-            if line.range(of: #"^(?:[-*+•]|\d{1,3}[.)])\s+\S"#, options: .regularExpression) != nil {
+            if Pattern.listLine.matches(line) {
                 return .some(.listItem(line))
             }
             return nil
         }
 
+        /// `| --- | :-: |`; surrounding whitespace allowed.
         static func isSeparatorRow(_ line: String) -> Bool {
-            line.contains("|") && line.contains("-") && line.allSatisfy { "|-: ".contains($0) }
+            line.contains("|") && line.contains("-") && line.allSatisfy { "|-: \t".contains($0) }
         }
 
         private func flush(_ paragraph: inout [Substring]) -> Block? {

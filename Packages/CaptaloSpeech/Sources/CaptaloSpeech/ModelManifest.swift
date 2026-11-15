@@ -44,7 +44,7 @@ public struct ModelManifest: Codable, Equatable, Sendable {
     /// Content hash of the file list: the store directory name for this version.
     public var contentHash: String {
         let lines = files.map { "\($0.path) \($0.size) \($0.sha256)\n" }.joined()
-        return SHA256.hash(data: Data(lines.utf8)).map { String(format: "%02x", $0) }.joined()
+        return hex(SHA256.hash(data: Data(lines.utf8)))
     }
 
     /// Builds a manifest from a directory (used only by the reviewed manifest update).
@@ -88,6 +88,10 @@ public enum ManifestValidator {
         while let chunk = try handle.read(upToCount: 1 << 20), !chunk.isEmpty {
             hasher.update(data: chunk)
         }
-        return hasher.finalize().map { String(format: "%02x", $0) }.joined()
+        return hex(hasher.finalize())
     }
+}
+
+private func hex(_ digest: SHA256Digest) -> String {
+    digest.map { String(format: "%02x", $0) }.joined()
 }

@@ -44,7 +44,7 @@ public enum ReadingOutcome: Equatable, Sendable {
 
 /// Observations for tests, the probe and PrivacyLog (no text).
 public enum ReadingEvent: Equatable, Sendable {
-    case scheduled(unitID: Int, sentenceID: Int, seconds: Double, queuedSeconds: Double)
+    case scheduled(unitID: Int, sentenceID: Int, characters: Int, seconds: Double, queuedSeconds: Double)
     case played(unitID: Int)
     case oversizeSplit(unitID: Int)
     case replayed(unitID: Int)
@@ -56,7 +56,7 @@ public struct ReadingLimits: Sendable {
     /// A synthesized unit longer than this is split and re-synthesized, never truncated.
     public var maxUnitSeconds = 35.0
     /// Queued (scheduled, not yet audible) seconds: lookahead × maxUnitSeconds.
-    public var maxQueuedSeconds = 105.0
+    public var maxQueuedSeconds: Double { Double(lookahead) * maxUnitSeconds }
     /// A piece is never split below this many characters.
     public var minimumSplitLength = 40
     public var sentencePause = 0.30
@@ -84,7 +84,7 @@ public actor ReadingSession {
         let samples: [Float]
         let sampleRate: Int
         var played = false
-        var seconds: Double { Double(samples.count) / Double(max(sampleRate, 1)) }
+        var seconds: Double { audioSeconds(samples: samples.count, sampleRate: sampleRate) }
     }
 
     private let synthesizer: Synthesizer
@@ -93,7 +93,7 @@ public actor ReadingSession {
     private let speed: Float
     private let limits: ReadingLimits
     private let onEvent: @Sendable (ReadingEvent) -> Void
-    private var makeUnits: (@Sendable () -> AnyIterator<SynthesisUnit>)?
+    private let makeUnits: @Sendable () -> AnyIterator<SynthesisUnit>
     private var units: AnyIterator<SynthesisUnit>?
     private var pending: [Piece] = []
     private var queue: [Scheduled] = []
@@ -163,10 +163,7 @@ public actor ReadingSession {
     // MARK: - Pipeline
 
     private func run() async -> ReadingOutcome {
-        if let makeUnits {
-            units = makeUnits()
-            self.makeUnits = nil
-        }
+        units = makeUnits()
         while !stopped {
             if !failed, queue.count <= limits.lookahead, let piece = nextPiece() {
                 await synthesize(piece)
@@ -206,7 +203,7 @@ public actor ReadingSession {
             if piece.unit.endsParagraph { pause += limits.paragraphPause }
         }
         // The bound covers what is enqueued: synthesized audio plus its pause.
-        let seconds = Double(audio.samples.count) / Double(max(audio.sampleRate, 1)) + pause
+        let seconds = audio.seconds + pause
         if seconds > limits.maxUnitSeconds {
             onEvent(.oversizeSplit(unitID: piece.unit.id))
             guard let halves = split(piece) else {
@@ -225,7 +222,8 @@ public actor ReadingSession {
         maxRetained = max(maxRetained, queue.count)
         let queued = queue.dropFirst().reduce(0) { $0 + $1.seconds }
         maxQueuedSeconds = max(maxQueuedSeconds, queued)
-        onEvent(.scheduled(unitID: piece.unit.id, sentenceID: piece.unit.sentenceID, seconds: item.seconds, queuedSeconds: queued))
+        onEvent(.scheduled(unitID: piece.unit.id, sentenceID: piece.unit.sentenceID, characters: piece.text.count,
+                           seconds: item.seconds, queuedSeconds: queued))
         if !scheduleToSink(item) {
             // The sink cannot play: end after what is already scheduled, as a voice error.
             queue.removeLast()

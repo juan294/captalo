@@ -13,10 +13,12 @@ public struct SynthesizedAudio: Sendable {
         self.phonemeCount = phonemeCount
     }
 
-    public var duration: Duration {
-        guard sampleRate > 0 else { return .zero }
-        return .seconds(Double(samples.count) / Double(sampleRate))
-    }
+    public var seconds: Double { audioSeconds(samples: samples.count, sampleRate: sampleRate) }
+}
+
+/// Seconds of audio in `samples` frames at `sampleRate`.
+public func audioSeconds(samples: Int, sampleRate: Int) -> Double {
+    Double(samples) / Double(max(sampleRate, 1))
 }
 
 /// The speech engine seen by the reading pipeline. The Kokoro adapter lives

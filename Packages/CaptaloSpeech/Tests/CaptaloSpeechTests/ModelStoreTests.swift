@@ -180,15 +180,17 @@ struct Fixture {
         lease.release()
     }
 
-    @Test func damagedStoreRefusesBeforeEngine() throws {
+    @Test func damagedStoreRefusesBeforeEngine() async throws {
         let f = try Fixture(); defer { f.cleanup() }
         let store = ModelStore(root: f.root)
         let active = try store.activate(from: f.bundle, manifest: f.manifest)
         try f.corrupt("kokoro/voices/af_heart.bin", in: active)
-        let engines = Mutex(0)
-        let outcome = VoiceLoader.prepare(store: store, manifest: f.manifest) { _ in engines.withLock { $0 += 1 } }
-        #expect(outcome == .damaged)
-        #expect(engines.withLock { $0 } == 0)
+        // The production path: no bundle to repair from, so the damaged store is refused.
+        let setup = VoiceSetup(store: store, manifest: f.manifest)
+        #expect(await setup.prepare(bundleModels: nil) == .state(.damaged))
+        await #expect(throws: KokoroSynthesizer.StartError.notStarted) {
+            _ = try await setup.synthesizer.synthesize("x", voice: "af_heart", speed: 1)
+        }
     }
 
     @Test func repairReinstallsFromBundle() throws {

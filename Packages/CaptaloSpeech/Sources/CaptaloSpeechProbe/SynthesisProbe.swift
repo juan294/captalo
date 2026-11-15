@@ -9,43 +9,30 @@ import Synchronization
 /// engine for every requested voice. Writes one JSON line per piece and unit
 /// and one summary line per voice to `--out`.
 enum SynthesisProbe {
-    /// Plays instantly: the pipeline is exercised at engine speed.
-    final class InstantSink: AudioSink, Sendable {
+    /// Plays instantly (no pace) or at `pace` times real time on a timer, so
+    /// the queue and a device change behave as in the app, only faster.
+    final class ProbeSink: AudioSink, Sendable {
+        let pace: Double?
         let maxSeconds = Mutex(0.0)
         let firstScheduled = Mutex<ContinuousClock.Instant?>(nil)
-
-        func schedule(_ samples: [Float], sampleRate: Int, played: @escaping @Sendable () -> Void) -> Bool {
-            let seconds = Double(samples.count) / Double(max(sampleRate, 1))
-            maxSeconds.withLock { $0 = max($0, seconds) }
-            firstScheduled.withLock { if $0 == nil { $0 = .now } }
-            played()
-            return true
-        }
-
-        func stop() {}
-    }
-
-    /// Plays at `pace` times real time on a timer, so the queue and a device
-    /// change behave as in the app, only faster.
-    final class PacedSink: AudioSink, Sendable {
-        let pace: Double
-        let maxSeconds = Mutex(0.0)
-        let firstScheduled = Mutex<ContinuousClock.Instant?>(nil)
-        private let state = Mutex<(busyUntil: ContinuousClock.Instant, generation: Int)>((.now, 0))
+        private let busyUntil = Mutex(ContinuousClock.now)
         /// Same rule as the app's AVAudioSink: buffers dropped by a stop are not reported as played.
         private let gate = PlaybackGate()
 
-        init(pace: Double) { self.pace = pace }
+        init(pace: Double?) { self.pace = pace }
 
         func schedule(_ samples: [Float], sampleRate: Int, played: @escaping @Sendable () -> Void) -> Bool {
-            let played = gate.gated(played)
-            let seconds = Double(samples.count) / Double(max(sampleRate, 1))
+            let seconds = audioSeconds(samples: samples.count, sampleRate: sampleRate)
             maxSeconds.withLock { $0 = max($0, seconds) }
             firstScheduled.withLock { if $0 == nil { $0 = .now } }
-            let due = state.withLock { s -> ContinuousClock.Instant in
-                let start = max(s.busyUntil, .now)
-                s.busyUntil = start.advanced(by: .seconds(seconds / pace))
-                return s.busyUntil
+            guard let pace else {
+                played()
+                return true
+            }
+            let played = gate.gated(played)
+            let due = busyUntil.withLock { until -> ContinuousClock.Instant in
+                until = max(until, .now).advanced(by: .seconds(seconds / pace))
+                return until
             }
             Task.detached {
                 try? await Task.sleep(until: due, clock: .continuous)
@@ -56,7 +43,7 @@ enum SynthesisProbe {
 
         func stop() {
             gate.invalidate()
-            state.withLock { $0 = (.now, $0.generation + 1) }
+            busyUntil.withLock { $0 = .now }
         }
     }
 
@@ -76,8 +63,7 @@ enum SynthesisProbe {
 
         func synthesize(_ text: String, voice: String, speed: Float) async throws -> SynthesizedAudio {
             let audio = try await engine.synthesize(text, voice: voice, speed: speed)
-            let seconds = Double(audio.samples.count) / Double(max(audio.sampleRate, 1))
-            calls.withLock { $0.append(Call(text: text, normalizedText: audio.normalizedText, phonemes: audio.phonemeCount, seconds: seconds)) }
+            calls.withLock { $0.append(Call(text: text, normalizedText: audio.normalizedText, phonemes: audio.phonemeCount, seconds: audio.seconds)) }
             return audio
         }
     }
@@ -110,41 +96,39 @@ enum SynthesisProbe {
 
         for voice in voices {
             let recorder = RecordingSynthesizer(engine)
-            let pace = arguments.values["pace"].flatMap(Double.init)
-            let paced = pace.map(PacedSink.init(pace:))
-            let instant = InstantSink()
-            let sink: AudioSink = paced ?? instant
-            let maxUnitSeconds = { paced?.maxSeconds.withLock { $0 } ?? instant.maxSeconds.withLock { $0 } }
-            let firstScheduled = { paced?.firstScheduled.withLock { $0 } ?? instant.firstScheduled.withLock { $0 } }
+            let sink = ProbeSink(pace: arguments.values["pace"].flatMap(Double.init))
             let log = Mutex<[ReadingEvent]>([])
-            let blocks = Array(TextPreparer.blocks(fromSelection: fixture))
             let started = ContinuousClock.now
             let peak = PeakMemory()
             let session = ReadingSession(
-                units: { AnyIterator(UnitChunker(TextPreparer.prepare(blocks, source: .selection)).makeIterator()) },
+                units: { TextPreparer.units(for: fixture, source: .selection) },
                 synthesizer: recorder, sink: sink, voice: voice, speed: speed
             ) { event in log.withLock { $0.append(event) } }
 
             let deviceChangeAfter = arguments.values["device-change-after-units"].flatMap(Int.init)
-            let playedCount = { log.withLock { $0.count(where: { if case .played = $0 { true } else { false } }) } }
+            /// Starts the reading and returns once `count` units have played.
+            func start(untilPlayed count: Int) async throws {
+                await session.start()
+                while log.withLock({ $0.count(where: { if case .played = $0 { true } else { false } }) }) < count {
+                    try await Task.sleep(for: .milliseconds(2))
+                }
+            }
             let outcome: ReadingOutcome
             if let deviceChangeAfter {
-                await session.start()
-                while playedCount() < deviceChangeAfter { try await Task.sleep(for: .milliseconds(2)) }
+                try await start(untilPlayed: deviceChangeAfter)
                 await session.deviceChanged()
                 outcome = await session.outcome()
                 let replayed = log.withLock { $0.compactMap { if case let .replayed(id) = $0 { id } else { nil } } }
                 let seconds = log.withLock { events in
                     events.compactMap { event -> Double? in
-                        guard case let .scheduled(unit, _, seconds, _) = event, replayed.contains(unit) else { return nil }
+                        guard case let .scheduled(unit, _, _, seconds, _) = event, replayed.contains(unit) else { return nil }
                         return seconds
                     }
                 }
                 try emit(["kind": "deviceChange", "voice": voice, "afterUnits": deviceChangeAfter,
                           "replayedUnits": replayed, "replaySpanSeconds": seconds.reduce(0, +)])
             } else if let stopAfter {
-                await session.start()
-                while playedCount() < stopAfter { try await Task.sleep(for: .milliseconds(2)) }
+                try await start(untilPlayed: stopAfter)
                 let stopStarted = ContinuousClock.now
                 await session.stop() // the sink is silenced inside this call
                 let silenceMs = milliseconds(stopStarted.duration(to: .now))
@@ -158,15 +142,20 @@ enum SynthesisProbe {
 
             let events = log.withLock { $0 }
             let played = events.compactMap { if case let .played(id) = $0 { id } else { nil } }
-            let expectedUnits = Array(UnitChunker(TextPreparer.prepare(blocks, source: .selection)))
-            let calls = recorder.calls.withLock { $0 }
-            let scheduled = events.compactMap { event -> (unit: Int, sentence: Int, seconds: Double, queued: Double)? in
-                guard case let .scheduled(unit, sentence, seconds, queued) = event else { return nil }
-                return (unit, sentence, seconds, queued)
+            let expectedUnits = Array(AnySequence { TextPreparer.units(for: fixture, source: .selection) })
+            var calls = recorder.calls.withLock { $0 }[...]
+            let scheduled = events.compactMap { event -> (unit: Int, sentence: Int, characters: Int, seconds: Double, queued: Double)? in
+                guard case let .scheduled(unit, sentence, characters, seconds, queued) = event else { return nil }
+                return (unit, sentence, characters, seconds, queued)
             }
-            // One scheduled event per successfully synthesized piece, in call order
-            // (oversize results are re-synthesized and never scheduled).
-            let accepted = calls.filter { $0.seconds <= ReadingLimits().maxUnitSeconds }
+            // Each scheduled piece pairs with the next call of the same length;
+            // calls in between were oversize results that were split.
+            var accepted: [RecordingSynthesizer.Call] = []
+            for record in scheduled {
+                while let call = calls.popFirst() {
+                    if call.text.count == record.characters { accepted.append(call); break }
+                }
+            }
             for (record, call) in zip(scheduled, accepted) {
                 try emit(["kind": "unit", "voice": voice, "unit": record.unit, "sentence": record.sentence,
                           "seconds": record.seconds, "queuedSeconds": record.queued,
@@ -183,10 +172,10 @@ enum SynthesisProbe {
                 "playedExactlyOnceInOrder": played == Array(0..<expectedUnits.count),
                 "textReassembles": reassembles,
                 "playedInOrder": played == played.sorted() && Set(played).count == played.count,
-                "maxUnitSeconds": maxUnitSeconds(),
+                "maxUnitSeconds": sink.maxSeconds.withLock { $0 },
                 "maxQueuedSeconds": await session.maxQueuedSeconds,
                 "maxRetained": await session.maxRetained,
-                "firstAudioMs": firstScheduled().map { milliseconds(started.duration(to: $0)) } ?? -1,
+                "firstAudioMs": sink.firstScheduled.withLock { $0 }.map { milliseconds(started.duration(to: $0)) } ?? -1,
                 "totalMs": milliseconds(started.duration(to: .now)),
                 "peakFootprintMB": peak.stop(),
                 "oversizeSplits": events.count(where: { if case .oversizeSplit = $0 { true } else { false } }),
@@ -205,17 +194,17 @@ final class PeakMemory: Sendable {
     private let task: Task<Void, Never>
 
     init() {
-        let shared = SharedPeak()
-        self.shared = shared
+        let peak = Peak()
+        self.shared = peak
         task = Task.detached {
             while !Task.isCancelled {
-                shared.update(PeakMemory.footprintMB())
+                peak.update(PeakMemory.footprintMB())
                 try? await Task.sleep(for: .milliseconds(50))
             }
         }
     }
 
-    private let shared: SharedPeak
+    private let shared: Peak
 
     func stop() -> Double {
         task.cancel()
@@ -233,10 +222,11 @@ final class PeakMemory: Sendable {
         }
         return result == KERN_SUCCESS ? Double(info.phys_footprint) / 1_048_576 : 0
     }
-}
 
-final class SharedPeak: Sendable {
-    private let peak = Mutex(0.0)
-    func update(_ value: Double) { peak.withLock { $0 = max($0, value) } }
-    var value: Double { peak.withLock { $0 } }
+    /// The peak, shared with the sampling task.
+    final class Peak: Sendable {
+        private let value_ = Mutex(0.0)
+        func update(_ value: Double) { value_.withLock { $0 = max($0, value) } }
+        var value: Double { value_.withLock { $0 } }
+    }
 }

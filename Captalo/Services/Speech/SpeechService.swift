@@ -53,18 +53,13 @@ nonisolated final class SpeechService: Sendable {
         voiceError: @escaping @Sendable () -> Void
     ) -> PlaybackSession {
         guard let synthesizer = setup?.synthesizer else { return EmptySession(finished: finished) }
-        let blocks = source == .selection ? Array(TextPreparer.blocks(fromSelection: text)) : [Block.paragraph(text)]
         let reading = ReadingSession(
-            units: { AnyIterator(UnitChunker(TextPreparer.prepare(blocks, source: source)).makeIterator()) },
+            units: { TextPreparer.units(for: text, source: source) },
             synthesizer: synthesizer, sink: sink, voice: voice, speed: speed
         )
         return ReadingPlaybackSession(reading: reading, current: current, finished: finished, voiceError: voiceError)
     }
 
-    /// True when cleanup leaves nothing to say (plan: empty result is silence).
-    static func hasSpeakableText(_ text: String) -> Bool {
-        TextPreparer.prepare(TextPreparer.blocks(fromSelection: text), source: .selection).first { _ in true } != nil
-    }
 }
 
 /// The reading that currently owns the sink (for device-change replay).

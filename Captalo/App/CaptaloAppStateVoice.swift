@@ -47,7 +47,6 @@ extension CaptaloAppState {
     func setVoice(_ name: String) {
         guard speechService.voices.contains(name) else { return }
         voice = name
-        readingSettings.set(voice: voice, speed: speed)
     }
 
     /// Reads a short sample in `name` as a normal reading (it replaces any reading).
@@ -55,7 +54,7 @@ extension CaptaloAppState {
         setVoice(name)
         let requests = self.requests
         let spokenName = name.replacingOccurrences(of: "_", with: " ")
-        Task { await requests.playText("This is the \(spokenName) voice. Select text and press your shortcut to hear it.") }
+        Task { await requests.play(text: "This is the \(spokenName) voice. Select text and press your shortcut to hear it.") }
     }
 }
 

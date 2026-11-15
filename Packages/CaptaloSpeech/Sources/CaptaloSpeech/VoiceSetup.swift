@@ -2,47 +2,18 @@ import CaptaloCore
 import Foundation
 import Synchronization
 
-/// Validates the active store before any engine is built (review R4, R6).
-public enum VoiceLoader {
-    /// Returns `.ready` only after `makeEngine` ran on a validated store directory.
-    public static func prepare(
-        store: ModelStore,
-        manifest: ModelManifest,
-        makeEngine: (URL) throws -> Void
-    ) -> VoiceInstallState {
-        switch store.currentDirectory(for: manifest) {
-        case nil, .failure?:
-            return .damaged
-        case let .success(directory)?:
-            do {
-                try makeEngine(directory)
-                return .ready
-            } catch {
-                return .failed
-            }
+extension VoiceInstallState: Error {}
+
+extension StoreError {
+    /// The settings-window state for an activation failure.
+    var installState: VoiceInstallState {
+        switch self {
+        case .bundleInvalid: .bundleInvalid
+        case let .installFailed(need): .installFailed(needBytes: need)
+        case .damagedButLeased: .damaged
+        case .activationFailed: .failed
         }
     }
-
-    /// Installs from the app bundle (or repairs), returning the validated directory.
-    static func install(store: ModelStore, manifest: ModelManifest, bundleModels: URL) -> Result<URL, VoiceSetupFailure> {
-        do {
-            return .success(try store.activate(from: bundleModels, manifest: manifest))
-        } catch let error as StoreError {
-            switch error {
-            case .bundleInvalid: return .failure(VoiceSetupFailure(.bundleInvalid))
-            case let .installFailed(need): return .failure(VoiceSetupFailure(.installFailed(needBytes: need)))
-            case .damagedButLeased: return .failure(VoiceSetupFailure(.damaged))
-            case .activationFailed: return .failure(VoiceSetupFailure(.failed))
-            }
-        } catch {
-            return .failure(VoiceSetupFailure(.failed))
-        }
-    }
-}
-
-struct VoiceSetupFailure: Error {
-    let state: VoiceInstallState
-    init(_ state: VoiceInstallState) { self.state = state }
 }
 
 /// The one way a process prepares the voice (plan phase 3, "single consumer
@@ -76,9 +47,12 @@ public final class VoiceSetup: Sendable {
         }
         let directory: URL
         if let bundleModels {
-            switch VoiceLoader.install(store: store, manifest: manifest, bundleModels: bundleModels) {
-            case let .success(url): directory = url
-            case let .failure(failure): return .state(failure.state)
+            do {
+                directory = try store.activate(from: bundleModels, manifest: manifest)
+            } catch let error as StoreError {
+                return .state(error.installState)
+            } catch {
+                return .state(.failed)
             }
         } else {
             guard case let .success(url)? = store.currentDirectory(for: manifest) else { return .state(.damaged) }

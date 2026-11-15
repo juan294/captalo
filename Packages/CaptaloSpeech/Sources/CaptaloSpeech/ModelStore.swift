@@ -128,7 +128,7 @@ public final class FileLock: Sendable {
 /// reader leases and retention of current, previous and leased versions.
 /// Every write stays under `root`.
 public final class ModelStore: Sendable {
-    public static let defaultRoot = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+    public static let defaultRoot = URL.applicationSupportDirectory
         .appendingPathComponent("com.thecreativetoken.captalo/Models", isDirectory: true)
 
     public let root: URL
@@ -268,12 +268,7 @@ public final class ModelStore: Sendable {
     }
 
     private func writeMarker(_ value: String, to url: URL) throws {
-        let temporary = root.appendingPathComponent(".\(url.lastPathComponent)-\(UUID().uuidString)")
-        try Data((value + "\n").utf8).write(to: temporary)
-        guard rename(temporary.path, url.path) == 0 else {
-            try? FileManager.default.removeItem(at: temporary)
-            throw StoreError.activationFailed("cannot write \(url.lastPathComponent)")
-        }
+        try Data((value + "\n").utf8).write(to: url, options: .atomic)
     }
 
     private func readMarker(_ url: URL) -> String? {

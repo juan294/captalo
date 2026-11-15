@@ -102,7 +102,7 @@ public actor RequestCoordinator {
             guard playing != nil else { return .unchanged }
             await stopPlaying()
             return .stopped
-        case let (.region, .text(text, _)), let (.sample, .text(text, _)):
+        case let (.region, .text(text, _)):
             return await promote(text, identity: ReadingIdentity(capturedText: text))
         default:
             return .unchanged
@@ -117,11 +117,11 @@ public actor RequestCoordinator {
         return true
     }
 
-    /// Starts a reading of app-provided text (voice sample). It replaces any
-    /// reading and is never a stop gesture.
-    public func playText(_ text: String) async {
-        let token = beginInput(kind: .sample, source: InputSource(pid: 0, bundleID: nil, focusedElement: nil))
-        await resolve(token, .text(text, layer: .accessibility))
+    /// Starts a reading of app-provided text (the voice sample). It is not a
+    /// capture: it replaces any reading, is never a stop gesture, and leaves
+    /// a pending input untouched.
+    public func play(text: String) async {
+        _ = await promote(text, identity: ReadingIdentity(capturedText: text))
     }
 
     /// An explicit stop (inherited menu control). Pending input is untouched.

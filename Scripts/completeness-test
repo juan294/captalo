@@ -23,8 +23,15 @@ MAX_UNIT, MAX_QUEUED = 35.0, 105.0
 
 
 def probe_path():
-    env = dict(os.environ, DEVELOPER_DIR=os.environ.get("DEVELOPER_DIR", "/Applications/Xcode-beta.app/Contents/Developer"))
-    return subprocess.run([str(ROOT / "Scripts/model-tool")], capture_output=True, text=True, check=True, env=env).stdout.strip()
+    # model-tool sets the Xcode developer directory default.
+    return subprocess.run([str(ROOT / "Scripts/model-tool")], capture_output=True, text=True, check=True).stdout.strip()
+
+
+def manifest_version(probe, bundle):
+    """The manifest version as the probe computes it (`verify` prints it), so the evidence cannot drift."""
+    out = subprocess.run([probe, "verify", "--models", bundle, "--manifest", str(ROOT / "Models.manifest.json")],
+                         capture_output=True, text=True).stdout
+    return out.rsplit("version ", 1)[-1].strip() if "version " in out else None
 
 
 def main():
@@ -35,7 +42,7 @@ def main():
     probe = probe_path()
     bundle = sys.argv[1] if len(sys.argv) > 1 else str(ROOT / ".local/build/DerivedData/Build/Products/Release/Captalo.app/Contents/Resources/Models")
     manifest = json.loads((ROOT / "Models.manifest.json").read_text())
-    failures, evidence = [], {"run": stamp, "bundle": bundle, "manifest": manifest_hash(manifest),
+    failures, evidence = [], {"run": stamp, "bundle": bundle, "manifest": manifest_version(probe, bundle),
                               "recognition": "not run: test recognizer download not approved"}
 
     def synth(label, fixture, *extra):
@@ -106,12 +113,6 @@ def main():
     shutil.rmtree(run)
     print(f"completeness-test: structural checks passed; evidence {target}")
     return 0
-
-
-def manifest_hash(manifest):
-    import hashlib
-    lines = "".join(f"{f['path']} {f['size']} {f['sha256']}\n" for f in sorted(manifest["files"], key=lambda f: f["path"]))
-    return hashlib.sha256(lines.encode()).hexdigest()
 
 
 if __name__ == "__main__":

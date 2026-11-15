@@ -45,8 +45,16 @@ signing-check:
 $(LOGS):
 	@mkdir -p $(LOGS)
 
-# The pinned, patched FluidAudio and the verified voice files every app build needs.
-prepare: vendor fetch-models
+# The pinned, patched FluidAudio and the verified voice files every app build
+# needs. The stamp skips the probe build and the 95 MB check while the
+# manifest and the patch are unchanged; make fetch-models always rechecks.
+PREPARED := .local/build/prepared.stamp
+prepare: $(PREPARED)
+
+$(PREPARED): Models.manifest.json Patches/fluidaudio-v0.18.3-xcode27.patch Patches/fluidaudio-v0.18.3-xcode27.commit
+	Scripts/prepare-fluidaudio
+	Scripts/fetch-models
+	@mkdir -p $(dir $@) && touch $@
 
 vendor:
 	Scripts/prepare-fluidaudio
