@@ -18,13 +18,13 @@ nonisolated struct AXMenuTree: MenuTreeReading {
     func keyEquivalent(_ item: AXUIElement) -> AXRead<MenuKeyEquivalent> {
         let names = [kAXMenuItemCmdCharAttribute, kAXMenuItemCmdModifiersAttribute] as CFArray
         var values: CFArray?
-        let status = AX.status(AXUIElementCopyMultipleAttributeValues(item, names, AXCopyMultipleAttributeOptions(), &values))
-        switch status {
-        case .success: break
+        let error = AXUIElementCopyMultipleAttributeValues(item, names, AXCopyMultipleAttributeOptions(), &values)
+        let pair: [AnyObject]
+        switch AX.classify(error, values, { $0 as? [AnyObject] }) {
+        case let .value(entries) where entries.count == 2: pair = entries
         case .unsupported: return .unsupported
-        case .error: return .error
+        case .value, .error: return .error
         }
-        guard let pair = values as? [AnyObject], pair.count == 2 else { return .error }
         let character = AXStatus.classify(AX.entry(pair[0])) { $0 as? String }
         let modifiers = AXStatus.classify(AX.entry(pair[1])) { $0 as? Int }
         switch (character, modifiers) {
@@ -39,12 +39,5 @@ nonisolated struct AXMenuTree: MenuTreeReading {
 
     func press(_ item: AXUIElement) -> Bool {
         AXUIElementPerformAction(item, kAXPressAction as CFString) == .success
-    }
-}
-
-private extension AXRead {
-    nonisolated var value: Value? {
-        if case let .value(value) = self { return value }
-        return nil
     }
 }

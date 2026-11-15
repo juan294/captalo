@@ -185,7 +185,10 @@ final class SessionKeyTap: KeyEventTap {
             case .keyUp: phase = .up
             default: return Unmanaged.passUnretained(event)
             }
-            let key = KeyEvent(phase: phase, keyCode: event.getIntegerValueField(.keyboardEventKeycode),
+            // Only Esc is ever swallowed: every other key passes without a handler call.
+            let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
+            guard keyCode == KeyEvent.escapeKeyCode else { return Unmanaged.passUnretained(event) }
+            let key = KeyEvent(phase: phase, keyCode: keyCode,
                                isRepeat: event.getIntegerValueField(.keyboardEventAutorepeat) != 0)
             // The run loop source is on the main run loop, so this is the main thread.
             let swallow = MainActor.assumeIsolated { box.handler?(key) ?? false }
