@@ -5,6 +5,8 @@ import Testing
 @MainActor
 final class FakeKeyTap: KeyEventTap {
     var canInstall = true
+    /// The physical Esc key state a containment tick reads.
+    var escapeDown = false
     private(set) var installs = 0
     private(set) var removals = 0
     private var handler: (@MainActor (KeyEvent) -> Bool)?
@@ -23,6 +25,8 @@ final class FakeKeyTap: KeyEventTap {
         handler = nil
     }
 
+    func isEscapeDown() -> Bool { escapeDown }
+
     /// Delivers an event; true when the tap swallowed it (the source app never sees it).
     func send(_ event: KeyEvent) -> Bool { handler?(event) ?? false }
 }
@@ -39,8 +43,11 @@ final class FakeKeyTap: KeyEventTap {
     final class Box {
         var scheduled: [(Duration, @MainActor () -> Void)] = []
         var escapes = 0
-        /// The physical Esc key state the bound tick reads.
-        var escapeDown = false
+
+        /// The scheduled key-state checks (not the containment cap), in order.
+        var keyChecks: [@MainActor () -> Void] {
+            scheduled.filter { $0.0 == EscapeContainment.keyCheckInterval }.map(\.1)
+        }
     }
 
     let tap = FakeKeyTap()
@@ -48,8 +55,7 @@ final class FakeKeyTap: KeyEventTap {
 
     func containment() -> EscapeContainment {
         let box = self.box
-        return EscapeContainment(tap: tap, schedule: { box.scheduled.append(($0, $1)) },
-                                 isEscapeDown: { box.escapeDown }) { box.escapes += 1 }
+        return EscapeContainment(tap: tap, schedule: { box.scheduled.append(($0, $1)) }) { box.escapes += 1 }
     }
 
     @Test func escKeyDownAndKeyUpAreBothSwallowed() {
@@ -111,7 +117,7 @@ final class FakeKeyTap: KeyEventTap {
         #expect(tap.send(Self.escDown))
         containment.finish()
         #expect(tap.isInstalled)
-        #expect(box.scheduled.map(\.0) == [EscapeContainment.keyUpBound])
+        #expect(box.scheduled.map(\.0) == [EscapeContainment.keyCheckInterval, EscapeContainment.containmentCap])
         box.scheduled.first?.1()
         #expect(!tap.isInstalled)
         // The bound firing after the keyUp already removed the tap is harmless.
@@ -126,18 +132,18 @@ final class FakeKeyTap: KeyEventTap {
         #expect(containment.start())
         #expect(tap.send(Self.escDown))
         containment.finish()
-        box.escapeDown = true
-        box.scheduled.last?.1()
+        tap.escapeDown = true
+        box.keyChecks.last?()
         #expect(tap.isInstalled)
-        #expect(box.scheduled.map(\.0) == [EscapeContainment.keyUpBound, EscapeContainment.keyUpBound])
+        #expect(box.keyChecks.count == 2)
         #expect(tap.send(Self.escRepeat))
-        box.scheduled.last?.1()
+        box.keyChecks.last?()
         #expect(tap.send(Self.escRepeat))
         #expect(tap.send(Self.escUp))
         #expect(!tap.isInstalled)
         #expect(box.escapes == 1)
         // A tick still pending after the keyUp is harmless.
-        box.scheduled.last?.1()
+        box.keyChecks.last?()
         #expect(tap.removals == 1)
     }
 
@@ -147,10 +153,30 @@ final class FakeKeyTap: KeyEventTap {
         #expect(containment.start())
         #expect(tap.send(Self.escDown))
         containment.finish()
-        box.escapeDown = false
-        box.scheduled.last?.1()
+        tap.escapeDown = false
+        box.keyChecks.last?()
         #expect(!tap.isInstalled)
-        #expect(box.scheduled.count == 1)
+        #expect(box.keyChecks.count == 1)
+    }
+
+    /// A key that reads down forever (stuck) cannot keep the tap: 30 s after
+    /// the overlay closed it goes, and Esc reaches the source again.
+    @Test func containmentIsCappedAfterClose() {
+        let containment = containment()
+        #expect(containment.start())
+        #expect(tap.send(Self.escDown))
+        containment.finish()
+        tap.escapeDown = true
+        let cap = box.scheduled.first { $0.0 == EscapeContainment.containmentCap }
+        #expect(cap != nil)
+        cap?.1()
+        #expect(!tap.isInstalled)
+        // A key-check tick after the cap does not re-arm or reinstall.
+        let pending = box.scheduled.count
+        box.scheduled.first { $0.0 == EscapeContainment.keyCheckInterval }?.1()
+        #expect(box.scheduled.count == pending)
+        #expect(tap.removals == 1)
+        #expect(tap.installs == 1)
     }
 
     @Test func tapCreationFailureIsReported() {

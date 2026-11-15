@@ -6,7 +6,9 @@ import CaptaloCore
 /// so the source app stays frontmost with its key window. Esc is caught by a
 /// session event tap (Accessibility is already granted). The Esc press that
 /// closes the overlay is swallowed whole, its keyDown, autorepeats and keyUp,
-/// however long it is held (VAL-08, D25); an Esc already held when the
+/// while it is held, for at most 30 s after the overlay closed (VAL-08, D25).
+/// Past that cap, a still-held Esc's repeats and keyUp reach the source app,
+/// so a stuck key cannot swallow the next Esc. An Esc already held when the
 /// overlay opened, and every other key, pass to the source app. Every exit
 /// tears down in one place.
 @MainActor
@@ -35,8 +37,6 @@ final class RegionOverlayController {
                 try? await Task.sleep(for: delay)
                 body()
             }
-        }, isEscapeDown: {
-            CGEventSource.keyState(.combinedSessionState, key: CGKeyCode(KeyEvent.escapeKeyCode))
         }) { [weak self] in
             // Torn down after the tap callback returns, not inside it.
             DispatchQueue.main.async { self?.tracker?.handle(.escape) }
@@ -88,7 +88,7 @@ final class RegionOverlayController {
         NSCursor.pop()
         if let screenObserver { NotificationCenter.default.removeObserver(screenObserver) }
         screenObserver = nil
-        // Kept until a held Esc's keyUp (bounded), so the source never sees it.
+        // Kept while the closing Esc is held (at most 30 s), so the source never sees it.
         escape?.finish()
         escape = nil
         tracker = nil
@@ -216,6 +216,11 @@ final class SessionKeyTap: KeyEventTap {
     /// A tap dropped without `remove()` must not outlive the box its callback reads.
     isolated deinit {
         remove()
+    }
+
+    func isEscapeDown() -> Bool {
+        // The hardware state: synthetic posters and tap filtering cannot change it.
+        CGEventSource.keyState(.hidSystemState, key: CGKeyCode(KeyEvent.escapeKeyCode))
     }
 
     func remove() {
