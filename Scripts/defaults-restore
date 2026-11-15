@@ -9,13 +9,18 @@ STATE=$(ls -t "$DIR"/defaults-*.state 2>/dev/null | head -1)
 [ -n "$STATE" ] || { echo "defaults-restore: no backup record in $DIR" >&2; exit 1; }
 require_quit
 if [ "$(cat "$STATE")" = "absent" ]; then
-  # Already absent needs no delete; a failed delete, or values left behind, is never marked restored.
-  if ! is_empty; then
+  # Already absent needs no delete. An unreadable domain, a failed delete, or
+  # values left behind is never marked restored.
+  CURRENT=$(domain_state)
+  require_readable "$CURRENT"
+  if [ "$CURRENT" = present ]; then
     if ! defaults delete "$DOMAIN" >/dev/null; then
       echo "defaults-restore: deleting $DOMAIN failed; backup not marked restored" >&2
       exit 1
     fi
-    if ! is_empty; then
+    CURRENT=$(domain_state)
+    require_readable "$CURRENT"
+    if [ "$CURRENT" != absent ]; then
       echo "defaults-restore: $DOMAIN still has values after the delete; backup not marked restored" >&2
       exit 1
     fi
