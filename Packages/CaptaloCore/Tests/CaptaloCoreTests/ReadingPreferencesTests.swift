@@ -3,10 +3,30 @@ import Testing
 @testable import CaptaloCore
 
 @Suite struct ReadingPreferencesTests {
+    static let disposablePrefix = "com.thecreativetoken.captalo.tests."
+
+    /// A disposable domain unique to one test. Teardown deletes the domain with
+    /// `defaults delete` and then the empty plist the delete leaves in
+    /// ~/Library/Preferences, only for this exact prefix plus the test's UUID.
+    /// An in-process removePersistentDomain lets cfprefsd write the empty plist
+    /// again about 10 s later; the out-of-process delete does not.
     func withSuite(_ body: (UserDefaults) throws -> Void) rethrows {
-        let name = "com.thecreativetoken.captalo.tests.\(UUID().uuidString)"
+        let id = UUID()
+        let name = Self.disposablePrefix + id.uuidString
         let defaults = UserDefaults(suiteName: name)!
-        defer { defaults.removePersistentDomain(forName: name) }
+        defer {
+            let delete = Process()
+            delete.executableURL = URL(fileURLWithPath: "/usr/bin/defaults")
+            delete.arguments = ["delete", name]
+            delete.standardOutput = FileHandle.nullDevice
+            delete.standardError = FileHandle.nullDevice
+            try? delete.run()
+            delete.waitUntilExit()
+            let plist = FileManager.default.homeDirectoryForCurrentUser
+                .appending(path: "Library/Preferences/\(Self.disposablePrefix)\(id.uuidString).plist")
+            try? FileManager.default.removeItem(at: plist)
+            #expect(!FileManager.default.fileExists(atPath: plist.path), "disposable plist left behind")
+        }
         try body(defaults)
     }
 
