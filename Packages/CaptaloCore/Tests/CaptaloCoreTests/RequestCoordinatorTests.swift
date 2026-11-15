@@ -6,10 +6,10 @@ import Testing
         let log = EventLog()
         let coordinator = makeCoordinator(log: log)
         let gate = Gate()
-        let first = await coordinator.submit(kind: .selection, source: sourceA) { _ in
+        let first = await coordinator.submit(coordinator.reservePress(), kind: .selection, source: sourceA) { _ in
             await gate.wait(); return .text("first", layer: .accessibility)
         }
-        let second = await coordinator.submit(kind: .selection, source: sourceA) { _ in
+        let second = await coordinator.submit(coordinator.reservePress(), kind: .selection, source: sourceA) { _ in
             await gate.wait(); return .text("second", layer: .accessibility)
         }
         await gate.open()
@@ -24,7 +24,7 @@ import Testing
         let token = await coordinator.beginInput(kind: .selection, source: sourceA)
         _ = await coordinator.resolve(token, .text("reading", layer: .accessibility))
         let gate = Gate()
-        _ = await coordinator.submit(kind: .region, source: sourceB) { _ in await gate.wait(); return .cancelled }
+        _ = await coordinator.submit(coordinator.reservePress(), kind: .region, source: sourceB) { _ in await gate.wait(); return .cancelled }
         // The pending input exists, but the session is untouched until it resolves.
         #expect(log.events == ["start 1:reading"])
         #expect(await coordinator.currentSession != nil)
@@ -174,7 +174,7 @@ import Testing
         _ = await coordinator.resolve(playing, .text("playing", layer: .accessibility))
         let copySent = Gate()
         let release = Gate()
-        _ = await coordinator.submit(kind: .selection, source: sourceA) { _ in
+        _ = await coordinator.submit(coordinator.reservePress(), kind: .selection, source: sourceA) { _ in
             // Models a clipboard transaction after Copy: its cleanup ignores cancellation.
             await Task {
                 await copySent.open()

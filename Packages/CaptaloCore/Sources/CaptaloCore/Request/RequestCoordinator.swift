@@ -85,20 +85,7 @@ public actor RequestCoordinator {
         capture: @escaping @Sendable (InputToken) async -> CaptureOutcome
     ) -> InputToken? {
         guard !isShutDown, ticket.inputGeneration == reserved.withLock({ $0 }) else { return nil }
-        return run(begin(ticket, kind: kind, source: source), capture)
-    }
-
-    /// Reserves and begins in one step, for a source known at press time (tests, probes).
-    @discardableResult
-    public func submit(
-        kind: InputKind,
-        source: InputSource,
-        capture: @escaping @Sendable (InputToken) async -> CaptureOutcome
-    ) -> InputToken {
-        run(beginInput(kind: kind, source: source), capture)
-    }
-
-    private func run(_ token: InputToken, _ capture: @escaping @Sendable (InputToken) async -> CaptureOutcome) -> InputToken {
+        let token = begin(ticket, kind: kind, source: source)
         let task = Task { [weak self] in
             let outcome = await capture(token)
             await self?.finish(token, outcome)

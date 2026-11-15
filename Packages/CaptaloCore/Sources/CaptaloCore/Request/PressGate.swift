@@ -15,10 +15,10 @@ public enum PressGate {
         voice: VoiceInstallState, cachedTrust: Bool, refreshTrust: () -> Bool
     ) -> Decision {
         if voice == .checking { return .ignore }
-        if !voice.canSpeak || !cachedTrust {
-            let trusted = refreshTrust()
-            if !voice.canSpeak || !trusted { return .requireSetup }
-        }
-        return .proceed
+        let canSpeak = voice.canSpeak
+        if canSpeak, cachedTrust { return .proceed }
+        // A failing press always refreshes the permission row.
+        let trusted = refreshTrust()
+        return canSpeak && trusted ? .proceed : .requireSetup
     }
 }

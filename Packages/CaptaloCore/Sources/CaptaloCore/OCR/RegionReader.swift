@@ -62,14 +62,19 @@ public final class RegionReader: Sendable {
     public func read(_ token: InputToken, _ selection: RegionSelection) async -> CaptureOutcome {
         let started = ContinuousClock.now
         let outcome = await recognizeRegion(token, selection)
+        PrivacyLog.record(Self.event(for: outcome, elapsed: started.duration(to: .now)))
+        return outcome
+    }
+
+    /// The `ocr` log event for a region outcome: counts and the failure name, never text.
+    public static func event(for outcome: CaptureOutcome, elapsed: Duration) -> PrivacyEvent {
         let (failure, blocks): (CaptureFailure?, Int) = switch outcome {
         case let .failed(category): (category, 0)
         case let .document(recognized): (nil, recognized.count)
         default: (nil, 0)
         }
-        PrivacyLog.record(.ocr(outcome: .init(outcome), failure: failure, blocks: blocks,
-                               characters: outcome.capturedLength, elapsed: started.duration(to: .now)))
-        return outcome
+        return .ocr(outcome: .init(outcome), failure: failure, blocks: blocks,
+                    characters: outcome.capturedLength, elapsed: elapsed)
     }
 
     private func recognizeRegion(_ token: InputToken, _ selection: RegionSelection) async -> CaptureOutcome {
@@ -78,14 +83,15 @@ public final class RegionReader: Sendable {
         // 2, 4. The worker owns the capture, the image and the reservation; it
         // releases the slot only when the capture and any Vision call have ended.
         let (slot, capturer, recognizer, isCurrent) = (self.slot, self.capturer, self.recognizer, self.isCurrent)
-        let worker = Task { () -> Result<[TranscriptItem], any Error>? in
-            let result: Result<[TranscriptItem], any Error>?
+        let worker = Task { () -> Result<[TranscriptItem], any Error> in
+            let result: Result<[TranscriptItem], any Error>
             do {
                 let image = try await capturer.capture(selection)
                 // 2a. The caller gave up (timeout, cancel) or a newer input
                 // superseded this one: drop the image, never start Vision.
                 let current = await isCurrent(token)
-                result = current && !Task.isCancelled ? .success(try await recognizer.recognize(image)) : nil
+                result = current && !Task.isCancelled
+                    ? .success(try await recognizer.recognize(image)) : .failure(CancellationError())
             } catch {
                 result = .failure(error)
             }
@@ -100,9 +106,10 @@ public final class RegionReader: Sendable {
             // A cancelled caller (newer press, quit) is a cancel, never a timeout.
             return Task.isCancelled ? .cancelled : .failed(.ocrTimedOut)
         }
-        // 5. Deliver only to a current input; a dropped image is a cancel.
-        guard let recognized = finished, await isCurrent(token) else { return .cancelled }
-        switch recognized {
+        // 5. Deliver only to a current input. A dropped image (CancellationError)
+        // happens only for an input that is no longer current, so it ends here.
+        guard await isCurrent(token) else { return .cancelled }
+        switch finished {
         case .failure:
             // A capture or recognition error is an OCR failure, unless the
             // caller was cancelled after the worker returned: that is a cancel.
@@ -161,30 +168,43 @@ private final class Race<Value: Sendable>: Sendable {
     }
 }
 
-/// Consecutive region failures (errors and timeouts; not empty regions).
-/// At `threshold`, the settings window's optional OCR row shows the category.
+/// Consecutive region failures (not empty regions), for the settings
+/// window's optional OCR row. Recognition errors and timeouts show after
+/// three in a row; an overlay that could not open (no Esc tap) shows at once.
 public struct OcrFailureCounter: Equatable, Sendable {
-    public static let threshold = 3
-
     public private(set) var consecutive = 0
     public private(set) var lastCategory: CaptureFailure?
 
     public init() {}
 
+    /// How many consecutive failures of this category surface it; nil when it is not counted.
+    public static func threshold(for failure: CaptureFailure) -> Int? {
+        switch failure {
+        case .ocrFailed, .ocrTimedOut: 3
+        case .overlayUnavailable: 1
+        default: nil
+        }
+    }
+
     public var surfacedCategory: CaptureFailure? {
-        consecutive >= Self.threshold ? lastCategory : nil
+        guard let lastCategory, let threshold = Self.threshold(for: lastCategory) else { return nil }
+        return consecutive >= threshold ? lastCategory : nil
     }
 
     public mutating func record(_ outcome: CaptureOutcome) {
         switch outcome {
         case .document:
-            consecutive = 0
-            lastCategory = nil
-        case let .failed(failure) where failure == .ocrFailed || failure == .ocrTimedOut:
-            consecutive += 1
+            self = OcrFailureCounter()
+        case let .failed(failure) where Self.threshold(for: failure) != nil:
+            // Recognition failures count together; an overlay failure is its own streak.
+            let sameStreak = lastCategory.map { ($0 == .overlayUnavailable) == (failure == .overlayUnavailable) } ?? false
+            consecutive = sameStreak ? consecutive + 1 : 1
             lastCategory = failure
+        case .cancelled:
+            break // can come before the overlay opened: it proves nothing
         default:
-            break
+            // Any other outcome means the overlay opened.
+            if lastCategory == .overlayUnavailable { self = OcrFailureCounter() }
         }
     }
 }

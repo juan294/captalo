@@ -12,7 +12,6 @@ public enum AXRawResult<Raw> {
 /// invalid element, API disabled) is unknown.
 public enum AXStatus {
     /// `AXError` raw values; `AXStatusTests` pins them to the system's.
-    public static let success: Int32 = 0
     public static let attributeUnsupported: Int32 = -25205
     public static let noValue: Int32 = -25212
     public static let parameterizedAttributeUnsupported: Int32 = -25213

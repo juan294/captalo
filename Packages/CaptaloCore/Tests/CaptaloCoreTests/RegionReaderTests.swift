@@ -252,7 +252,7 @@ let words = [TranscriptItem(.paragraph("Read this region."), bounds: CGRect(x: 0
         let slot = OCRSlot()
         let regionReader = RegionReader(capturer: BlockedCapturer(), recognizer: recognizer, slot: slot,
                                         isCurrent: { await coordinator.isCurrent($0) }, timeout: .milliseconds(30))
-        await coordinator.submit(kind: .region, source: sourceA) { token in await regionReader.read(token, selection) }
+        await coordinator.submit(coordinator.reservePress(), kind: .region, source: sourceA) { token in await regionReader.read(token, selection) }
         await coordinator.waitForIdle()
         await recognizer.gate.open()
         await eventually { await !slot.isReserved }
@@ -295,6 +295,29 @@ let words = [TranscriptItem(.paragraph("Read this region."), bounds: CGRect(x: 0
         #expect(counter.consecutive == 1)
     }
 
+    /// The Esc tap could not be created while Accessibility still looks
+    /// granted: the press must not fail silently (review of VAL-08).
+    @Test func overlayFailureIsNoticedAtOnce() {
+        var counter = OcrFailureCounter()
+        counter.record(.failed(.overlayUnavailable))
+        #expect(counter.surfacedCategory == .overlayUnavailable)
+        // A cancel proves nothing about the tap; the notice stays.
+        counter.record(.cancelled)
+        #expect(counter.surfacedCategory == .overlayUnavailable)
+        // An overlay that opened clears it, even with nothing found.
+        counter.record(.nothingSelected)
+        #expect(counter.surfacedCategory == nil)
+        counter.record(.failed(.overlayUnavailable))
+        counter.record(.document([.paragraph("read")]))
+        #expect(counter.surfacedCategory == nil)
+    }
+
+    /// The log line names the failure and carries no text.
+    @Test func overlayFailureLogLine() {
+        let event = RegionReader.event(for: .failed(.overlayUnavailable), elapsed: .milliseconds(3))
+        #expect(event.rendered == "ocr outcome=failed failure=overlayUnavailable blocks=0 characters=0 elapsedMs=3")
+    }
+
     @Test func successResetsCounter() {
         var counter = OcrFailureCounter()
         for _ in 0..<3 { counter.record(.failed(.ocrFailed)) }
@@ -328,7 +351,7 @@ struct ReadingPlayback: PlaybackSession {
         await eventually { sink.pendingCount == 4 } // the lookahead is full
         // The overlay stays open longer than the lookahead, then is cancelled.
         let gate = Gate()
-        await coordinator.submit(kind: .region, source: sourceA) { _ in await gate.wait(); return .cancelled }
+        await coordinator.submit(coordinator.reservePress(), kind: .region, source: sourceA) { _ in await gate.wait(); return .cancelled }
         sink.playNext()
         await eventually { sink.pendingCount == 4 }
         await gate.open()
@@ -371,13 +394,13 @@ struct ReadingPlayback: PlaybackSession {
         #expect(log.events == ["start 1:playing", "stop 1:playing", "start 2:From the screen."])
     }
 
-    @Test func selectionPressSupersedesPendingRegion() async {
+    @Test func selectionPressSupersedesPendingRegion() async throws {
         let log = EventLog()
         let coordinator = makeCoordinator(log: log)
         let gate = Gate()
-        let region = await coordinator.submit(kind: .region, source: sourceA) { _ in
+        let region = try #require(await coordinator.submit(coordinator.reservePress(), kind: .region, source: sourceA) { _ in
             await gate.wait(); return .document([.paragraph("late region")])
-        }
+        })
         let selection = await coordinator.beginInput(kind: .selection, source: sourceA)
         #expect(await !coordinator.isCurrent(region))
         _ = await coordinator.resolve(selection, .text("selected", layer: .accessibility))

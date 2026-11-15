@@ -7,7 +7,6 @@ import Testing
 @Suite struct AXStatusTests {
     /// Contract probe: the pure constants are the system's `AXError` values.
     @Test func codesMatchTheSystem() {
-        #expect(AXStatus.success == AXError.success.rawValue)
         #expect(AXStatus.attributeUnsupported == AXError.attributeUnsupported.rawValue)
         #expect(AXStatus.noValue == AXError.noValue.rawValue)
         #expect(AXStatus.parameterizedAttributeUnsupported == AXError.parameterizedAttributeUnsupported.rawValue)
@@ -26,7 +25,7 @@ import Testing
 
     /// A success code without a value is not an answer.
     @Test func successWithoutValueIsError() {
-        #expect(isError(AXStatus.classify(AXRawResult<String>.failed(AXStatus.success)) { $0 }))
+        #expect(isError(AXStatus.classify(AXRawResult<String>.failed(AXError.success.rawValue)) { $0 }))
     }
 
     @Test func nullIsAbsentAndValuesConvert() {

@@ -13,6 +13,14 @@ public enum AXRead<Value> {
 
 extension AXRead: Sendable where Value: Sendable {}
 
+extension AXRead {
+    /// The read value, or nil for an absent or unknown answer.
+    public var value: Value? {
+        if case let .value(value) = self { return value }
+        return nil
+    }
+}
+
 public struct AXTextRange: Equatable, Sendable {
     public let location: Int
     public let length: Int

@@ -19,15 +19,9 @@ nonisolated enum AX {
         prepared(AXUIElementCreateSystemWide())
     }
 
-    enum Status { case success, unsupported, error }
-
-    /// The one AX error policy, `AXStatus` in CaptaloCore: unsupported
-    /// attributes and missing values are `.unsupported`; every other failure is `.error`.
-    static func status(_ error: AXError) -> Status {
-        if error == .success { return .success }
-        return AXStatus.isEstablishedAbsence(error.rawValue) ? .unsupported : .error
-    }
-
+    /// Every read goes through the one AX error policy, `AXStatus` in
+    /// CaptaloCore: unsupported attributes and missing values are
+    /// `.unsupported`; every other failure is `.error`.
     static func classify<T>(_ error: AXError, _ value: CFTypeRef?, _ convert: (CFTypeRef) -> T?) -> AXRead<T> {
         let raw: AXRawResult<CFTypeRef> = if error == .success, let value { .value(value) } else { .failed(error.rawValue) }
         return AXStatus.classify(raw, convert)

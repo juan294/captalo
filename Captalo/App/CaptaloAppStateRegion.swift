@@ -37,8 +37,7 @@ extension CaptaloAppState {
                 case .cancelled: return .cancelled
                 case .escapeUnavailable:
                     let outcome = CaptureOutcome.failed(.overlayUnavailable)
-                    PrivacyLog.record(.ocr(outcome: .failed, failure: .overlayUnavailable, blocks: 0, characters: 0,
-                                           elapsed: token.startedAt.duration(to: .now)))
+                    PrivacyLog.record(RegionReader.event(for: outcome, elapsed: token.startedAt.duration(to: .now)))
                     // The tap needs Accessibility, so a revoked grant is the likely cause.
                     // Shown in the settings window even while the grant still looks valid.
                     await MainActor.run {
@@ -57,13 +56,13 @@ extension CaptaloAppState {
     }
 
     func recordRegionOutcome(_ outcome: CaptureOutcome) {
-        regionFailures.record(outcome)
+        ocrFailures.record(outcome)
     }
 
     /// The failure the optional OCR row shows: recognition failures after
     /// three in a row, an overlay that could not open at once.
     var regionFailureNotice: String? {
-        switch regionFailures.notice {
+        switch ocrFailures.surfacedCategory {
         case .overlayUnavailable?: "The region overlay could not open because Cáptalo could not watch for Esc. Check the Accessibility permission, then try again."
         case .ocrTimedOut?: "Recent region readings timed out."
         case .ocrFailed?: "Recent region readings could not be recognized."
