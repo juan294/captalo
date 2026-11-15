@@ -40,6 +40,13 @@ import Testing
         #expect(result[1].text == head)
     }
 
+    @Test func breakExactlyAtTheLimitIsUsed() {
+        let head = words(80) // 80*5-1 = 399 characters
+        let exact = head + "a" // 400 characters, then a space
+        let result = units([["Short.", exact + " tail words here."]])
+        #expect(result[1].text == exact)
+    }
+
     @Test func unpunctuatedTextSplitAtWhitespace() {
         let text = words(2_000)  // 9,999 characters, no punctuation
         let result = units([["Short.", text]])

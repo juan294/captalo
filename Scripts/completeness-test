@@ -54,35 +54,47 @@ def main():
     for summary in [r for r in records if r["kind"] == "summary"]:
         voice = summary["voice"]
         units = {r["unit"] for r in records if r["kind"] == "unit" and r["voice"] == voice}
+        unit_records = [r for r in records if r["kind"] == "unit" and r["voice"] == voice]
         checks = {
             "finished": summary["outcome"] == "finished",
-            "every unit once, in order": summary["playedInOrder"] and summary["units"] == len(units),
+            "every expected unit played exactly once, in order": summary["playedExactlyOnceInOrder"],
+            "synthesized pieces reassemble the prepared text": summary["textReassembles"],
+            "every unit record completed, with phonemes and normalized text":
+                bool(unit_records) and all(r["completed"] and r["phonemes"] > 0 and r["normalizedText"] for r in unit_records),
             "no unit over 35 s": summary["maxUnitSeconds"] <= MAX_UNIT,
-            "queue within 105 s": summary["maxQueuedSeconds"] <= MAX_QUEUED,
         }
         failures += [f"{voice}: {name}" for name, ok in checks.items() if not ok]
         evidence.setdefault("voices", {})[voice] = {**{k: summary[k] for k in ("units", "maxUnitSeconds", "maxQueuedSeconds", "firstAudioMs", "totalMs", "peakFootprintMB", "oversizeSplits")}, "checks": checks}
 
     voice = manifest["voices"][0]
     long_full = [r for r in synth("long", "speech-long-unpunctuated.txt", "--voices", voice) if r["kind"] == "summary"]
-    long_stop = [r for r in synth("long-stop", "speech-long-unpunctuated.txt", "--voices", voice, "--stop-after-units", "5") if r["kind"] == "stop"]
+    long_stop = [r for r in synth("long-stop", "speech-long-unpunctuated.txt", "--voices", voice, "--pace", "20",
+                                  "--stop-after-units", "5") if r["kind"] == "stop"]
     long_device = [r for r in synth("long-device", "speech-long-unpunctuated.txt", "--voices", voice, "--pace", "20",
                                     "--device-change-after-units", "3") if r["kind"] in ("deviceChange", "summary")]
     if long_full:
         s = long_full[0]
         evidence["long"] = {k: s[k] for k in ("units", "maxUnitSeconds", "maxQueuedSeconds", "firstAudioMs", "totalMs", "peakFootprintMB", "oversizeSplits")}
-        if s["outcome"] != "finished" or not s["playedInOrder"] or s["maxUnitSeconds"] > MAX_UNIT:
+        if s["outcome"] != "finished" or not s["playedExactlyOnceInOrder"] or not s["textReassembles"] or s["maxUnitSeconds"] > MAX_UNIT:
             failures.append("long fixture: structural check failed")
     if long_stop:
-        evidence["stopMs"] = long_stop[0]["stopMs"]
+        evidence["stop"] = {k: long_stop[0][k] for k in ("stopToSilenceMs", "stopToIdleMs")}
     device = [r for r in long_device if r["kind"] == "deviceChange"]
     device_summary = [r for r in long_device if r["kind"] == "summary"]
     if device:
         evidence["deviceChange"] = {"replayedUnits": device[0]["replayedUnits"], "replaySpanSeconds": device[0]["replaySpanSeconds"]}
         if len(device[0]["replayedUnits"]) != 1:
             failures.append("device change: expected exactly one replayed (audible) unit")
-    if device_summary and device_summary[0]["outcome"] != "finished":
-        failures.append("device change: reading did not finish")
+    if device_summary:
+        d = device_summary[0]
+        evidence["pacedQueue"] = {"maxQueuedSeconds": d["maxQueuedSeconds"], "maxRetained": d["maxRetained"]}
+        if d["outcome"] != "finished" or not d["playedExactlyOnceInOrder"]:
+            failures.append("device change: reading did not finish with every unit once, in order")
+        # The paced run fills the queue, so the bound is exercised, not vacuous.
+        if not 0 < d["maxQueuedSeconds"] <= MAX_QUEUED:
+            failures.append(f"paced queue bound: maxQueuedSeconds {d['maxQueuedSeconds']} not in (0, {MAX_QUEUED}]")
+    else:
+        failures.append("device change: no paced summary")
 
     evidence["failures"] = failures
     target = ROOT / ".local" / "completeness" / f"{stamp}.json"

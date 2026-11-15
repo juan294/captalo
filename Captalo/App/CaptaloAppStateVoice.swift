@@ -1,5 +1,6 @@
 import AppKit
 import CaptaloCore
+import CaptaloSpeech
 import Foundation
 
 extension CaptaloAppState {
@@ -11,12 +12,19 @@ extension CaptaloAppState {
         Task { apply(await service.prepare()) }
     }
 
-    /// "Reinstall voice" in the settings window.
+    /// "Reinstall voice" in the settings window. A playing reading ends first
+    /// with a voice error, so its lease is released before the repair.
     func reinstallVoice() {
+        let wasReading = speechService.isReading
         voiceState = .checking
         updateStatus("Reinstalling voice...")
         let service = speechService
-        Task { apply(await service.reinstall()) }
+        let requests = self.requests
+        Task {
+            await requests.stopSession()
+            if wasReading { reportVoiceError() }
+            apply(await service.reinstall())
+        }
     }
 
     func apply(_ result: SpeechService.PrepareResult) {

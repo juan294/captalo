@@ -3,6 +3,8 @@
 Run: python3 -m unittest discover -s Scripts/tests
 """
 import importlib.machinery
+import json
+import os
 import importlib.util
 import io
 import plistlib
@@ -174,6 +176,25 @@ class SubsystemTests(unittest.TestCase):
         collector = (SCRIPTS / "capture-matrix-collect").read_text()
         self.assertIn('subsystem = "com.thecreativetoken.captalo"', source)
         self.assertIn('subsystem == "com.thecreativetoken.captalo"', collector)
+
+
+class FetchModelsTests(unittest.TestCase):
+    """fetchScriptRejectsBytesNotMatchingManifest, at the script level."""
+
+    def test_bytes_not_matching_the_manifest_are_rejected_and_nothing_is_written(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            models = Path(tmp, "models")
+            (models / "kokoro").mkdir(parents=True)
+            (models / "kokoro" / "vocab.json").write_text("{\"a\": 1}")
+            manifest = Path(tmp, "manifest.json")
+            manifest.write_text(json.dumps({"files": [{"path": "kokoro/vocab.json", "size": 10,
+                                                        "sha256": "0" * 64}], "generated": [], "voices": ["af_heart"]}))
+            before = manifest.read_text()
+            env = dict(os.environ, MODELS=str(models), MANIFEST=str(manifest))
+            result = subprocess.run([str(SCRIPTS / "fetch-models"), "--verify-only"], env=env,
+                                    capture_output=True, text=True, check=False)
+            self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+            self.assertEqual(manifest.read_text(), before)
 
 
 class MakefileTests(unittest.TestCase):

@@ -199,7 +199,8 @@ struct Fixture {
         #expect(store.currentDirectory(for: f.manifest) == .failure(.missing("kokoro/vocab.json")))
         try store.activate(from: f.bundle, manifest: f.manifest)
         #expect(store.currentDirectory(for: f.manifest) == .success(active))
-        // A bundle that itself fails validation is reported as such ("Reinstall Cáptalo").
+        // A repair from a bundle that itself fails validation is reported as such ("Reinstall Cáptalo").
+        try f.corrupt("kokoro/vocab.json", in: active)
         try f.corrupt("kokoro/vocab.json", in: f.bundle)
         #expect(throws: StoreError.bundleInvalid(.sizeMismatch("kokoro/vocab.json"))) {
             try store.activate(from: f.bundle, manifest: f.manifest)
@@ -213,6 +214,23 @@ struct Fixture {
         #expect(first != nil)
         #expect(try FileLock.tryAcquire(store.consumerLockURL) == nil)
         withExtendedLifetime(first) {}
+    }
+
+    /// Blocker regression (phase 3 review): a second instance must take the
+    /// consumer lock before any repair, quarantine or reclaim, and must
+    /// leave the first instance's store untouched.
+    @Test func secondConsumerCannotRepairOrReclaim() async throws {
+        let f = try Fixture(); defer { f.cleanup() }
+        let store = ModelStore(root: f.root)
+        let active = try store.activate(from: f.bundle, manifest: f.manifest)
+        try f.corrupt("kokoro/vocab.json", in: active)
+        let firstInstance = try #require(try FileLock.tryAcquire(store.consumerLockURL))
+        let before = f.entries()
+        let second = VoiceSetup(store: ModelStore(root: f.root), manifest: f.manifest)
+        #expect(await second.prepare(bundleModels: f.bundle) == .secondInstance)
+        #expect(f.entries() == before)
+        #expect(store.currentDirectory(for: f.manifest) == .failure(.sizeMismatch("kokoro/vocab.json")))
+        withExtendedLifetime(firstInstance) {}
     }
 
     @Test func diskFullReportsNeededSpaceAndLeavesNoStaging() throws {

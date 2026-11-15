@@ -13,6 +13,9 @@ nonisolated final class AVAudioSink: AudioSink, @unchecked Sendable {
     private let player = AVAudioPlayerNode()
     private let format = AVAudioFormat(standardFormatWithSampleRate: AVAudioSink.sampleRate, channels: 1)!
     private let lock = NSLock()
+    /// A player stop completes every dropped buffer; the gate keeps those
+    /// completions from looking like plays (phase 3 review, blocker 2).
+    private let gate = PlaybackGate()
     private var observer: NSObjectProtocol?
     private var onConfigurationChange: (@Sendable () -> Void)?
 
@@ -32,34 +35,46 @@ nonisolated final class AVAudioSink: AudioSink, @unchecked Sendable {
         lock.withLock { onConfigurationChange = handler }
     }
 
-    func schedule(_ samples: [Float], sampleRate: Int, played: @escaping @Sendable () -> Void) {
-        guard Double(sampleRate) == Self.sampleRate,
+    /// False (nothing scheduled) for a wrong format or when the engine cannot start;
+    /// the session then ends with a voice error instead of skipping audio.
+    func schedule(_ samples: [Float], sampleRate: Int, played: @escaping @Sendable () -> Void) -> Bool {
+        guard Double(sampleRate) == Self.sampleRate, !samples.isEmpty,
               let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(samples.count)) else {
-            played()
-            return
+            return false
         }
         buffer.frameLength = AVAudioFrameCount(samples.count)
         samples.withUnsafeBufferPointer { source in
             buffer.floatChannelData![0].update(from: source.baseAddress!, count: samples.count)
         }
-        lock.withLock {
-            if !engine.isRunning { try? engine.start() }
-            player.scheduleBuffer(buffer, completionCallbackType: .dataPlayedBack) { _ in played() }
+        let gated = gate.gated(played)
+        return lock.withLock {
+            if !engine.isRunning {
+                do { try engine.start() } catch { return false }
+            }
+            player.scheduleBuffer(buffer, completionCallbackType: .dataPlayedBack) { _ in gated() }
             if !player.isPlaying { player.play() }
+            return true
         }
     }
 
     func stop() {
-        lock.withLock { player.stop() }
+        lock.withLock {
+            gate.invalidate()
+            player.stop()
+        }
     }
 
     private func configurationChanged() {
         let handler = lock.withLock { () -> (@Sendable () -> Void)? in
+            // Invalidate first: the stop below completes every scheduled buffer.
+            gate.invalidate()
             player.stop()
             engine.connect(player, to: engine.mainMixerNode, format: format)
             try? engine.start()
             return onConfigurationChange
         }
+        // The session replays from the start of the audible unit; scheduling
+        // reports failure if the engine did not restart.
         handler?()
     }
 }

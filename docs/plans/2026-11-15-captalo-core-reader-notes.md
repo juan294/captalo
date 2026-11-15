@@ -98,6 +98,22 @@ Plan: `2026-11-15-captalo-core-reader.md` (revision 4, accepted 2026-11-15). Imp
 
 - Chose: `InputKind.sample` and `RequestCoordinator.playText` for the settings window's sample button: it replaces any reading and is never a stop gesture.
 
+### D15. Underscore emphasis is not stripped (phase 3, unit 3A)
+
+- Plan said: strip Markdown emphasis.
+- Found (phase 3 review): the underscore forms removed underscores from identifiers (`__init__.py` became `init.py`), against decision 7 ("code operators and names spoken as written").
+- Chose: strip asterisk emphasis (`*word*`, `**word**`) and strikethrough only; `_word_` and `__word__` stay as written. Fixtures: `__init__.py`, `_private_`, `__strong__`.
+
+### D16. Table rows only inside Markdown tables (phase 3, unit 3A)
+
+- Found (phase 3 review): any line with two pipes became a table row, so a shell pipeline (`cat log | grep x | wc -l`) was read as cells.
+- Chose: a line is a table row when it starts with a pipe, when a separator row follows it (a header) or when it follows a table row. Fixtures: two pipelines and a header-only pipe table.
+
+### D17. One validation pass per launch (phase 3)
+
+- Found (phase 3 review): each launch hashed about 276 MB (bundle, store, then the engine check).
+- Chose: activation validates the installed version first and reads the bundle only when it must copy; `VoiceSetup` hands the directory validated under the consumer lock to the engine. A launch with a valid store hashes the 95 MB once. A repair from a damaged bundle still reports "Reinstall Cáptalo".
+
 ## Phase 1 handoff (2026-11-15)
 
 - Candidate: branch `feat/core-reader`, commits `a000427` (rename), `7f7737a` (cc-rpi v2.2.0), `6eb0b4a` (foundation), `556c148` (review repairs) and the simplify commit that carries this note. `make verify` (8 checks: whitespace, rpi-installation, core tests debug and release, unsigned Debug and Release builds, log-audit, script-test) passed on the simplify candidate; evidence in the worktree's ignored `.rpi/local/verification.json`.

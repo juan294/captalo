@@ -14,8 +14,38 @@ import Testing
 
     @Test func markdownEmphasisNotSpoken() {
         #expect(flat("**Hello there**") == "Hello there") // upstream issue 5
-        #expect(flat("A *word* and __strong__ and ~~gone~~ text.") == "A word and strong and gone text.")
+        #expect(flat("A *word* and **strong** and ~~gone~~ text.") == "A word and strong and gone text.")
         #expect(flat("Use `make verify` first.") == "Use make verify first.")
+    }
+
+    @Test func underscoresBelongToIdentifiers() {
+        #expect(flat("Edit __init__.py and _private_ names.") == "Edit __init__.py and _private_ names.")
+        #expect(flat("Markdown __strong__ stays too.") == "Markdown __strong__ stays too.")
+    }
+
+    @Test func shellPipelinesAreNotTables() {
+        #expect(spoken("cat log | grep x | wc -l") == [["cat log | grep x | wc -l"]])
+        #expect(spoken("Run a | b now.\nThen stop.") == [["Run a | b now.", "Then stop."]])
+    }
+
+    @Test func headerlessPipeTableNeedsASeparatorRow() {
+        #expect(spoken("Name | Age\n--- | ---\nAnn | 30") == [["Name, Age"], ["Ann, 30"]])
+    }
+
+    @Test func headingAndLinkNegatives() {
+        #expect(flat("issue #42 and C# code") == "issue #42 and C# code")
+        #expect(flat("#hashtag stays") == "#hashtag stays")
+        #expect(flat("an [aside] in brackets stays") == "an [aside] in brackets stays")
+        #expect(flat("three backticks ``` inside a line stay") == "three backticks ``` inside a line stay")
+    }
+
+    @Test func promptInsideACodeFenceIsRemoved() {
+        #expect(spoken("```\n$ make verify\nPASS\n```") == [["make verify"], ["PASS"]])
+    }
+
+    @Test func urlKeepsTrailingSentencePunctuation() {
+        #expect(spoken("See https://example.com/a. Then go.") == [["See example.com.", "Then go."]])
+        #expect(flat("Visit https://example.com/x, then rest.") == "Visit example.com, then rest.")
     }
 
     @Test func operatorsAndIdentifiersStay() {

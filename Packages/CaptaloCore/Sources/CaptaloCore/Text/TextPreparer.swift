@@ -51,7 +51,8 @@ public enum TextPreparer {
         case let .tableRow(cells):
             text = cells.map { cleanProse($0, source: source) }.filter { !$0.isEmpty }.joined(separator: ", ")
         case let .codeLine(raw):
-            text = collapseWhitespace(removeNoise(normalizeCharacters(raw)))
+            // Code is spoken as written, minus noise and a line-start prompt symbol.
+            text = collapseWhitespace(Pattern.prompt.replace(removeNoise(normalizeCharacters(raw)), ""))
         }
         return Paragraph(sentences: sentences(in: text))
     }
@@ -67,8 +68,10 @@ public enum TextPreparer {
         }
         text = Pattern.markdownLink.replace(text, "$1")
         text = Pattern.url.replace(text, "$1")
-        text = Pattern.strongEmphasis.replace(text, "$2")
-        text = Pattern.emphasis.replace(text, "$2")
+        // Asterisk emphasis only: underscores belong to identifiers
+        // (`__init__.py`, `snake_case`) far more often than to Markdown.
+        text = Pattern.strongEmphasis.replace(text, "$1")
+        text = Pattern.emphasis.replace(text, "$1")
         text = Pattern.strike.replace(text, "$1")
         text = Pattern.inlineCode.replace(text, "$1")
         return collapseWhitespace(text)
@@ -131,9 +134,10 @@ struct Pattern: @unchecked Sendable {
     static let numberedBullet = Pattern(#"^[ \t]*\d{1,3}[.)][ \t]+"#, lines: true)
     static let prompt = Pattern(#"^[ \t]*[$%❯➜›»][ \t]+"#, lines: true)
     static let markdownLink = Pattern(#"!?\[([^\]]*)\]\([^)\s]*\)"#)
-    static let url = Pattern(#"\b(?:https?|ftp)://(?:www\.)?([^/\s:?#]+)\S*"#)
-    static let strongEmphasis = Pattern(#"(\*\*|__)(?=\S)(.+?)(?<=\S)\1"#)
-    static let emphasis = Pattern(#"(?<![\w*])([*_])(?=[^\s*_])(.+?)(?<=[^\s*_])\1(?![\w*])"#)
+    /// Trailing sentence punctuation after a URL stays in the text.
+    static let url = Pattern(#"\b(?:https?|ftp)://(?:www\.)?([^/\s:?#]+)\S*?(?=[.,;:!?)\]]*(?:\s|$))"#)
+    static let strongEmphasis = Pattern(#"\*\*(?=\S)(.+?)(?<=\S)\*\*"#)
+    static let emphasis = Pattern(#"(?<![\w*])\*(?=[^\s*])(.+?)(?<=[^\s*])\*(?![\w*])"#)
     static let strike = Pattern(#"~~(?=\S)(.+?)(?<=\S)~~"#)
     static let inlineCode = Pattern(#"`([^`]+)`"#)
     static let ocrHyphenBreak = Pattern(#"(\p{L})-\n(\p{Ll})"#)
@@ -152,6 +156,7 @@ public struct SelectionBlocks: Sequence {
     public struct Iterator: IteratorProtocol {
         var lines: ArraySlice<Substring>
         var inFence = false
+        var inTable = false
         var pending: [Block] = []
 
         public mutating func next() -> Block? {
@@ -161,6 +166,7 @@ public struct SelectionBlocks: Sequence {
                 let trimmed = line.trimmingCharacters(in: .whitespaces)
                 if trimmed.hasPrefix("```") || trimmed.hasPrefix("~~~") {
                     inFence.toggle()
+                    inTable = false
                     if let block = flush(&paragraph) { return block }
                     continue
                 }
@@ -169,10 +175,11 @@ public struct SelectionBlocks: Sequence {
                     return .codeLine(String(line))
                 }
                 if trimmed.isEmpty {
+                    inTable = false
                     if let block = flush(&paragraph) { return block }
                     continue
                 }
-                if let special = Self.special(trimmed) {
+                if let special = special(trimmed) {
                     if let block = flush(&paragraph) {
                         if let special { pending.append(special) }
                         return block
@@ -180,26 +187,27 @@ public struct SelectionBlocks: Sequence {
                     if let special { return special }
                     continue
                 }
+                inTable = false
                 paragraph.append(line)
             }
             return flush(&paragraph)
         }
 
-        private func flush(_ paragraph: inout [Substring]) -> Block? {
-            guard !paragraph.isEmpty else { return nil }
-            defer { paragraph.removeAll() }
-            return .paragraph(paragraph.joined(separator: "\n"))
-        }
-
-        /// `.some(block)` for a list item or table row, `.some(nil)` for a
-        /// table separator row (dropped), `nil` for ordinary prose.
-        static func special(_ line: String) -> Block?? {
-            if line.hasPrefix("|") || (line.contains(" | ") && line.filter({ $0 == "|" }).count >= 2) {
+        /// A line is a table row only inside a Markdown table: it starts with
+        /// a pipe, or a separator row follows it (the header), or it follows
+        /// a table row. A shell pipeline (`a | b | c`) is prose.
+        private mutating func special(_ line: String) -> Block?? {
+            if Self.isSeparatorRow(line) {
+                inTable = true
+                return .some(nil)
+            }
+            let nextIsSeparator = lines.first.map { Self.isSeparatorRow($0.trimmingCharacters(in: .whitespaces)) } ?? false
+            if line.contains("|"), line.hasPrefix("|") || inTable || nextIsSeparator {
+                inTable = true
                 var cells = line.split(separator: "|", omittingEmptySubsequences: false)
                     .map { $0.trimmingCharacters(in: .whitespaces) }
                 if cells.first == "" { cells.removeFirst() }
                 if cells.last == "" { cells.removeLast() }
-                if cells.allSatisfy({ $0.allSatisfy { "-:".contains($0) } }) { return .some(nil) }
                 return .some(.tableRow(cells))
             }
             if line.range(of: #"^#{1,6}\s+\S"#, options: .regularExpression) != nil {
@@ -210,5 +218,16 @@ public struct SelectionBlocks: Sequence {
             }
             return nil
         }
+
+        static func isSeparatorRow(_ line: String) -> Bool {
+            line.contains("|") && line.contains("-") && line.allSatisfy { "|-: ".contains($0) }
+        }
+
+        private func flush(_ paragraph: inout [Substring]) -> Block? {
+            guard !paragraph.isEmpty else { return nil }
+            defer { paragraph.removeAll() }
+            return .paragraph(paragraph.joined(separator: "\n"))
+        }
+
     }
 }

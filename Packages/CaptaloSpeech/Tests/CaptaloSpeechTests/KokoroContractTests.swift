@@ -17,11 +17,10 @@ import Testing
     func engine() async throws -> (KokoroSynthesizer, ModelManifest, URL) {
         let manifest = try ModelManifest.load(from: Self.manifestURL)
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("captalo-contract-\(UUID().uuidString)")
-        let store = ModelStore(root: root)
-        try store.activate(from: Self.models, manifest: manifest)
-        let synthesizer = KokoroSynthesizer(store: store, manifest: manifest)
-        try await synthesizer.start()
-        return (synthesizer, manifest, root)
+        let setup = VoiceSetup(store: ModelStore(root: root), manifest: manifest)
+        let result = await setup.prepare(bundleModels: Self.models)
+        try #require(result == .state(.ready))
+        return (setup.synthesizer, manifest, root)
     }
 
     @Test func unpunctuated400CharacterUnitStaysWithinTheLimitOrSplits() async throws {
@@ -72,6 +71,6 @@ import Testing
 }
 
 final class ImmediateSink: AudioSink, Sendable {
-    func schedule(_ samples: [Float], sampleRate: Int, played: @escaping @Sendable () -> Void) { played() }
+    func schedule(_ samples: [Float], sampleRate: Int, played: @escaping @Sendable () -> Void) -> Bool { played(); return true }
     func stop() {}
 }

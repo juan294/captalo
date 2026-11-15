@@ -41,12 +41,33 @@ final class FakeSink: AudioSink, Sendable {
     let pending = Mutex<[(@Sendable () -> Void, Int)]>([])
     let scheduledSamples = Mutex<[Int]>([])
     let stops = Mutex(0)
+    /// Schedules after this many succeed fail (engine down).
+    let failAfter = Mutex<Int?>(nil)
+    /// Models AVAudioSink: callbacks pass through a PlaybackGate.
+    let gate = PlaybackGate()
 
     init(autoplay: Bool) { self.autoplay = autoplay }
 
-    func schedule(_ samples: [Float], sampleRate: Int, played: @escaping @Sendable () -> Void) {
+    func schedule(_ samples: [Float], sampleRate: Int, played: @escaping @Sendable () -> Void) -> Bool {
+        let allowed = failAfter.withLock { limit -> Bool in
+            guard let remaining = limit else { return true }
+            if remaining == 0 { return false }
+            limit = remaining - 1
+            return true
+        }
+        guard allowed else { return false }
         scheduledSamples.withLock { $0.append(samples.count) }
-        if autoplay { played() } else { pending.withLock { $0.append((played, samples.count)) } }
+        let gated = gate.gated(played)
+        if autoplay { gated() } else { pending.withLock { $0.append((gated, samples.count)) } }
+        return true
+    }
+
+    /// Models an engine restart: the gate is invalidated, then the player
+    /// stop completes every dropped buffer (before the session hears of it).
+    func simulateConfigurationChange() {
+        gate.invalidate()
+        let dropped = pending.withLock { list -> [(@Sendable () -> Void, Int)] in defer { list.removeAll() }; return list }
+        dropped.forEach { $0.0() }
     }
 
     func stop() {
@@ -126,7 +147,7 @@ final class Events: Sendable {
             sink.playNext()
         }
         await reading.stop()
-        #expect(await reading.maxQueuedSeconds <= ReadingLimits().maxQueuedSeconds + 1) // 3 × (34.9 + pauses)
+        #expect(await reading.maxQueuedSeconds <= ReadingLimits().maxQueuedSeconds)
         #expect(await reading.maxRetained <= 4)
     }
 
@@ -165,7 +186,15 @@ final class Events: Sendable {
 
     @Test func chunkFailureEndsSessionAndReportsVoiceError() async {
         let events = Events()
-        let reading = session(sentences(10), FakeSynthesizer(failAt: 3), FakeSink(autoplay: true), events: events)
+        let sink = FakeSink(autoplay: false)
+        let reading = session(sentences(10), FakeSynthesizer(failAt: 3), sink, events: events)
+        await reading.start()
+        await eventually { sink.pendingCount == 3 }
+        try? await Task.sleep(for: .milliseconds(20))
+        // The failure does not silence scheduled audio: units 0-2 still play.
+        #expect(sink.stops.withLock { $0 } == 0)
+        #expect(sink.pendingCount == 3)
+        while sink.playNext() { try? await Task.sleep(for: .milliseconds(2)) }
         #expect(await reading.outcome() == .voiceError)
         #expect(events.played == [0, 1, 2])
     }
@@ -189,8 +218,62 @@ final class Events: Sendable {
     }
 
     @Test func minimumPieceStillOversizeEndsWithVoiceError() async {
-        let reading = session(sentences(3), FakeSynthesizer { _ in 36 }, FakeSink(autoplay: true))
+        let events = Events()
+        let long = String(repeating: "word ", count: 60).trimmingCharacters(in: .whitespaces) + "."
+        // The first unit is fine; every piece of the long unit stays oversize.
+        let synth = FakeSynthesizer { $0 == "Short." ? 1 : 36 }
+        let units: @Sendable () -> AnyIterator<SynthesisUnit> = {
+            AnyIterator(UnitChunker([Paragraph(sentences: ["Short.", long])]).makeIterator())
+        }
+        let reading = session(units, synth, FakeSink(autoplay: true), events: events)
         #expect(await reading.outcome() == .voiceError)
+        #expect(events.played == [0]) // scheduled audio played before the error
+        let pieces = synth.calls.withLock { $0 }.dropFirst()
+        #expect(pieces.allSatisfy { $0.count >= ReadingLimits().minimumSplitLength })
+        #expect(pieces.contains { $0.count < ReadingLimits().minimumSplitLength * 2 }) // split down to the minimum
+    }
+
+    @Test func unbalancedBreakFallsBackToAMidpointSplit() async {
+        // One space near the start: the preferred break would leave a 3-character head.
+        let text = "abc " + String(repeating: "x", count: 150)
+        let synth = FakeSynthesizer { $0.count > 100 ? 40 : 5 }
+        let units: @Sendable () -> AnyIterator<SynthesisUnit> = {
+            AnyIterator(UnitChunker([Paragraph(sentences: ["Short.", text])]).makeIterator())
+        }
+        #expect(await session(units, synth, FakeSink(autoplay: true)).outcome() == .finished)
+        #expect(synth.calls.withLock { $0 }.dropFirst().filter { $0.count <= 100 }.allSatisfy { $0.count >= 40 })
+    }
+
+    @Test func sinkFailureEndsWithVoiceErrorAfterScheduledAudio() async {
+        let events = Events()
+        let sink = FakeSink(autoplay: true)
+        sink.failAfter.withLock { $0 = 2 }
+        let reading = session(sentences(6), FakeSynthesizer(), sink, events: events)
+        #expect(await reading.outcome() == .voiceError)
+        #expect(events.played == [0, 1])
+    }
+
+    /// Blocker regression (phase 3 review): the engine restart's player stop
+    /// completes dropped buffers before the session hears of the change. The
+    /// audible unit must still replay from its start.
+    @Test func engineRestartCompletionsDoNotSkipTheAudibleUnit() async {
+        let events = Events()
+        let sink = FakeSink(autoplay: false)
+        let reading = session(sentences(8), FakeSynthesizer(), sink, events: events)
+        await reading.start()
+        await eventually { sink.pendingCount == 4 }
+        sink.playNext() // unit 0 played; unit 1 is audible
+        await eventually { sink.pendingCount == 4 }
+        sink.simulateConfigurationChange()
+        try? await Task.sleep(for: .milliseconds(20))
+        await reading.deviceChanged()
+        #expect(events.list.withLock { $0.contains(.replayed(unitID: 1)) })
+        for _ in 0..<20 {
+            await eventually { sink.pendingCount >= 1 || events.played.count == 8 }
+            if !sink.playNext() { break }
+        }
+        #expect(await reading.outcome() == .finished)
+        #expect(events.played == Array(0..<8))
     }
 
     @Test func oversizeResultNeverEnqueued() async {
@@ -200,7 +283,7 @@ final class Events: Sendable {
         let reading = session({ AnyIterator(UnitChunker([Paragraph(sentences: ["Short.", long])]).makeIterator()) }, synth, sink)
         _ = await reading.outcome()
         let maxSamples = sink.scheduledSamples.withLock { $0.max() ?? 0 }
-        #expect(Double(maxSamples) / Double(synth.rate) <= ReadingLimits().maxUnitSeconds + 1)
+        #expect(Double(maxSamples) / Double(synth.rate) <= ReadingLimits().maxUnitSeconds)
     }
 
     @Test func stopDuringFirstSynthesisSilencesAtOnceAndDropsResult() async {
@@ -283,5 +366,18 @@ final class Events: Sendable {
         _ = await session(units, FakeSynthesizer(), sink).outcome()
         // 1 s of audio = 100 samples; +0.30 s after a sentence; +0.35 s more after a paragraph.
         #expect(sink.scheduledSamples.withLock { $0 } == [130, 165, 165])
+    }
+}
+
+@Suite struct PlaybackGateTests {
+    @Test func invalidationSuppressesEarlierCallbacksOnly() {
+        let gate = PlaybackGate()
+        let fired = Mutex<[String]>([])
+        let before = gate.gated { fired.withLock { $0.append("before") } }
+        gate.invalidate()
+        let after = gate.gated { fired.withLock { $0.append("after") } }
+        before()
+        after()
+        #expect(fired.withLock { $0 } == ["after"])
     }
 }

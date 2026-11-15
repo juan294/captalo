@@ -1,14 +1,39 @@
 import Foundation
+import Synchronization
 
 /// Plays PCM. The app's implementation wraps AVAudioEngine; tests use an
 /// in-memory sink. `played` fires once a buffer has played back.
 ///
 /// Both calls are synchronous so the session can stop and reschedule with no
-/// suspension in between (a replay is never interleaved with new units).
+/// suspension in between (a replay is never interleaved with new units). A
+/// sink must not report buffers dropped by its own engine restart as played
+/// (see `PlaybackGate`).
 public protocol AudioSink: Sendable {
-    func schedule(_ samples: [Float], sampleRate: Int, played: @escaping @Sendable () -> Void)
+    /// Returns false when the buffer cannot be played (engine down, wrong format).
+    func schedule(_ samples: [Float], sampleRate: Int, played: @escaping @Sendable () -> Void) -> Bool
     /// Silence at once and drop every scheduled buffer.
     func stop()
+}
+
+/// Suppresses playback callbacks of buffers scheduled before the last
+/// invalidation. A player stop (on a stop or an engine restart) completes every
+/// dropped buffer; without this gate those completions look like plays.
+public final class PlaybackGate: Sendable {
+    private let generation = Mutex<UInt64>(0)
+
+    public init() {}
+
+    /// Wraps `played` so it fires only if no invalidation happened since now.
+    public func gated(_ played: @escaping @Sendable () -> Void) -> @Sendable () -> Void {
+        let scheduled = generation.withLock { $0 }
+        return { [self] in
+            if generation.withLock({ $0 }) == scheduled { played() }
+        }
+    }
+
+    public func invalidate() {
+        generation.withLock { $0 += 1 }
+    }
 }
 
 public enum ReadingOutcome: Equatable, Sendable {
@@ -130,7 +155,9 @@ public actor ReadingSession {
         sink.stop()
         if let first = queue.first { onEvent(.replayed(unitID: first.unit.id)) }
         for index in queue.indices { queue[index].played = false }
-        queue.forEach(scheduleToSink)
+        for item in queue where !scheduleToSink(item) {
+            failed = true
+        }
     }
 
     // MARK: - Pipeline
@@ -173,7 +200,13 @@ public actor ReadingSession {
             return
         }
         guard !stopped else { return } // stop or replace: the result is discarded
-        let seconds = Double(audio.samples.count) / Double(max(audio.sampleRate, 1))
+        var pause = 0.0
+        if piece.isLastPiece {
+            pause = piece.unit.endsSentence ? limits.sentencePause : 0
+            if piece.unit.endsParagraph { pause += limits.paragraphPause }
+        }
+        // The bound covers what is enqueued: synthesized audio plus its pause.
+        let seconds = Double(audio.samples.count) / Double(max(audio.sampleRate, 1)) + pause
         if seconds > limits.maxUnitSeconds {
             onEvent(.oversizeSplit(unitID: piece.unit.id))
             guard let halves = split(piece) else {
@@ -184,11 +217,7 @@ public actor ReadingSession {
             return
         }
         var samples = audio.samples
-        if piece.isLastPiece {
-            var pause = piece.unit.endsSentence ? limits.sentencePause : 0
-            if piece.unit.endsParagraph { pause += limits.paragraphPause }
-            samples.append(contentsOf: repeatElement(0, count: Int((pause * Double(audio.sampleRate)).rounded())))
-        }
+        samples.append(contentsOf: repeatElement(0, count: Int((pause * Double(audio.sampleRate)).rounded())))
         nextSequence += 1
         let item = Scheduled(sequence: nextSequence, unit: piece.unit, isLastPiece: piece.isLastPiece,
                              samples: samples, sampleRate: audio.sampleRate)
@@ -197,15 +226,24 @@ public actor ReadingSession {
         let queued = queue.dropFirst().reduce(0) { $0 + $1.seconds }
         maxQueuedSeconds = max(maxQueuedSeconds, queued)
         onEvent(.scheduled(unitID: piece.unit.id, sentenceID: piece.unit.sentenceID, seconds: item.seconds, queuedSeconds: queued))
-        scheduleToSink(item)
+        if !scheduleToSink(item) {
+            // The sink cannot play: end after what is already scheduled, as a voice error.
+            queue.removeLast()
+            failed = true
+        }
     }
 
+    /// Two pieces of at least `minimumSplitLength` characters: the preferred
+    /// break before the midpoint, or a hard split at the midpoint when that
+    /// break would leave a piece under the minimum.
     private func split(_ piece: Piece) -> [Piece]? {
         let count = piece.text.count
         guard count >= limits.minimumSplitLength * 2 else { return nil }
-        let (head, tail) = UnitChunker<[Paragraph]>.split(Substring(piece.text), limit: count / 2)
-        guard !head.isEmpty, !tail.isEmpty, head.count >= limits.minimumSplitLength || tail.count >= limits.minimumSplitLength else {
-            return nil
+        var (head, tail) = UnitChunker<[Paragraph]>.split(Substring(piece.text), limit: count / 2)
+        if head.count < limits.minimumSplitLength || tail.count < limits.minimumSplitLength {
+            let text = Substring(piece.text)
+            let middle = text.index(text.startIndex, offsetBy: count / 2)
+            (head, tail) = (text[..<middle], text[middle...])
         }
         return [
             Piece(unit: piece.unit, text: String(head), isLastPiece: false),
@@ -213,10 +251,10 @@ public actor ReadingSession {
         ]
     }
 
-    private func scheduleToSink(_ item: Scheduled) {
+    private func scheduleToSink(_ item: Scheduled) -> Bool {
         let scheduledEpoch = epoch
         let sequence = item.sequence
-        sink.schedule(item.samples, sampleRate: item.sampleRate) { [weak self] in
+        return sink.schedule(item.samples, sampleRate: item.sampleRate) { [weak self] in
             Task { await self?.played(sequence: sequence, epoch: scheduledEpoch) }
         }
     }

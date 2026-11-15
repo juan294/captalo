@@ -14,11 +14,12 @@ enum SynthesisProbe {
         let maxSeconds = Mutex(0.0)
         let firstScheduled = Mutex<ContinuousClock.Instant?>(nil)
 
-        func schedule(_ samples: [Float], sampleRate: Int, played: @escaping @Sendable () -> Void) {
+        func schedule(_ samples: [Float], sampleRate: Int, played: @escaping @Sendable () -> Void) -> Bool {
             let seconds = Double(samples.count) / Double(max(sampleRate, 1))
             maxSeconds.withLock { $0 = max($0, seconds) }
             firstScheduled.withLock { if $0 == nil { $0 = .now } }
             played()
+            return true
         }
 
         func stop() {}
@@ -31,10 +32,13 @@ enum SynthesisProbe {
         let maxSeconds = Mutex(0.0)
         let firstScheduled = Mutex<ContinuousClock.Instant?>(nil)
         private let state = Mutex<(busyUntil: ContinuousClock.Instant, generation: Int)>((.now, 0))
+        /// Same rule as the app's AVAudioSink: buffers dropped by a stop are not reported as played.
+        private let gate = PlaybackGate()
 
         init(pace: Double) { self.pace = pace }
 
-        func schedule(_ samples: [Float], sampleRate: Int, played: @escaping @Sendable () -> Void) {
+        func schedule(_ samples: [Float], sampleRate: Int, played: @escaping @Sendable () -> Void) -> Bool {
+            let played = gate.gated(played)
             let seconds = Double(samples.count) / Double(max(sampleRate, 1))
             maxSeconds.withLock { $0 = max($0, seconds) }
             firstScheduled.withLock { if $0 == nil { $0 = .now } }
@@ -45,13 +49,13 @@ enum SynthesisProbe {
             }
             Task.detached {
                 try? await Task.sleep(until: due, clock: .continuous)
-                // A stop drops scheduled buffers but still reports them, as
-                // AVAudioPlayerNode does; the session ignores stale callbacks.
                 played()
             }
+            return true
         }
 
         func stop() {
+            gate.invalidate()
             state.withLock { $0 = (.now, $0.generation + 1) }
         }
     }
@@ -95,17 +99,14 @@ enum SynthesisProbe {
             output.write(try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys]) + Data("\n".utf8))
         }
 
-        let store = ModelStore(root: storeRoot)
         // --no-activate: use the existing store only, so a damaged one is refused, not repaired.
-        if arguments.values["no-activate"] == nil {
-            try store.activate(from: bundle, manifest: manifest)
+        let setup = VoiceSetup(store: ModelStore(root: storeRoot), manifest: manifest, registry: registry)
+        switch await setup.prepare(bundleModels: arguments.values["no-activate"] == nil ? bundle : nil) {
+        case .state(.ready): break
+        case .state(.damaged): fail("store damaged; refused before the engine", code: 4)
+        case let other: fail("voice not ready (\(other))", code: 3)
         }
-        let engine = KokoroSynthesizer(store: store, manifest: manifest, registry: registry)
-        do {
-            try await engine.start()
-        } catch let KokoroSynthesizer.StartError.voice(state) {
-            fail("voice not ready (\(state)); refused before the engine", code: 3)
-        }
+        let engine = setup.synthesizer
 
         for voice in voices {
             let recorder = RecordingSynthesizer(engine)
@@ -145,29 +146,42 @@ enum SynthesisProbe {
                 await session.start()
                 while playedCount() < stopAfter { try await Task.sleep(for: .milliseconds(2)) }
                 let stopStarted = ContinuousClock.now
-                await session.stop()
-                let stopMs = milliseconds(stopStarted.duration(to: .now))
-                outcome = await session.outcome()
-                try emit(["kind": "stop", "voice": voice, "afterUnits": stopAfter, "stopMs": stopMs])
+                await session.stop() // the sink is silenced inside this call
+                let silenceMs = milliseconds(stopStarted.duration(to: .now))
+                outcome = await session.outcome() // waits for the in-flight unit to return and be discarded
+                let idleMs = milliseconds(stopStarted.duration(to: .now))
+                try emit(["kind": "stop", "voice": voice, "afterUnits": stopAfter,
+                          "stopToSilenceMs": silenceMs, "stopToIdleMs": idleMs])
             } else {
                 outcome = await session.outcome()
             }
 
             let events = log.withLock { $0 }
             let played = events.compactMap { if case let .played(id) = $0 { id } else { nil } }
-            for (index, call) in recorder.calls.withLock({ $0 }).enumerated() {
-                try emit(["kind": "piece", "voice": voice, "index": index, "characters": call.text.count,
-                          "phonemes": call.phonemes, "seconds": call.seconds,
-                          "normalizedText": call.normalizedText ?? NSNull()])
+            let expectedUnits = Array(UnitChunker(TextPreparer.prepare(blocks, source: .selection)))
+            let calls = recorder.calls.withLock { $0 }
+            let scheduled = events.compactMap { event -> (unit: Int, sentence: Int, seconds: Double, queued: Double)? in
+                guard case let .scheduled(unit, sentence, seconds, queued) = event else { return nil }
+                return (unit, sentence, seconds, queued)
             }
-            for event in events {
-                guard case let .scheduled(unit, sentence, seconds, queued) = event else { continue }
-                try emit(["kind": "unit", "voice": voice, "unit": unit, "sentence": sentence,
-                          "seconds": seconds, "queuedSeconds": queued])
+            // One scheduled event per successfully synthesized piece, in call order
+            // (oversize results are re-synthesized and never scheduled).
+            let accepted = calls.filter { $0.seconds <= ReadingLimits().maxUnitSeconds }
+            for (record, call) in zip(scheduled, accepted) {
+                try emit(["kind": "unit", "voice": voice, "unit": record.unit, "sentence": record.sentence,
+                          "seconds": record.seconds, "queuedSeconds": record.queued,
+                          "characters": call.text.count, "phonemes": call.phonemes,
+                          "normalizedText": call.normalizedText ?? NSNull(),
+                          "completed": played.contains(record.unit)])
             }
+            let squeeze = { (text: String) in text.filter { !$0.isWhitespace } }
+            let reassembles = squeeze(accepted.map(\.text).joined()) == squeeze(expectedUnits.map(\.text).joined())
             try emit([
                 "kind": "summary", "voice": voice, "outcome": "\(outcome)",
                 "units": played.count,
+                "expectedUnits": expectedUnits.count,
+                "playedExactlyOnceInOrder": played == Array(0..<expectedUnits.count),
+                "textReassembles": reassembles,
                 "playedInOrder": played == played.sorted() && Set(played).count == played.count,
                 "maxUnitSeconds": maxUnitSeconds(),
                 "maxQueuedSeconds": await session.maxQueuedSeconds,

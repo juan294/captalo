@@ -2,14 +2,21 @@
 # Downloads the bundled voice files once into .local/models (HOME redirected,
 # so the shared ~/.cache is never touched) and verifies them against the
 # committed Models.manifest.json. It never writes hashes: a mismatch fails.
+# --verify-only: check an existing directory and never download (tests).
+# MODELS and MANIFEST may be overridden in the environment (tests).
 set -eu
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
-MODELS="$ROOT/.local/models"
+MODELS=${MODELS:-"$ROOT/.local/models"}
+MANIFEST=${MANIFEST:-"$ROOT/Models.manifest.json"}
 PROBE=$("$ROOT/Scripts/model-tool")
-if [ -d "$MODELS" ] && "$PROBE" verify --models "$MODELS" --manifest "$ROOT/Models.manifest.json"; then
+if [ -d "$MODELS" ] && "$PROBE" verify --models "$MODELS" --manifest "$MANIFEST"; then
   exit 0
 fi
-VOICES=$(python3 -c 'import json,sys; print(",".join(json.load(open(sys.argv[1]))["voices"]))' "$ROOT/Models.manifest.json")
+if [ "${1:-}" = "--verify-only" ]; then
+  echo "fetch-models: $MODELS does not match $MANIFEST" >&2
+  exit 2
+fi
+VOICES=$(python3 -c 'import json,sys; print(",".join(json.load(open(sys.argv[1]))["voices"]))' "$MANIFEST")
 mkdir -p "$ROOT/.local/fetch-home" "$MODELS"
 HOME="$ROOT/.local/fetch-home" "$PROBE" fetch --models "$MODELS" --voices "$VOICES"
-"$PROBE" verify --models "$MODELS" --manifest "$ROOT/Models.manifest.json"
+"$PROBE" verify --models "$MODELS" --manifest "$MANIFEST"

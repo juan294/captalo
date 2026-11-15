@@ -161,9 +161,6 @@ public final class ModelStore: Sendable {
     /// Installs (if needed) and activates `manifest` from `source`, the app bundle's copy.
     @discardableResult
     public func activate(from source: URL, manifest: ModelManifest) throws -> URL {
-        if let failure = ManifestValidator.validate(source, against: manifest) {
-            throw StoreError.bundleInvalid(failure)
-        }
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         let lock = try FileLock.acquire(lockURL)
         defer { withExtendedLifetime(lock) {} }
@@ -171,11 +168,16 @@ public final class ModelStore: Sendable {
         recoverInterruptedWork()
         let hash = manifest.contentHash
         let target = directory(for: hash)
+        // A valid installed version needs no copy, so the bundle is not read
+        // (one validation pass per launch).
         if FileManager.default.fileExists(atPath: target.path),
            ManifestValidator.validate(target, against: manifest) == nil {
             try setCurrent(hash)
             reclaim(keeping: hash)
             return target
+        }
+        if let failure = ManifestValidator.validate(source, against: manifest) {
+            throw StoreError.bundleInvalid(failure)
         }
 
         let need = manifest.totalBytes + manifest.totalBytes / 10
@@ -208,9 +210,11 @@ public final class ModelStore: Sendable {
             do {
                 try files.moveItem(at: staging, to: target)
             } catch {
-                try? files.moveItem(at: quarantine, to: target)
+                let restored = (try? files.moveItem(at: quarantine, to: target)) != nil
                 try? FileManager.default.removeItem(at: staging)
-                throw StoreError.activationFailed("replacement failed; the previous files were restored")
+                throw StoreError.activationFailed(restored
+                    ? "replacement failed; the previous files were restored"
+                    : "replacement failed; the previous files stay in quarantine until the next activation")
             }
         } else {
             do {

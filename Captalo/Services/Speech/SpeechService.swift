@@ -6,24 +6,21 @@ import Synchronization
 /// The app's speech: the bundled voice store, the Kokoro engine and one
 /// AVAudioEngine sink shared by every reading (plan phase 3).
 nonisolated final class SpeechService: Sendable {
-    enum PrepareResult: Equatable, Sendable {
-        case state(VoiceInstallState)
-        case secondInstance
-    }
+    typealias PrepareResult = VoiceSetup.Result
 
     let store: ModelStore
     let manifest: ModelManifest?
     private let bundleModels: URL?
-    private let synthesizer: KokoroSynthesizer?
+    private let setup: VoiceSetup?
     private let sink = AVAudioSink()
     private let current = CurrentReading()
 
     init(bundle: Bundle = .main) {
-        store = ModelStore()
+        let store = ModelStore()
+        self.store = store
         manifest = bundle.url(forResource: "Models.manifest", withExtension: "json").flatMap { try? ModelManifest.load(from: $0) }
         bundleModels = bundle.resourceURL?.appendingPathComponent("Models", isDirectory: true)
-        let store = self.store
-        synthesizer = manifest.map { KokoroSynthesizer(store: store, manifest: $0) }
+        setup = manifest.map { VoiceSetup(store: store, manifest: $0) }
         let current = self.current
         sink.setConfigurationChangeHandler {
             guard let reading = current.value else { return }
@@ -33,28 +30,21 @@ nonisolated final class SpeechService: Sendable {
 
     var voices: [String] { manifest?.voices ?? [] }
 
-    /// Installs or repairs the store from the app bundle, then starts the engine.
+    /// Takes the store's consumer lock, installs or repairs from the app bundle, starts the engine.
     func prepare() async -> PrepareResult {
-        guard let manifest, let bundleModels, let synthesizer else { return .state(.bundleInvalid) }
-        let installed = VoiceLoader.install(store: store, manifest: manifest, bundleModels: bundleModels)
-        guard installed == .ready else { return .state(installed) }
-        do {
-            try await synthesizer.start()
-            return .state(.ready)
-        } catch KokoroSynthesizer.StartError.secondInstance {
-            return .secondInstance
-        } catch let KokoroSynthesizer.StartError.voice(state) {
-            return .state(state)
-        } catch {
-            return .state(.failed)
-        }
+        guard let setup, let bundleModels else { return .state(.bundleInvalid) }
+        return await setup.prepare(bundleModels: bundleModels)
     }
 
-    /// "Reinstall voice": end the engine and its lease, then repair from the bundle.
+    /// "Reinstall voice": the caller has stopped the current reading; end the
+    /// engine and its lease, then repair from the bundle.
     func reinstall() async -> PrepareResult {
-        await synthesizer?.stop()
-        return await prepare()
+        guard let setup, let bundleModels else { return .state(.bundleInvalid) }
+        return await setup.reinstall(bundleModels: bundleModels)
     }
+
+    /// True while a reading owns the sink.
+    var isReading: Bool { current.value != nil }
 
     /// A committed reading of captured text, with the voice and speed of this moment.
     func makeSession(
@@ -62,7 +52,7 @@ nonisolated final class SpeechService: Sendable {
         finished: @escaping @Sendable () async -> Bool,
         voiceError: @escaping @Sendable () -> Void
     ) -> PlaybackSession {
-        guard let synthesizer else { return EmptySession(finished: finished) }
+        guard let synthesizer = setup?.synthesizer else { return EmptySession(finished: finished) }
         let blocks = source == .selection ? Array(TextPreparer.blocks(fromSelection: text)) : [Block.paragraph(text)]
         let reading = ReadingSession(
             units: { AnyIterator(UnitChunker(TextPreparer.prepare(blocks, source: source)).makeIterator()) },

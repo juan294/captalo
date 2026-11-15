@@ -66,6 +66,7 @@ class Harness:
         self.profile = self.run / "deny.sb"
         self.profile.write_text(profile(self.port))
         self.failures = []
+        self.children_seen = []
         self.recorder = None
 
     def start_recorder(self):
@@ -91,13 +92,28 @@ class Harness:
     def requests(self):
         return [line for line in self.log.read_text().splitlines() if line]
 
-    def sandboxed(self, *probe_args, label):
+    def sandboxed(self, *probe_args, label, timeout=900):
+        """Runs the probe under the deny profile; samples its children while it runs."""
         env = {"HOME": str(self.home), "PATH": "/usr/bin:/bin", "TMPDIR": str(self.run / "tmp")}
         (self.run / "tmp").mkdir(exist_ok=True)
         command = ["sandbox-exec", "-f", str(self.profile), str(self.probe), *probe_args]
-        result = subprocess.run(command, env=env, capture_output=True, text=True)
-        (self.run / f"{label}.log").write_text(result.stdout + result.stderr)
-        return result.returncode
+        log = open(self.run / f"{label}.log", "w")
+        process = subprocess.Popen(command, env=env, stdout=log, stderr=subprocess.STDOUT)
+        deadline = time.monotonic() + timeout
+        while process.poll() is None:
+            # sandbox-exec execs the probe in place, so the probe is this PID.
+            children = subprocess.run(["pgrep", "-P", str(process.pid)], capture_output=True, text=True).stdout.split()
+            if children:
+                self.children_seen.append((label, children))
+            if time.monotonic() > deadline:
+                process.kill()
+                process.wait()
+                log.close()
+                self.failures.append(f"{label}: timed out after {timeout} s")
+                return None
+            time.sleep(0.05)
+        log.close()
+        return process.returncode
 
     def expect(self, condition, message):
         if not condition:
@@ -151,17 +167,26 @@ class Harness:
                                   "--manifest", str(self.manifest_path), "--fixture", fixture, "--voices", voices,
                                   "--registry", registry, "--no-activate", "yes", "--out", str(self.run / f"{damage}.jsonl"),
                                   label=f"damaged-{damage}")
-            self.expect(code == 3, f"damaged store ({damage}): refused before the engine (exit {code})")
+            # Exit 4 means the store failed validation and no engine was built.
+            self.expect(code == 4, f"damaged store ({damage}): refused before the engine (exit {code})")
             self.expect(len(self.requests()) == before, f"damaged store ({damage}): no registry request")
 
         self.expect(self.requests() == ["/control"], f"recorder saw only the control request ({self.requests()[:5]})")
         self.expect(not (self.home / ".cache").exists(), "run HOME has no .cache")
         spawn = subprocess.run(["grep", "-rnE", r"\bProcess\(|posix_spawn|NSTask|\bsystem\(", str(ROOT / "Packages/CaptaloSpeech/Sources")],
-                               capture_output=True, text=True).stdout.strip()
-        self.expect(not spawn, "source audit: the probe and CaptaloSpeech start no child processes")
+                               capture_output=True, text=True)
+        # grep exits 1 for "no match"; any other status is an audit failure, not a pass.
+        self.expect(spawn.returncode == 1, f"source audit: the probe and CaptaloSpeech start no child processes (grep exit {spawn.returncode})")
+        self.expect(not self.children_seen, f"no child process seen while the probe ran (sampled every 50 ms: {self.children_seen[:3]})")
+
+
+def interrupted(signum, _frame):
+    raise KeyboardInterrupt(f"signal {signum}")
 
 
 def main():
+    signal.signal(signal.SIGTERM, interrupted)
+    signal.signal(signal.SIGHUP, interrupted)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--probe", required=True, type=Path)
     parser.add_argument("--bundle", required=True, type=Path)
@@ -170,9 +195,9 @@ def main():
     harness = Harness(args)
     try:
         harness.run_all()
-    except Exception as error:  # noqa: BLE001 - any harness error is a failure
-        harness.failures.append(f"harness error: {error}")
-        print(f"FAIL harness error: {error}")
+    except (Exception, KeyboardInterrupt) as error:  # any harness error or signal is a failure
+        harness.failures.append(f"harness error: {error!r}")
+        print(f"FAIL harness error: {error!r}")
     finally:
         harness.stop_recorder()
     if harness.failures:

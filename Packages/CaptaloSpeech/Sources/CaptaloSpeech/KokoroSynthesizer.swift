@@ -12,16 +12,16 @@ public actor KokoroSynthesizer: Synthesizer {
     public static let sampleRate = 24_000
 
     public enum StartError: Error, Equatable {
-        case secondInstance
-        case voice(VoiceInstallState)
+        case notStarted
+        case engineFailed
     }
 
     private let store: ModelStore
     private let manifest: ModelManifest
     private let registry: String
-    private var consumerLock: FileLock?
     private var lease: LeaseRegistry.Lease?
     private var manager: KokoroAneManager?
+    private var starting: Task<Void, Error>?
 
     public init(store: ModelStore, manifest: ModelManifest, registry: String = KokoroSynthesizer.blockedRegistry) {
         self.store = store
@@ -29,31 +29,32 @@ public actor KokoroSynthesizer: Synthesizer {
         self.registry = registry
     }
 
-    /// Prepares the engine. Throws `.secondInstance` when another process holds the store.
-    public func start() async throws {
-        guard manager == nil else { return }
+    /// Builds the engine on `directory`, which the caller (`VoiceSetup`)
+    /// validated while holding the store's consumer lock. Concurrent calls
+    /// share one start.
+    public func start(validatedDirectory directory: URL) async throws {
+        if manager != nil { return }
+        if let starting { return try await starting.value }
+        let task = Task { try await self.build(directory) }
+        starting = task
+        defer { starting = nil }
+        try await task.value
+    }
+
+    private func build(_ directory: URL) async throws {
+        // Before any FluidAudio call: the registry points at a closed port.
+        ModelRegistry.baseURL = registry
         // Source audit at the pin: G2P failures log single words at warning
         // level. Only errors (which carry no text) reach the log, never the console.
         AppLogger.minimumLevel = .error
         AppLogger.mirrorsToConsole = false
-        ModelRegistry.baseURL = registry
-        if consumerLock == nil {
-            guard let lock = try FileLock.tryAcquire(store.consumerLockURL) else {
-                PrivacyLog.record(.secondInstance)
-                throw StartError.secondInstance
-            }
-            consumerLock = lock
-        }
-        var directory: URL?
-        let state = VoiceLoader.prepare(store: store, manifest: manifest) { directory = $0 }
-        guard state == .ready, let directory else { throw StartError.voice(state) }
         let lease = store.leases.lease(directory)
         let manager = KokoroAneManager(defaultVoice: manifest.voices.first, directory: directory)
         do {
             try await manager.initialize(preloadVoices: Set(manifest.voices))
         } catch {
             lease.release()
-            throw StartError.voice(.failed)
+            throw StartError.engineFailed
         }
         self.lease = lease
         self.manager = manager
@@ -61,6 +62,7 @@ public actor KokoroSynthesizer: Synthesizer {
 
     /// Ends the engine and its lease (before a repair of a damaged store).
     public func stop() async {
+        _ = try? await starting?.value
         await manager?.cleanup()
         manager = nil
         lease?.release()
@@ -68,8 +70,7 @@ public actor KokoroSynthesizer: Synthesizer {
     }
 
     public func synthesize(_ text: String, voice: String, speed: Float) async throws -> SynthesizedAudio {
-        if manager == nil { try await start() }
-        guard let manager else { throw StartError.voice(.failed) }
+        guard let manager else { throw StartError.notStarted }
         let result = try await manager.synthesizeDetailed(text: text, voice: voice, speed: speed)
         return SynthesizedAudio(
             samples: result.samples, sampleRate: result.sampleRate,

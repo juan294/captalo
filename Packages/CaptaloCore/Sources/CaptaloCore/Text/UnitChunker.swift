@@ -82,6 +82,10 @@ public struct UnitChunker<Paragraphs: Sequence>: Sequence where Paragraphs.Eleme
         let trimmed = text.drop(while: \.isWhitespace)
         guard trimmed.count > limit else { return (trimmed.trimmingTrailingWhitespace, "") }
         let windowEnd = trimmed.index(trimmed.startIndex, offsetBy: limit)
+        // A break exactly at the limit: the head is the full window.
+        if trimmed[windowEnd].isWhitespace {
+            return (trimmed[..<windowEnd].trimmingTrailingWhitespace, trimmed[windowEnd...].drop(while: \.isWhitespace))
+        }
         // The last break inside the window: before whitespace, or after pause punctuation.
         var index = windowEnd
         while index > trimmed.startIndex {
