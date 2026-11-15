@@ -88,6 +88,19 @@ final class FakeKeyTap: KeyEventTap {
         #expect(box.scheduled.isEmpty)
     }
 
+    /// Esc was already held when the overlay opened: its autorepeats and
+    /// keyUp belong to the source, and they do not close the overlay.
+    @Test func escHeldBeforeOverlayPasses() {
+        let containment = containment()
+        #expect(containment.start())
+        #expect(!tap.send(Self.escRepeat))
+        #expect(box.escapes == 0)
+        #expect(!tap.send(Self.escUp))
+        // A fresh press afterwards is accepted.
+        #expect(tap.send(Self.escDown))
+        #expect(box.escapes == 1)
+    }
+
     /// The keyUp never comes (or the tap misses it): teardown is bounded.
     @Test func missingKeyUpIsBounded() {
         let containment = containment()

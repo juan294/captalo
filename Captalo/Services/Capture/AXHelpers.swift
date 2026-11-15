@@ -21,24 +21,16 @@ nonisolated enum AX {
 
     enum Status { case success, unsupported, error }
 
-    /// The one AX error policy: unsupported attributes and missing values
-    /// are `.unsupported`; every other failure is `.error`.
+    /// The one AX error policy, `AXStatus` in CaptaloCore: unsupported
+    /// attributes and missing values are `.unsupported`; every other failure is `.error`.
     static func status(_ error: AXError) -> Status {
-        switch error {
-        case .success: .success
-        case .attributeUnsupported, .parameterizedAttributeUnsupported, .noValue: .unsupported
-        default: .error
-        }
+        if error == .success { return .success }
+        return AXStatus.isEstablishedAbsence(error.rawValue) ? .unsupported : .error
     }
 
     static func classify<T>(_ error: AXError, _ value: CFTypeRef?, _ convert: (CFTypeRef) -> T?) -> AXRead<T> {
-        switch status(error) {
-        case .success:
-            guard let value, let converted = convert(value) else { return .error }
-            return .value(converted)
-        case .unsupported: return .unsupported
-        case .error: return .error
-        }
+        let raw: AXRawResult<CFTypeRef> = if error == .success, let value { .value(value) } else { .failed(error.rawValue) }
+        return AXStatus.classify(raw, convert)
     }
 
     static func read<T>(_ element: AXUIElement, _ attribute: String, _ convert: (CFTypeRef) -> T?) -> AXRead<T> {
@@ -61,16 +53,16 @@ nonisolated enum AX {
         read(parent, attribute) { asElement($0).map(prepared) }
     }
 
-    /// One value from `AXUIElementCopyMultipleAttributeValues`, classified
-    /// like a single read: a failed attribute arrives as an AXValue holding
-    /// its AXError, and a null value is an absent attribute.
-    static func entry<T>(_ value: AnyObject, _ convert: (CFTypeRef) -> T?) -> AXRead<T> {
-        if CFGetTypeID(value) == CFNullGetTypeID() { return .unsupported }
+    /// One value from `AXUIElementCopyMultipleAttributeValues`, as a raw
+    /// result for `AXStatus.classify`: a failed attribute arrives as an
+    /// AXValue holding its AXError, and an absent value as CFNull.
+    static func entry(_ value: AnyObject) -> AXRawResult<CFTypeRef> {
+        if CFGetTypeID(value) == CFNullGetTypeID() { return .null }
         if CFGetTypeID(value) == AXValueGetTypeID(), AXValueGetType(value as! AXValue) == .axError {
             var error = AXError.failure
-            guard AXValueGetValue(value as! AXValue, .axError, &error) else { return .error }
-            return classify(error, nil, convert)
+            _ = AXValueGetValue(value as! AXValue, .axError, &error)
+            return .failed(error.rawValue)
         }
-        return classify(.success, value, convert)
+        return .value(value)
     }
 }
