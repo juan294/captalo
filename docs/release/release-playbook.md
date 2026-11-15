@@ -4,7 +4,7 @@ This is the single release procedure for Cáptalo. Native `rpi-release` delegate
 
 ## Present readiness
 
-The project is a public fork with an inherited Sotto Xcode target and local speech engine. No Cáptalo binary has been released. There is no application test target, signed packaging pipeline, or candidate-bound runtime evidence yet. The setup check/build can pass while release readiness remains **BLOCKED**. Do not manufacture `xcodebuild test` success or a coverage percentage.
+The project is a public fork with a renamed Cáptalo Xcode target and inherited local speech engine. No Cáptalo binary has been released. Automated tests cover `Packages/CaptaloCore` and `Scripts/` only; there is no app UI test target, signed packaging pipeline, or candidate-bound runtime evidence yet. The setup check/build can pass while release readiness remains **BLOCKED**. Do not manufacture `xcodebuild test` success or a coverage percentage.
 
 Machine-readable selection and gaps are recorded in `.rpi/release-profile.json`. Before the first app release, the product plan must supply executable application checks and the evidence analyzer described below. Installing RPI does not implement them.
 
@@ -12,10 +12,10 @@ Machine-readable selection and gaps are recorded in `.rpi/release-profile.json`.
 
 | Area | Cáptalo decision |
 | --- | --- |
-| Product | Native Swift/SwiftUI/AppKit macOS app; macOS 15+, Apple silicon primary target |
+| Product | Native Swift/SwiftUI/AppKit macOS app; macOS 26+, Apple silicon primary target |
 | Repository | Public, `juan294/captalo`; upstream `Shreysid/Sotto` |
 | Branches | `develop` integration; `main` production; merge-commit promotion |
-| Build | Xcode `Sotto.xcodeproj`, scheme `Sotto`, pinned SwiftPM FluidAudio dependency |
+| Build | `make verify` and `make install CONFIG=Release` around Xcode `Captalo.xcodeproj`, scheme `Captalo`, local `Packages/CaptaloCore`, pinned SwiftPM FluidAudio dependency |
 | Artifact | Exact macOS app bundle with version, source commit and cryptographic digest |
 | State | Local preferences, model cache, permissions and clipboard; no application database |
 | Network | Build/model assets during explicit setup; speech and future OCR must work offline |

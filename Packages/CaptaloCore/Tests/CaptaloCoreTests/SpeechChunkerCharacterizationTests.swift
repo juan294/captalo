@@ -39,6 +39,37 @@ import Testing
         #expect(SpeechChunker.chunks(from: "\(t1) \(t2)").first == t1)
     }
 
+    @Test func longFirstSentenceSplitsAtWordBoundaryWithin110() {
+        // 150 characters, no commas: the first chunk is cut at the last word
+        // that fits in 110 characters, and the rest starts the next chunk.
+        let long = Self.sentence(150, seed: "g")
+        let chunks = SpeechChunker.chunks(from: long)
+        #expect(chunks.count == 2)
+        #expect(chunks[0].count <= 110)
+        #expect(chunks[0].count > 100)
+        #expect(chunks.joined(separator: " ") == long)
+    }
+
+    @Test func laterSentenceOver240SplitsAtWordsWithin240() {
+        let first = Self.sentence(50, seed: "a")
+        let long = Self.sentence(300, seed: "h")
+        let chunks = SpeechChunker.chunks(from: "\(first) \(long)")
+        #expect(chunks.first == first)
+        #expect(chunks.count == 3)
+        #expect(chunks.allSatisfy { $0.count <= 240 })
+        #expect(chunks.dropFirst().joined(separator: " ") == long)
+    }
+
+    @Test func laterChunkMinimumIsExactly80() {
+        let first = Self.sentence(50, seed: "a")
+        // 41 + 1 + 41 = 83 reaches 80 at the second sentence end.
+        let a = (0..<3).map { Self.sentence(41, seed: Character(UnicodeScalar(UInt8(98 + $0)))) }
+        #expect(SpeechChunker.chunks(from: ([first] + a).joined(separator: " ")) == [first, a[0...1].joined(separator: " "), a[2]])
+        // 39 + 1 + 39 = 79 stays below 80, so a third sentence joins.
+        let b = (0..<3).map { Self.sentence(39, seed: Character(UnicodeScalar(UInt8(98 + $0)))) }
+        #expect(SpeechChunker.chunks(from: ([first] + b).joined(separator: " ")) == [first, b.joined(separator: " ")])
+    }
+
     @Test func laterChunksFlushAtSentenceEndAbove80() {
         let first = Self.sentence(50, seed: "a")
         let later = (0..<4).map { Self.sentence(30, seed: Character(UnicodeScalar(UInt8(98 + $0)))) }
@@ -65,6 +96,8 @@ import Testing
         #expect(chunks.allSatisfy { $0.count <= 240 })
     }
 
+    /// Recorded: the explicit newline rule has no observable effect, because
+    /// phrase splitting on whitespace already joins lines with single spaces.
     @Test func newlinesBecomeSpaces() {
         #expect(SpeechChunker.chunks(from: "Hello\nworld.") == ["Hello world."])
     }

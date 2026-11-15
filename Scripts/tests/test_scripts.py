@@ -128,6 +128,39 @@ class ReplaceTests(unittest.TestCase):
         self.assertTrue((self.installed / "Contents" / "Resources" / "old.txt").exists())
 
 
+class ReplaceFailureTests(unittest.TestCase):
+    def test_failed_move_in_restores_previous(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            installed = make_app(root / "Applications" / "Captalo.app", extra="old.txt")
+            staged = make_app(root / "staged" / "Captalo.app")
+            calls = []
+
+            def move(src, dst):
+                calls.append(dst)
+                if len(calls) == 2:
+                    raise OSError("disk full")
+                return install.shutil.move(src, dst)
+
+            with self.assertRaises(install.InstallError) as raised:
+                install.replace(staged, installed, root / "prev", verify=ok, move=move)
+            self.assertIn("restored", str(raised.exception))
+            self.assertTrue((installed / "Contents" / "Resources" / "old.txt").exists())
+
+    def test_check_install_target_runs_before_any_quit(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            other = make_app(Path(tmp) / "Captalo.app", bundle="com.example.other")
+            with self.assertRaises(install.InstallError):
+                install.check_install_target(other)
+
+
+class MakefileTests(unittest.TestCase):
+    def test_failed_xcodebuild_fails_the_piped_recipe(self):
+        result = subprocess.run(["make", "-s", "build-unsigned-debug", "XCODEBUILD=false"],
+                                cwd=SCRIPTS.parent, capture_output=True, text=True, check=False)
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+
+
 class QuitRecordedTests(unittest.TestCase):
     exe = "/Applications/Captalo.app/Contents/MacOS/Captalo"
 
@@ -159,6 +192,11 @@ class LogAuditTests(unittest.TestCase):
             Path(tmp, "B.swift").write_text("PrivacyLog.record(.voicePrewarmed(accelerator: .neuralEngine))\n")
             hits = log_audit.audit([tmp])
         self.assertEqual(len(hits), 2)
+
+    def test_other_logging_forms_are_reported(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            Path(tmp, "C.swift").write_text('debugPrint(x)\ndump(y)\nprint ("z")\nlet l = Logger.init(subsystem: "a", category: "b")\nos_signpost(.begin, log: l, name: "n")\n')
+            self.assertEqual(len(log_audit.audit([tmp])), 5)
 
     def test_missing_root_is_an_error(self):
         with redirect_stderr(io.StringIO()):

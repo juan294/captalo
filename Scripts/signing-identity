@@ -12,7 +12,7 @@ import sys
 
 MESSAGE = (
     "No Apple Development identity. Add your Apple Account in Xcode > Settings > Accounts, "
-    "run make signing-setup once, then run make install again."
+    "run make signing-setup once (it explains how to set the team), then run make install again."
 )
 LINE = re.compile(r'^\s*\d+\)\s+([0-9A-F]{40})\s+"(Apple Development: [^"]+)"\s*$')
 

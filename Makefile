@@ -4,13 +4,16 @@
 DEVELOPER_DIR ?= /Applications/Xcode-beta.app/Contents/Developer
 export DEVELOPER_DIR
 SHELL := /bin/bash
-.SHELLFLAGS := -o pipefail -c
+# Apple's /usr/bin/make (GNU Make 3.81) ignores .SHELLFLAGS, so every piped
+# recipe starts with `set -o pipefail;` itself.
+PIPEFAIL := set -o pipefail;
 
 CONFIG ?= Debug
 DERIVED := .local/build/DerivedData
 LOGS := .local/build/logs
 STAMP = $(shell date -u +%Y%m%dT%H%M%SZ)
-XCODEBUILD := xcodebuild -project Captalo.xcodeproj -scheme Captalo -derivedDataPath $(DERIVED)
+XCODEBUILD ?= xcodebuild
+XCODEBUILD_ARGS := -project Captalo.xcodeproj -scheme Captalo -derivedDataPath $(DERIVED)
 TEAM_ARG = $(if $(TEAM),DEVELOPMENT_TEAM=$(TEAM),)
 CORE := Packages/CaptaloCore
 
@@ -29,12 +32,12 @@ $(LOGS):
 	@mkdir -p $(LOGS)
 
 build: xcbeautify-check | $(LOGS)
-	$(XCODEBUILD) -configuration Debug build $(TEAM_ARG) 2>&1 | tee $(LOGS)/build-Debug-$(STAMP).log | xcbeautify --quiet
+	$(PIPEFAIL) $(XCODEBUILD) $(XCODEBUILD_ARGS) -configuration Debug build $(TEAM_ARG) 2>&1 | tee $(LOGS)/build-Debug-$(STAMP).log | xcbeautify --quiet
 
 build-unsigned: build-unsigned-debug build-unsigned-release
 
 build-unsigned-debug build-unsigned-release: build-unsigned-%: xcbeautify-check | $(LOGS)
-	$(XCODEBUILD) -configuration $(if $(filter debug,$*),Debug,Release) CODE_SIGNING_ALLOWED=NO build 2>&1 \
+	$(PIPEFAIL) $(XCODEBUILD) $(XCODEBUILD_ARGS) -configuration $(if $(filter debug,$*),Debug,Release) CODE_SIGNING_ALLOWED=NO build 2>&1 \
 		| tee $(LOGS)/build-unsigned-$*-$(STAMP).log | xcbeautify --quiet
 
 test: test-core-debug test-core-release
@@ -57,8 +60,15 @@ verify:
 
 # One-time: the first automatic-signing build creates the Apple Development
 # certificate for the Personal Team. Needs TEAM, or DEVELOPMENT_TEAM set in the project.
+PROJECT_TEAM = $(shell sed -n 's/.*DEVELOPMENT_TEAM = "*\([A-Z0-9]*\)"*;.*/\1/p' Captalo.xcodeproj/project.pbxproj | head -1)
+
 signing-setup: xcbeautify-check | $(LOGS)
-	$(XCODEBUILD) -configuration Debug -allowProvisioningUpdates build $(TEAM_ARG) 2>&1 \
+	@if [ -z "$(TEAM)$(PROJECT_TEAM)" ]; then \
+		echo "No team ID. Open Captalo.xcodeproj in Xcode, select the Captalo target > Signing & Capabilities,"; \
+		echo "choose your Personal Team (this writes DEVELOPMENT_TEAM into the project), then run make signing-setup."; \
+		echo "Or pass it directly: make signing-setup TEAM=<10-character team ID>."; \
+		exit 2; fi
+	$(PIPEFAIL) $(XCODEBUILD) $(XCODEBUILD_ARGS) -configuration Debug -allowProvisioningUpdates build $(TEAM_ARG) 2>&1 \
 		| tee $(LOGS)/signing-setup-$(STAMP).log | xcbeautify --quiet
 	Scripts/signing-identity --name
 

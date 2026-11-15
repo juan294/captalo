@@ -19,6 +19,16 @@ import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def state_root():
+    """`.local/build` of the main checkout (Git common directory's parent), shared by worktrees."""
+    common = subprocess.run(["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
+                            cwd=ROOT, capture_output=True, text=True, check=False).stdout.strip()
+    base = Path(common).parent if common else ROOT
+    return base / ".local" / "build"
+
+
 BUNDLE_ID = "com.thecreativetoken.captalo"
 
 
@@ -56,6 +66,14 @@ def designated_requirement(app):
     for line in (result.stdout + result.stderr).splitlines():
         if line.startswith("designated => "):
             return line[len("designated => "):]
+    return None
+
+
+def signing_authority(app):
+    result = subprocess.run(["codesign", "-dv", str(app)], capture_output=True, text=True, check=False)
+    for line in (result.stdout + result.stderr).splitlines():
+        if line.startswith("Authority="):
+            return line[len("Authority="):]
     return None
 
 
@@ -109,22 +127,36 @@ def stage(built_app, staging_dir, verify=codesign_verify):
     return staged
 
 
-def replace(staged, installed, previous_dir, verify=codesign_verify):
-    """Move the old install aside, move the staged copy in, verify, roll back on failure."""
+def check_install_target(installed):
+    """Stop, touching nothing, when the fixed path holds another app."""
     installed = Path(installed)
-    previous_dir = Path(previous_dir)
-    rollback = previous_dir / "Captalo.app"
     if installed.exists():
         existing = bundle_id(installed)
         if existing != BUNDLE_ID:
             raise InstallError(
                 f"{installed} exists with bundle ID {existing!r}, not {BUNDLE_ID}. Nothing was changed."
             )
+
+
+def replace(staged, installed, previous_dir, verify=codesign_verify, move=shutil.move):
+    """Move the old install aside, move the staged copy in, verify, roll back on failure."""
+    installed = Path(installed)
+    previous_dir = Path(previous_dir)
+    rollback = previous_dir / "Captalo.app"
+    check_install_target(installed)
+    had_previous = installed.exists()
+    if had_previous:
         if rollback.exists():
             shutil.rmtree(rollback)
         previous_dir.mkdir(parents=True, exist_ok=True)
-        shutil.move(str(installed), str(rollback))
-    shutil.move(str(staged), str(installed))
+        move(str(installed), str(rollback))
+    try:
+        move(str(staged), str(installed))
+    except OSError as error:
+        if had_previous and not installed.exists():
+            shutil.move(str(rollback), str(installed))
+        raise InstallError(f"Moving the staged app into place failed ({error}); the previous app was restored."
+                           if had_previous else f"Moving the staged app into place failed ({error}).")
     ok, detail = verify(installed)
     if ok:
         return
@@ -176,12 +208,15 @@ def main(argv=None):
     parser.add_argument("--no-open", action="store_true", help="install without launching")
     args = parser.parse_args(argv)
 
-    build_root = ROOT / ".local" / "build"
+    build_root = state_root()
     installed = Path(os.environ.get("CAPTALO_INSTALL_APP", "/Applications/Captalo.app"))
     executable = installed / "Contents" / "MacOS" / "Captalo"
     record_path = build_root / "install-record.json"
     log_dir = build_root / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
+    stamp = utc_stamp()
+    log_path = log_dir / f"install-{args.config}-{stamp}.log"
+    quit_app = False
 
     try:
         identity = subprocess.run([str(ROOT / "Scripts" / "signing-identity"), "--name"],
@@ -189,13 +224,19 @@ def main(argv=None):
         if identity.returncode != 0:
             raise InstallError(identity.stderr.strip(), status=identity.returncode)
 
-        built = build(args.config, build_root / "DerivedData",
-                      log_dir / f"install-{args.config}-{utc_stamp()}.log", args.team)
+        built = build(args.config, ROOT / ".local" / "build" / "DerivedData", log_path, args.team)
         staged = stage(built, build_root / "install-staging")
 
         previous = read_record(record_path)
+        check_install_target(installed)
         quit_recorded(previous, executable)
-        replace(staged, installed, build_root / "install-previous")
+        quit_app = previous is not None and previous.get("pid") is not None
+        try:
+            replace(staged, installed, build_root / "install-previous")
+        except InstallError:
+            if quit_app and installed.exists() and not args.no_open:
+                subprocess.run(["open", str(installed)], check=False)
+            raise
 
         requirement = designated_requirement(installed)
         build_info = read_record(installed / "Contents" / "Resources" / "build-info.json")
@@ -204,10 +245,6 @@ def main(argv=None):
         print("Previous install record:", json.dumps(
             {k: (previous or {}).get(k) for k in ("commit", "worktree", "config", "installed_at")}))
 
-        pid = None
-        if not args.no_open:
-            subprocess.run(["open", str(installed)], check=True)
-            pid = wait_for_pid(executable)
         record = {
             "schema_version": 1,
             "app": str(installed),
@@ -217,19 +254,27 @@ def main(argv=None):
             "commit": git("rev-parse", "HEAD"),
             "dirty": bool(git("status", "--porcelain")),
             "worktree": str(ROOT),
-            "signing_identity": identity.stdout.strip(),
+            "signing_authority": signing_authority(installed),
             "designated_requirement": requirement,
             "build_info": build_info,
-            "installed_at": utc_stamp(),
-            "pid": pid,
+            "installed_at": stamp,
+            "pid": None,
         }
         record_path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+        if not args.no_open:
+            subprocess.run(["open", str(installed)], check=True)
+            record["pid"] = wait_for_pid(executable)
+            record_path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
         print(f"Installed {args.config} at {installed}; record {record_path}")
         print(f"designated => {requirement}")
         return 0
-    except InstallError as error:
-        print(f"install: {error}", file=sys.stderr)
-        return error.status
+    except (InstallError, OSError, subprocess.CalledProcessError) as error:
+        status = error.status if isinstance(error, InstallError) else 1
+        message = f"install: {error}"
+        print(message, file=sys.stderr)
+        with open(log_path, "a", encoding="utf-8") as log:
+            log.write(message + "\n")
+        return status
 
 
 if __name__ == "__main__":
