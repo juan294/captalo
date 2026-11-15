@@ -1,6 +1,6 @@
 import AppKit
 
-extension SottoAppState {
+extension CaptaloAppState {
     func setSpeedIndex(_ index: Int) {
         let boundedIndex = min(max(index, 0), Self.speedSteps.count - 1)
         setSpeed(Self.speedSteps[boundedIndex])

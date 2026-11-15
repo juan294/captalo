@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct PronunciationDictionaryView: View {
-    @EnvironmentObject private var state: SottoAppState
+    @EnvironmentObject private var state: CaptaloAppState
     @State private var term = ""
     @State private var spokenAs = ""
     @State private var editingRuleID: PronunciationRule.ID?

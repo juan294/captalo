@@ -2,8 +2,8 @@ import Combine
 import SwiftUI
 
 @MainActor
-final class SottoAppState: ObservableObject {
-    static let shared = SottoAppState()
+final class CaptaloAppState: ObservableObject {
+    static let shared = CaptaloAppState()
 
     static let speedSteps: [Float] = [0.75, 0.85, 1.0, 1.15, 1.25, 1.35]
 

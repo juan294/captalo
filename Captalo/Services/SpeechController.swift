@@ -3,13 +3,13 @@ import FluidAudio
 import os
 
 actor SpeechController {
-    let logger = Logger(subsystem: "com.shreysid.Sotto", category: "Speech")
+    let logger = Logger(subsystem: "com.thecreativetoken.captalo", category: "Speech")
     var kokoro = KokoroAneManager(defaultVoice: "af_heart")
     let engine = AVAudioEngine()
     let player = AVAudioPlayerNode()
     let timePitch = AVAudioUnitTimePitch()
     let playbackQueue = DispatchQueue(
-        label: "com.shreysid.Sotto.speech.playback",
+        label: "com.thecreativetoken.captalo.speech.playback",
         qos: .userInitiated
     )
     let playbackFormat = AVAudioFormat(

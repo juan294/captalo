@@ -1,7 +1,7 @@
 import SwiftUI
 
-struct SottoStudioView: View {
-    @EnvironmentObject private var state: SottoAppState
+struct CaptaloStudioView: View {
+    @EnvironmentObject private var state: CaptaloAppState
     @State private var selection: StudioSection? = .settings
 
     var body: some View {
@@ -19,7 +19,7 @@ struct SottoStudioView: View {
                 }
             }
             .listStyle(.sidebar)
-            .navigationTitle("Sotto Studio")
+            .navigationTitle("Cáptalo Studio")
             .frame(minWidth: 235)
             .toolbar(removing: .sidebarToggle)
         } detail: {
@@ -55,7 +55,7 @@ enum StudioSection: Hashable {
 }
 
 struct StudioDetailView: View {
-    @EnvironmentObject private var state: SottoAppState
+    @EnvironmentObject private var state: CaptaloAppState
     let section: StudioSection
 
     var body: some View {

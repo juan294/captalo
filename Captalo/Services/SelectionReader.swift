@@ -97,6 +97,6 @@ enum SelectionError: LocalizedError {
     case accessibilityPermissionRequired
 
     var errorDescription: String? {
-        "Allow Accessibility access for Sotto, then try again."
+        "Allow Accessibility access for Cáptalo, then try again."
     }
 }

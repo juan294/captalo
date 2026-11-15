@@ -1,6 +1,6 @@
 import Foundation
 
-extension SottoAppState {
+extension CaptaloAppState {
     func checkKokoroInstallation() {
         Task {
             kokoroInstalledProgress = await speech.kokoroInstallationProgress()
@@ -35,7 +35,7 @@ extension SottoAppState {
             do {
                 try await speech.downloadKokoro { progress in
                     Task { @MainActor in
-                        SottoAppState.shared.setKokoroDownloadProgress(progress)
+                        CaptaloAppState.shared.setKokoroDownloadProgress(progress)
                     }
                 }
                 kokoroInstallationState = .ready

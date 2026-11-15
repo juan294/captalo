@@ -2,7 +2,7 @@
 
 ## FluidAudio
 
-Sotto uses [FluidAudio](https://github.com/FluidInference/FluidAudio), the local audio inference layer for model download, loading, and Apple Silicon inference. FluidAudio is licensed under the Apache License, Version 2.0.
+Cáptalo, derived from Sotto, uses [FluidAudio](https://github.com/FluidInference/FluidAudio), the local audio inference layer for model download, loading, and Apple Silicon inference. FluidAudio is licensed under the Apache License, Version 2.0.
 
 The full license text is available at <https://www.apache.org/licenses/LICENSE-2.0>.
 

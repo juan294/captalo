@@ -1,17 +1,17 @@
 import SwiftUI
 
 @main
-struct SottoApp: App {
-    @NSApplicationDelegateAdaptor(SottoApplicationDelegate.self) private var applicationDelegate
-    @StateObject private var state: SottoAppState
+struct CaptaloApp: App {
+    @NSApplicationDelegateAdaptor(CaptaloApplicationDelegate.self) private var applicationDelegate
+    @StateObject private var state: CaptaloAppState
 
     init() {
-        _state = StateObject(wrappedValue: SottoAppState.shared)
+        _state = StateObject(wrappedValue: CaptaloAppState.shared)
     }
 
     var body: some Scene {
         MenuBarExtra {
-            SottoMenuBarView()
+            CaptaloMenuBarView()
                 .environmentObject(state)
         } label: {
             Image(nsImage: state.statusIcon)

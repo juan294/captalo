@@ -1,6 +1,6 @@
 import Foundation
 
-extension SottoAppState {
+extension CaptaloAppState {
     func speakSelection() {
         guard selectionReader.isAccessibilityTrusted else {
             accessibilityPermissionGranted = false
@@ -43,24 +43,24 @@ extension SottoAppState {
                     text: spokenText,
                     onFirstAudio: { firstAudio in
                         Task { @MainActor in
-                            SottoAppState.shared.latestFirstAudio = firstAudio
-                            SottoAppState.shared.finishDictationSession()
-                            SottoAppState.shared.startDictationSession()
-                            SottoAppState.shared.updateStatus(
+                            CaptaloAppState.shared.latestFirstAudio = firstAudio
+                            CaptaloAppState.shared.finishDictationSession()
+                            CaptaloAppState.shared.startDictationSession()
+                            CaptaloAppState.shared.updateStatus(
                                 "Speaking - capture \(captureTime.short), first audio \(firstAudio.short)"
                             )
                         }
                     },
                     onError: { error in
                         Task { @MainActor in
-                            SottoAppState.shared.updateStatus("Playback error: \(error.localizedDescription)")
+                            CaptaloAppState.shared.updateStatus("Playback error: \(error.localizedDescription)")
                         }
                     },
                     onPlaybackFinished: {
                         Task { @MainActor in
-                            SottoAppState.shared.finishDictationSession()
-                            SottoAppState.shared.isPaused = false
-                            SottoAppState.shared.updateStatus("Finished")
+                            CaptaloAppState.shared.finishDictationSession()
+                            CaptaloAppState.shared.isPaused = false
+                            CaptaloAppState.shared.updateStatus("Finished")
                         }
                     }
                 )
@@ -93,22 +93,22 @@ extension SottoAppState {
                     by: offset,
                     onFirstAudio: { firstAudio in
                         Task { @MainActor in
-                            SottoAppState.shared.latestFirstAudio = firstAudio
-                            SottoAppState.shared.finishDictationSession()
-                            SottoAppState.shared.startDictationSession()
-                            SottoAppState.shared.updateStatus("Speaking - first audio \(firstAudio.short)")
+                            CaptaloAppState.shared.latestFirstAudio = firstAudio
+                            CaptaloAppState.shared.finishDictationSession()
+                            CaptaloAppState.shared.startDictationSession()
+                            CaptaloAppState.shared.updateStatus("Speaking - first audio \(firstAudio.short)")
                         }
                     },
                     onError: { error in
                         Task { @MainActor in
-                            SottoAppState.shared.updateStatus("Playback error: \(error.localizedDescription)")
+                            CaptaloAppState.shared.updateStatus("Playback error: \(error.localizedDescription)")
                         }
                     },
                     onPlaybackFinished: {
                         Task { @MainActor in
-                            SottoAppState.shared.finishDictationSession()
-                            SottoAppState.shared.isPaused = false
-                            SottoAppState.shared.updateStatus("Finished")
+                            CaptaloAppState.shared.finishDictationSession()
+                            CaptaloAppState.shared.isPaused = false
+                            CaptaloAppState.shared.updateStatus("Finished")
                         }
                     }
                 )

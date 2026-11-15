@@ -1,6 +1,6 @@
 import Foundation
 
-extension SottoAppState {
+extension CaptaloAppState {
     func addPronunciationRule(term: String, spokenAs: String) {
         let trimmedTerm = term.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedSpokenAs = spokenAs.trimmingCharacters(in: .whitespacesAndNewlines)

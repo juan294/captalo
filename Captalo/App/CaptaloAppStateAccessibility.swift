@@ -1,4 +1,4 @@
-extension SottoAppState {
+extension CaptaloAppState {
     func requestAccessibilityPermission() {
         refreshAccessibilityPermission()
     }

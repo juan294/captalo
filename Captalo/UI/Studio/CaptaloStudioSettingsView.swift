@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct StudioSettingsView: View {
-    @EnvironmentObject private var state: SottoAppState
+    @EnvironmentObject private var state: CaptaloAppState
 
     var body: some View {
         StudioPage(title: StudioSection.settings.title, symbol: StudioSection.settings.symbol) {
@@ -23,7 +23,7 @@ struct StudioSettingsView: View {
     }
 
     private var voiceEngineRow: some View {
-        StudioSettingRow("Voice engine", detail: "Kokoro is the local voice engine for this version of Sotto.") {
+        StudioSettingRow("Voice engine", detail: "Kokoro is the local voice engine for this version of Cáptalo.") {
             VStack(alignment: .trailing, spacing: 7) {
                 Text(state.status)
                     .foregroundStyle(.secondary)
@@ -63,7 +63,7 @@ struct StudioSettingsView: View {
     private var playbackSpeedRow: some View {
         StudioSettingRow("Playback speed", detail: "Used for new selections and applied immediately during playback.") {
             VStack(alignment: .trailing, spacing: 5) {
-                Slider(value: speedIndex, in: 0...Double(SottoAppState.speedSteps.count - 1), step: 1)
+                Slider(value: speedIndex, in: 0...Double(CaptaloAppState.speedSteps.count - 1), step: 1)
                 Text("\(state.speed, specifier: "%.2f")x")
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(.secondary)
@@ -79,7 +79,7 @@ struct StudioSettingsView: View {
     }
 
     private var menuBarStatusRow: some View {
-        StudioSettingRow("Menu bar status", detail: "Show the live playback state in the Sotto menu.") {
+        StudioSettingRow("Menu bar status", detail: "Show the live playback state in the Cáptalo menu.") {
             Toggle("Menu bar status", isOn: $state.showMenuBarStatus)
                 .labelsHidden()
         }
@@ -120,7 +120,7 @@ struct StudioSettingsView: View {
 }
 
 struct StudioStatsView: View {
-    @EnvironmentObject private var state: SottoAppState
+    @EnvironmentObject private var state: CaptaloAppState
 
     var body: some View {
         StudioPage(title: StudioSection.stats.title, symbol: StudioSection.stats.symbol) {
@@ -130,7 +130,7 @@ struct StudioStatsView: View {
                         .font(.callout.monospacedDigit())
                         .foregroundStyle(.secondary)
                 }
-                StudioSettingRow("Total dictation time", detail: "Total time Sotto has spent speaking selected text.") {
+                StudioSettingRow("Total dictation time", detail: "Total time Cáptalo has spent speaking selected text.") {
                     Text(Self.dictationTimeText(state.totalDictationSeconds))
                         .font(.callout.monospacedDigit())
                         .foregroundStyle(.secondary)

@@ -1,6 +1,6 @@
 import Foundation
 
-extension SottoAppState {
+extension CaptaloAppState {
     func recordWords(in text: String) {
         let count = text.split(whereSeparator: { $0.isWhitespace }).count
         guard count > 0 else { return }

@@ -1,19 +1,19 @@
 import SwiftUI
 
-struct SottoMenuBarView: View {
-    @EnvironmentObject private var state: SottoAppState
+struct CaptaloMenuBarView: View {
+    @EnvironmentObject private var state: CaptaloAppState
     @State private var isStudioHovered = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Sotto")
+            Text("Cáptalo")
                 .font(.title3.weight(.semibold))
 
             HStack(spacing: 12) {
                 Text("Speed")
                     .foregroundStyle(.secondary)
                     .frame(width: 44, alignment: .leading)
-                Slider(value: speedIndex, in: 0...Double(SottoAppState.speedSteps.count - 1), step: 1)
+                Slider(value: speedIndex, in: 0...Double(CaptaloAppState.speedSteps.count - 1), step: 1)
                 Text("\(state.speed, specifier: "%.2f")x")
                     .monospacedDigit()
                     .foregroundStyle(.secondary)
@@ -55,7 +55,7 @@ struct SottoMenuBarView: View {
                 transportButton("stop.fill", help: "Stop speaking") {
                     state.stopSpeaking()
                 }
-                transportButton("power", help: "Quit Sotto") {
+                transportButton("power", help: "Quit Cáptalo") {
                     state.quit()
                 }
             }
@@ -67,7 +67,7 @@ struct SottoMenuBarView: View {
             Button {
                 state.openStudio()
             } label: {
-                Label("Open Sotto Studio", systemImage: "slider.horizontal.3")
+                Label("Open Cáptalo Studio", systemImage: "slider.horizontal.3")
                     .foregroundStyle(isStudioHovered ? .white : .primary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 8)

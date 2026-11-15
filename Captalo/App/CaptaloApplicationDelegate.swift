@@ -3,10 +3,10 @@ import ApplicationServices
 import Carbon.HIToolbox
 
 @MainActor
-final class SottoApplicationDelegate: NSObject, NSApplicationDelegate {
+final class CaptaloApplicationDelegate: NSObject, NSApplicationDelegate {
     private var hotKey: EventHotKeyRef?
     private var hotKeyHandler: EventHandlerRef?
-    private var studioWindowController: SottoStudioWindowController?
+    private var studioWindowController: CaptaloStudioWindowController?
     private var hasPresentedKokoroDownloadPrompt = false
     private var hasPresentedAccessibilityPrompt = false
 
@@ -15,14 +15,14 @@ final class SottoApplicationDelegate: NSObject, NSApplicationDelegate {
         installStudioWindow()
         configureShortcut()
         observeApplicationChanges()
-        SottoAppState.shared.onAccessibilityPermissionRequired = { [weak self] in
+        CaptaloAppState.shared.onAccessibilityPermissionRequired = { [weak self] in
             self?.presentAccessibilityPermissionPrompt()
         }
-        SottoAppState.shared.requestAccessibilityPermission()
-        SottoAppState.shared.onKokoroDownloadRequired = { [weak self] in
+        CaptaloAppState.shared.requestAccessibilityPermission()
+        CaptaloAppState.shared.onKokoroDownloadRequired = { [weak self] in
             self?.presentKokoroDownloadPrompt()
         }
-        SottoAppState.shared.checkKokoroInstallation()
+        CaptaloAppState.shared.checkKokoroInstallation()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -36,19 +36,19 @@ final class SottoApplicationDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidBecomeActive(_ notification: Notification) {
-        SottoAppState.shared.refreshAccessibilityPermission()
+        CaptaloAppState.shared.refreshAccessibilityPermission()
     }
 
     private func installStudioWindow() {
-        studioWindowController = SottoStudioWindowController(state: SottoAppState.shared)
-        SottoAppState.shared.onOpenStudio = { [weak self] in
+        studioWindowController = CaptaloStudioWindowController(state: CaptaloAppState.shared)
+        CaptaloAppState.shared.onOpenStudio = { [weak self] in
             self?.openStudio()
         }
     }
 
     private func openStudio() {
         if studioWindowController?.window == nil {
-            studioWindowController = SottoStudioWindowController(state: SottoAppState.shared)
+            studioWindowController = CaptaloStudioWindowController(state: CaptaloAppState.shared)
         }
         studioWindowController?.showAndActivate()
     }
@@ -62,13 +62,13 @@ final class SottoApplicationDelegate: NSObject, NSApplicationDelegate {
 
         let alert = NSAlert()
         alert.messageText = "Allow Accessibility access"
-        alert.informativeText = "Sotto needs Accessibility access to read selected text and use its global shortcut. Allow Sotto in System Settings, then return here."
+        alert.informativeText = "Cáptalo needs Accessibility access to read selected text and use its global shortcut. Allow Cáptalo in System Settings, then return here."
         alert.addButton(withTitle: "Open Accessibility Settings")
         alert.addButton(withTitle: "Not Now")
         alert.alertStyle = .informational
         alert.beginSheetModal(for: window) { response in
             if response == .alertFirstButtonReturn {
-                SottoAppState.shared.openAccessibilitySettings()
+                CaptaloAppState.shared.openAccessibilitySettings()
             }
         }
     }
@@ -82,22 +82,22 @@ final class SottoApplicationDelegate: NSObject, NSApplicationDelegate {
 
         let alert = NSAlert()
         alert.messageText = "Download Kokoro voice?"
-        alert.informativeText = "Sotto is installed, but its private local voice is separate. Download Kokoro (about 170 MB) to start reading selected text offline."
+        alert.informativeText = "Cáptalo is installed, but its private local voice is separate. Download Kokoro (about 170 MB) to start reading selected text offline."
         alert.addButton(withTitle: "Download Kokoro")
         alert.addButton(withTitle: "Not Now")
         alert.alertStyle = .informational
         alert.beginSheetModal(for: window) { response in
             if response == .alertFirstButtonReturn {
-                SottoAppState.shared.downloadKokoro()
+                CaptaloAppState.shared.downloadKokoro()
             }
         }
     }
 
     private func configureShortcut() {
-        SottoAppState.shared.onShortcutChanged = { [weak self] shortcut in
+        CaptaloAppState.shared.onShortcutChanged = { [weak self] shortcut in
             self?.registerHotKey(shortcut)
         }
-        registerHotKey(SottoAppState.shared.shortcut)
+        registerHotKey(CaptaloAppState.shared.shortcut)
     }
 
     private func registerHotKey(_ shortcut: GlobalShortcut) {
@@ -119,7 +119,7 @@ final class SottoApplicationDelegate: NSObject, NSApplicationDelegate {
                 &hotKeyID
             ) == noErr, hotKeyID.id == 1 else { return noErr }
 
-            let delegate = Unmanaged<SottoApplicationDelegate>.fromOpaque(userData).takeUnretainedValue()
+            let delegate = Unmanaged<CaptaloApplicationDelegate>.fromOpaque(userData).takeUnretainedValue()
             Task { @MainActor in delegate.handleShortcut() }
             return noErr
         }
@@ -138,7 +138,7 @@ final class SottoApplicationDelegate: NSObject, NSApplicationDelegate {
             &hotKey
         )
         Task { @MainActor in
-            SottoAppState.shared.setShortcutRegistrationError(
+            CaptaloAppState.shared.setShortcutRegistrationError(
                 status == noErr ? nil : "That shortcut is already in use."
             )
         }
@@ -154,7 +154,7 @@ final class SottoApplicationDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func handleShortcut() {
-        Task { @MainActor in SottoAppState.shared.speakSelection() }
+        Task { @MainActor in CaptaloAppState.shared.speakSelection() }
     }
 
     @objc private func activeApplicationChanged(_ notification: Notification) {
@@ -162,7 +162,7 @@ final class SottoApplicationDelegate: NSObject, NSApplicationDelegate {
               app.bundleIdentifier != Bundle.main.bundleIdentifier
         else { return }
         Task { @MainActor in
-            SottoAppState.shared.stopForVoiceApplication(bundleIdentifier: app.bundleIdentifier)
+            CaptaloAppState.shared.stopForVoiceApplication(bundleIdentifier: app.bundleIdentifier)
         }
     }
 }
