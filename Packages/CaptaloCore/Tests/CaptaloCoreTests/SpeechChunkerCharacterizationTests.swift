@@ -23,6 +23,11 @@ import Testing
         return "W" + result.dropFirst()
     }
 
+    /// A distinct lowercase letter per sentence: b, c, d, …
+    static func seed(_ index: Int) -> Character {
+        Character(UnicodeScalar(UInt8(98 + index)))
+    }
+
     @Test func firstChunkTargets45To110Characters() {
         // A 42-character first sentence is below the 45-character first-chunk
         // minimum, so it joins the next sentence (73 characters in total).
@@ -63,16 +68,16 @@ import Testing
     @Test func laterChunkMinimumIsExactly80() {
         let first = Self.sentence(50, seed: "a")
         // 41 + 1 + 41 = 83 reaches 80 at the second sentence end.
-        let a = (0..<3).map { Self.sentence(41, seed: Character(UnicodeScalar(UInt8(98 + $0)))) }
+        let a = (0..<3).map { Self.sentence(41, seed: Self.seed($0)) }
         #expect(SpeechChunker.chunks(from: ([first] + a).joined(separator: " ")) == [first, a[0...1].joined(separator: " "), a[2]])
         // 39 + 1 + 39 = 79 stays below 80, so a third sentence joins.
-        let b = (0..<3).map { Self.sentence(39, seed: Character(UnicodeScalar(UInt8(98 + $0)))) }
+        let b = (0..<3).map { Self.sentence(39, seed: Self.seed($0)) }
         #expect(SpeechChunker.chunks(from: ([first] + b).joined(separator: " ")) == [first, b.joined(separator: " ")])
     }
 
     @Test func laterChunksFlushAtSentenceEndAbove80() {
         let first = Self.sentence(50, seed: "a")
-        let later = (0..<4).map { Self.sentence(30, seed: Character(UnicodeScalar(UInt8(98 + $0)))) }
+        let later = (0..<4).map { Self.sentence(30, seed: Self.seed($0)) }
         let chunks = SpeechChunker.chunks(from: ([first] + later).joined(separator: " "))
         // 30, 61, 92: the chunk flushes at the first sentence end at or above 80.
         #expect(chunks == [first, later[0...2].joined(separator: " "), later[3]])
@@ -82,7 +87,7 @@ import Testing
         let first = Self.sentence(50, seed: "a")
         // Six comma-terminated phrases of 50 characters, then a final period.
         let phrases = (0..<6).map { index -> String in
-            let seed = Character(UnicodeScalar(UInt8(98 + index)))
+            let seed = Self.seed(index)
             let phrase = Self.sentence(50, seed: seed, end: ",")
             // Only the first phrase starts a sentence; the rest continue it.
             return index == 0 ? phrase : phrase.lowercased()

@@ -4,41 +4,49 @@
 DEVELOPER_DIR ?= /Applications/Xcode-beta.app/Contents/Developer
 export DEVELOPER_DIR
 SHELL := /bin/bash
-# Apple's /usr/bin/make (GNU Make 3.81) ignores .SHELLFLAGS, so every piped
-# recipe starts with `set -o pipefail;` itself.
-PIPEFAIL := set -o pipefail;
 
 CONFIG ?= Debug
 DERIVED := .local/build/DerivedData
 LOGS := .local/build/logs
-STAMP = $(shell date -u +%Y%m%dT%H%M%SZ)
+STAMP := $(shell date -u +%Y%m%dT%H%M%SZ)
 XCODEBUILD ?= xcodebuild
-XCODEBUILD_ARGS := -project Captalo.xcodeproj -scheme Captalo -derivedDataPath $(DERIVED)
-TEAM_ARG = $(if $(TEAM),DEVELOPMENT_TEAM=$(TEAM),)
 CORE := Packages/CaptaloCore
+TEAM_ARG = $(if $(TEAM),DEVELOPMENT_TEAM=$(TEAM),)
+# build-info.json inputs, passed as build settings so the Run Script phase stays sandboxed.
+COMMIT := $(shell git rev-parse HEAD 2>/dev/null || echo unknown)
+DIRTY := $(shell [ -n "$$(git status --porcelain 2>/dev/null)" ] && echo true || echo false)
 
-.PHONY: help xcbeautify-check build build-unsigned build-unsigned-debug build-unsigned-release \
+# $(call xcb,<log name>,<xcodebuild arguments>)
+# Apple's /usr/bin/make (GNU Make 3.81) ignores .SHELLFLAGS, so the recipe sets pipefail itself.
+xcb = set -o pipefail; $(XCODEBUILD) -project Captalo.xcodeproj -scheme Captalo -derivedDataPath $(DERIVED) \
+	CAPTALO_COMMIT=$(COMMIT) CAPTALO_DIRTY=$(DIRTY) $(2) 2>&1 | tee $(LOGS)/$(1)-$(STAMP).log | xcbeautify --quiet
+
+PROJECT_TEAM = $(shell sed -n 's/.*DEVELOPMENT_TEAM = "*\([A-Z0-9]*\)"*;.*/\1/p' Captalo.xcodeproj/project.pbxproj | head -1)
+
+.PHONY: help xcbeautify-check signing-check build build-unsigned build-unsigned-debug build-unsigned-release \
 	test test-core-debug test-core-release script-test log-audit verify install run signing-setup
 
 help:
-	@echo "make build | build-unsigned | test | log-audit | script-test | verify"
+	@echo "make build [CONFIG=Debug|Release] | build-unsigned | test | log-audit | script-test | verify"
 	@echo "make signing-setup [TEAM=<team id>]   one-time Apple Development certificate setup"
 	@echo "make install [CONFIG=Debug|Release]    integration owner only: fixed install at /Applications/Captalo.app"
 
 xcbeautify-check:
 	@command -v xcbeautify >/dev/null || { echo "Install xcbeautify: brew install xcbeautify"; exit 1; }
 
+signing-check:
+	@Scripts/signing-identity >/dev/null
+
 $(LOGS):
 	@mkdir -p $(LOGS)
 
 build: xcbeautify-check | $(LOGS)
-	$(PIPEFAIL) $(XCODEBUILD) $(XCODEBUILD_ARGS) -configuration Debug build $(TEAM_ARG) 2>&1 | tee $(LOGS)/build-Debug-$(STAMP).log | xcbeautify --quiet
+	$(call xcb,build-$(CONFIG),-configuration $(CONFIG) build $(TEAM_ARG))
 
 build-unsigned: build-unsigned-debug build-unsigned-release
 
 build-unsigned-debug build-unsigned-release: build-unsigned-%: xcbeautify-check | $(LOGS)
-	$(PIPEFAIL) $(XCODEBUILD) $(XCODEBUILD_ARGS) -configuration $(if $(filter debug,$*),Debug,Release) CODE_SIGNING_ALLOWED=NO build 2>&1 \
-		| tee $(LOGS)/build-unsigned-$*-$(STAMP).log | xcbeautify --quiet
+	$(call xcb,build-unsigned-$*,-configuration $(if $(filter debug,$*),Debug,Release) CODE_SIGNING_ALLOWED=NO build)
 
 test: test-core-debug test-core-release
 
@@ -60,20 +68,18 @@ verify:
 
 # One-time: the first automatic-signing build creates the Apple Development
 # certificate for the Personal Team. Needs TEAM, or DEVELOPMENT_TEAM set in the project.
-PROJECT_TEAM = $(shell sed -n 's/.*DEVELOPMENT_TEAM = "*\([A-Z0-9]*\)"*;.*/\1/p' Captalo.xcodeproj/project.pbxproj | head -1)
-
 signing-setup: xcbeautify-check | $(LOGS)
 	@if [ -z "$(TEAM)$(PROJECT_TEAM)" ]; then \
 		echo "No team ID. Open Captalo.xcodeproj in Xcode, select the Captalo target > Signing & Capabilities,"; \
 		echo "choose your Personal Team (this writes DEVELOPMENT_TEAM into the project), then run make signing-setup."; \
 		echo "Or pass it directly: make signing-setup TEAM=<10-character team ID>."; \
 		exit 2; fi
-	$(PIPEFAIL) $(XCODEBUILD) $(XCODEBUILD_ARGS) -configuration Debug -allowProvisioningUpdates build $(TEAM_ARG) 2>&1 \
-		| tee $(LOGS)/signing-setup-$(STAMP).log | xcbeautify --quiet
+	$(call xcb,signing-setup,-configuration Debug -allowProvisioningUpdates build $(TEAM_ARG))
 	Scripts/signing-identity --name
 
-install: xcbeautify-check
-	Scripts/install --config $(CONFIG) $(if $(TEAM),--team $(TEAM),)
+# Identity check, then the same signed build as `make build`, then stage, verify and replace.
+install: xcbeautify-check signing-check build
+	Scripts/install --config $(CONFIG) --app $(DERIVED)/Build/Products/$(CONFIG)/Captalo.app
 
 run:
 	open /Applications/Captalo.app

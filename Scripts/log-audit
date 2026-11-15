@@ -10,8 +10,6 @@ import sys
 from pathlib import Path
 
 PATTERN = re.compile(r"\b(print|debugPrint|dump|NSLog|os_log|os_signpost|Logger|OSLog)\s*\(|\b(Logger|OSLog)\.init\b")
-# Explicit, reviewed exceptions: "relative/path.swift:line-text-substring".
-EXCEPTIONS = []
 
 
 def audit(roots):
@@ -22,7 +20,7 @@ def audit(roots):
                 stripped = line.strip()
                 if stripped.startswith("//"):
                     continue
-                if PATTERN.search(line) and not any(path.as_posix().endswith(e.split(":", 1)[0]) and e.split(":", 1)[1] in line for e in EXCEPTIONS):
+                if PATTERN.search(line):
                     hits.append(f"{path}:{number}: {stripped}")
     return hits
 

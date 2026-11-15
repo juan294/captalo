@@ -27,28 +27,29 @@ import Testing
         }
     }
 
-    /// Exhaustive over every case: adding a case fails to compile until it is
-    /// listed here and in `allCases`, so no case escapes the rendering check.
-    static func sampleCount(_ event: PrivacyEvent) -> Int {
-        switch event {
-        case .voicePrewarmed: 2
-        case .firstAudio: 1
-        }
+    static func name(_ event: PrivacyEvent) -> String {
+        String(event.rendered.prefix { $0 != " " })
     }
 
+    /// Exhaustive switch: adding a case fails to compile until it is counted
+    /// here, and the count must match the names sampled in `allCases`.
+    static let caseCount = PrivacyEvent.voicePrewarmed(accelerator: .neuralEngine).arms
+
     @Test func allCasesCoversEveryCase() {
-        var seen: [String: Int] = [:]
-        for event in Self.allCases {
-            let name = String(event.rendered.split(separator: " ")[0])
-            seen[name, default: 0] += 1
-            #expect(seen[name]! <= Self.sampleCount(event))
-        }
-        let expected = Self.allCases.reduce(into: Set<String>()) { $0.insert(String($1.rendered.split(separator: " ")[0])) }
-        #expect(expected.count == 2)
+        #expect(Set(Self.allCases.map(Self.name)).count == Self.caseCount)
     }
 
     @Test func firstAudioRendersMilliseconds() {
         let event = PrivacyEvent.firstAudio(characters: 7, elapsed: .milliseconds(1_250), accelerator: .cpuAndGPU)
         #expect(event.rendered == "firstAudio characters=7 elapsedMs=1250 accelerator=cpuAndGPU")
+    }
+}
+
+private extension PrivacyEvent {
+    /// The number of cases; the switch has no default.
+    var arms: Int {
+        switch self {
+        case .voicePrewarmed, .firstAudio: 2
+        }
     }
 }

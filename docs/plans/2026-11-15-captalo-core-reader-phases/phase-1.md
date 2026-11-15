@@ -101,13 +101,13 @@ The rollback copy stays in `.local/build/install-previous/` until the next succe
 
 ### Automated
 
-- [ ] `make verify` passes all steps, with a nonzero number of passing tests in debug and release.
-- [ ] Mutation check, run once and recorded: changing the first-chunk minimum from 45 to 40 makes `firstChunkTargets45To110Characters` fail.
-- [ ] `xcodebuild -showBuildSettings -scheme Captalo` reports the new bundle ID and deployment target 26.0.
-- [ ] `grep -rn "Shreysid\|8P96S63H2N" Captalo Captalo.xcodeproj` returns nothing.
-- [ ] The `Scripts/signing-identity` test with the captured "0 valid identities found" output exits 2 and prints the message. With a captured one-identity output, it returns that identity.
-- [ ] Install replacement check: install a build containing an extra resource file, then a build without it. The file is absent from `/Applications/Captalo.app`, and the installed copy passes strict verification. Run once and record.
-- [ ] `python3 .rpi/scripts/rpi-verify.py` runs the new suite and passes.
+- [x] `make verify` passes all steps, with a nonzero number of passing tests in debug and release.
+- [x] Mutation check, run once and recorded: changing the first-chunk minimum from 45 to 40 makes `firstChunkTargets45To110Characters` fail.
+- [x] `xcodebuild -showBuildSettings -scheme Captalo` reports the new bundle ID and deployment target 26.0.
+- [x] `grep -rn "Shreysid\|8P96S63H2N" Captalo Captalo.xcodeproj` returns nothing.
+- [x] The `Scripts/signing-identity` test with the captured "0 valid identities found" output exits 2 and prints the message. With a captured one-identity output, it returns that identity.
+- [ ] (Pending signing, D1; unit-tested over temporary directories) Install replacement check: install a build containing an extra resource file, then a build without it. The file is absent from `/Applications/Captalo.app`, and the installed copy passes strict verification. Run once and record.
+- [x] `python3 .rpi/scripts/rpi-verify.py` runs the new suite and passes.
 
 ### Manual
 

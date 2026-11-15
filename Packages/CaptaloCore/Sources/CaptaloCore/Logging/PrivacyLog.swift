@@ -27,8 +27,7 @@ public enum PrivacyEvent: Sendable, Equatable {
     }
 
     static func milliseconds(_ duration: Duration) -> Int64 {
-        let parts = duration.components
-        return parts.seconds * 1_000 + parts.attoseconds / 1_000_000_000_000_000
+        Int64(duration / .milliseconds(1))
     }
 }
 
