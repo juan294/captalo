@@ -39,6 +39,8 @@ final class FakeKeyTap: KeyEventTap {
     final class Box {
         var scheduled: [(Duration, @MainActor () -> Void)] = []
         var escapes = 0
+        /// The physical Esc key state the bound tick reads.
+        var escapeDown = false
     }
 
     let tap = FakeKeyTap()
@@ -46,7 +48,8 @@ final class FakeKeyTap: KeyEventTap {
 
     func containment() -> EscapeContainment {
         let box = self.box
-        return EscapeContainment(tap: tap, schedule: { box.scheduled.append(($0, $1)) }) { box.escapes += 1 }
+        return EscapeContainment(tap: tap, schedule: { box.scheduled.append(($0, $1)) },
+                                 isEscapeDown: { box.escapeDown }) { box.escapes += 1 }
     }
 
     @Test func escKeyDownAndKeyUpAreBothSwallowed() {
@@ -114,6 +117,40 @@ final class FakeKeyTap: KeyEventTap {
         // The bound firing after the keyUp already removed the tap is harmless.
         box.scheduled.first?.1()
         #expect(tap.removals == 1)
+    }
+
+    /// VAL-08 / D25: Esc held past the bound. The tick sees the key still
+    /// down, keeps the tap and checks again; repeats and the keyUp stay contained.
+    @Test func escHeldPastTheBoundStaysContained() {
+        let containment = containment()
+        #expect(containment.start())
+        #expect(tap.send(Self.escDown))
+        containment.finish()
+        box.escapeDown = true
+        box.scheduled.last?.1()
+        #expect(tap.isInstalled)
+        #expect(box.scheduled.map(\.0) == [EscapeContainment.keyUpBound, EscapeContainment.keyUpBound])
+        #expect(tap.send(Self.escRepeat))
+        box.scheduled.last?.1()
+        #expect(tap.send(Self.escRepeat))
+        #expect(tap.send(Self.escUp))
+        #expect(!tap.isInstalled)
+        #expect(box.escapes == 1)
+        // A tick still pending after the keyUp is harmless.
+        box.scheduled.last?.1()
+        #expect(tap.removals == 1)
+    }
+
+    /// The keyUp was never delivered, but the key is up at the tick: the tap goes.
+    @Test func releasedKeyWithoutKeyUpRemovesTheTap() {
+        let containment = containment()
+        #expect(containment.start())
+        #expect(tap.send(Self.escDown))
+        containment.finish()
+        box.escapeDown = false
+        box.scheduled.last?.1()
+        #expect(!tap.isInstalled)
+        #expect(box.scheduled.count == 1)
     }
 
     @Test func tapCreationFailureIsReported() {

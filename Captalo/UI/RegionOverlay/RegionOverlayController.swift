@@ -4,9 +4,11 @@ import CaptaloCore
 /// The region overlay (plan phase 5, unit 5A; gate 0 choices in the notes).
 /// One borderless, non-activating panel per screen that never becomes key,
 /// so the source app stays frontmost with its key window. Esc is caught by a
-/// session event tap (Accessibility is already granted) and swallowed whole,
-/// keyDown and keyUp, so it never reaches the source app (VAL-08). Every
-/// exit tears down in one place.
+/// session event tap (Accessibility is already granted). The Esc press that
+/// closes the overlay is swallowed whole, its keyDown, autorepeats and keyUp,
+/// however long it is held (VAL-08, D25); an Esc already held when the
+/// overlay opened, and every other key, pass to the source app. Every exit
+/// tears down in one place.
 @MainActor
 final class RegionOverlayController {
     enum Outcome {
@@ -33,6 +35,8 @@ final class RegionOverlayController {
                 try? await Task.sleep(for: delay)
                 body()
             }
+        }, isEscapeDown: {
+            CGEventSource.keyState(.combinedSessionState, key: CGKeyCode(KeyEvent.escapeKeyCode))
         }) { [weak self] in
             // Torn down after the tap callback returns, not inside it.
             DispatchQueue.main.async { self?.tracker?.handle(.escape) }
