@@ -4,20 +4,24 @@ import Testing
 @testable import CaptaloCore
 
 /// In-memory synthesizer: seconds of audio per text from `seconds`, with an
-/// optional failure, an optional gate, and concurrency tracking.
+/// optional failure, an optional gate (for calls from `holdFrom` on), and
+/// concurrency tracking.
 final class FakeSynthesizer: Synthesizer, Sendable {
     let rate = 100 // samples per second keeps buffers small
     let seconds: @Sendable (String) -> Double
     let failAt: Int?
     let gate: Gate?
+    let holdFrom: Int
     let calls = Mutex<[String]>([])
     let speeds = Mutex<[Float]>([])
     let inFlight = Mutex(0)
     let maxInFlight = Mutex(0)
 
-    init(failAt: Int? = nil, gate: Gate? = nil, seconds: @escaping @Sendable (String) -> Double = { _ in 1 }) {
+    init(failAt: Int? = nil, gate: Gate? = nil, holdFrom: Int = 0,
+         seconds: @escaping @Sendable (String) -> Double = { _ in 1 }) {
         self.failAt = failAt
         self.gate = gate
+        self.holdFrom = holdFrom
         self.seconds = seconds
     }
 
@@ -27,7 +31,7 @@ final class FakeSynthesizer: Synthesizer, Sendable {
         let now = inFlight.withLock { $0 += 1; return $0 }
         maxInFlight.withLock { $0 = max($0, now) }
         defer { inFlight.withLock { $0 -= 1 } }
-        await gate?.wait()
+        if index >= holdFrom { await gate?.wait() }
         if index == failAt { throw CancellationError() }
         return SynthesizedAudio(samples: Array(repeating: 0.1, count: Int(seconds(text) * Double(rate))), sampleRate: rate)
     }
@@ -308,19 +312,18 @@ final class Events: Sendable {
     @Test func deviceRecoveryLaterBufferFailurePlaysScheduledAudioThenVoiceError() async {
         let events = Events()
         let sink = FakeSink(autoplay: false)
-        let synth = HoldingSynthesizer(holdFrom: 4)
-        let reading = ReadingSession(units: sentences(10), synthesizer: synth, sink: sink, voice: "af_heart", speed: 1) {
-            events.append($0)
-        }
+        let gate = Gate()
+        let synth = FakeSynthesizer(gate: gate, holdFrom: 4)
+        let reading = session(sentences(10), synth, sink, events: events)
         await reading.start()
         await eventually { sink.pendingCount == 4 }
         sink.playNext() // unit 0 played; unit 1 is audible
-        await synth.arrival(4) // unit 4 is in flight
+        await eventually { synth.calls.withLock { $0.count } == 5 } // unit 4 is in flight
         sink.failAfter.withLock { $0 = 1 }
         await reading.deviceChanged()
         #expect(events.list.withLock { $0.contains(.replayed(unitID: 1)) })
         #expect(sink.pendingCount == 1) // only unit 1 was rescheduled
-        synth.releaseAll() // the in-flight result returns after the failure: discarded
+        await gate.open() // the in-flight result returns after the failure: discarded
         sink.playNext()
         let outcome = await boundedOutcome(reading)
         let retained = await reading.retainedBuffers

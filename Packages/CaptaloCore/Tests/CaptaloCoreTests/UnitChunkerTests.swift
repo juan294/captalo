@@ -114,39 +114,30 @@ import Testing
     /// About 0.7 MB in a single paragraph (no blank line).
     static let paragraph = (0..<sentenceCount).map { "Sentence number \($0) reads aloud." }.joined(separator: " ")
 
-    @Test func firstUnitAfterBoundedWork() {
+    @Test func firstUnitThroughTheProductionChain() {
         let units = TextPreparer.units(for: .text(Self.paragraph))
         #expect(units.next()?.text == "Sentence number 0 reads aloud.")
         #expect(units.next()?.text == "Sentence number 1 reads aloud.")
-
-        var iterator = TextPreparer.unitIterator(for: .text(Self.paragraph))
-        #expect(iterator.next()?.text == "Sentence number 0 reads aloud.")
-        // One sentence, plus at most one looked ahead, and one unit: not the whole paragraph.
-        #expect(iterator.sentencesPulled <= 2)
-        #expect(iterator.unitsMade == 1)
     }
 
-    /// N1: the tokenizer itself runs on demand. Segmenting the whole
-    /// paragraph up front (even behind a lazy chunker) fails this test.
+    /// The tokenizer and the chunker both run on demand: the first unit costs
+    /// one sentence (plus one looked ahead) and one unit, and stopping midway
+    /// stops preparation. Segmenting or cutting the whole paragraph up front
+    /// (even behind a lazy chunker) fails this test (N1).
     @Test func paragraphIsSegmentedOnDemand() {
         let counter = SegmentationCounter()
         SegmentationCounter.$current.withValue(counter) {
             var iterator = TextPreparer.unitIterator(for: .text(Self.paragraph))
-            _ = iterator.next()
-            #expect(counter.value <= 2) // the first sentence and one looked ahead
-            for _ in 0..<3 { _ = iterator.next() }
+            #expect(iterator.next()?.text == "Sentence number 0 reads aloud.")
+            #expect(counter.value <= 2)
+            #expect(iterator.nextUnitID == 1)
+            for _ in 0..<3 { _ = iterator.next() } // the audible unit plus the lookahead, then stop
             #expect(counter.value <= 5)
+            #expect(iterator.nextUnitID == 4)
         }
         let whole = SegmentationCounter()
         SegmentationCounter.$current.withValue(whole) { _ = Paragraph(text: Self.paragraph).sentences }
         #expect(whole.value == Self.sentenceCount) // the counter sees every tokenized sentence
-    }
-
-    @Test func stoppingMidwayStopsPreparation() {
-        var iterator = TextPreparer.unitIterator(for: .text(Self.paragraph))
-        for _ in 0..<4 { _ = iterator.next() } // the audible unit plus the lookahead, then stop
-        #expect(iterator.sentencesPulled <= 5)
-        #expect(iterator.unitsMade == 4)
     }
 
     @Test func oneHugeSentenceIsCutOnDemand() {
@@ -156,7 +147,7 @@ import Testing
         let first = iterator.next()
         #expect(first.map { $0.text.count <= UnitChunker<[Paragraph]>.firstMaxLength } == true)
         #expect(first?.endsSentence == false)
-        #expect(iterator.unitsMade == 1)
+        #expect(iterator.nextUnitID == 1)
     }
 
     @Test func lazyUnitsMatchTheWholeParagraph() {

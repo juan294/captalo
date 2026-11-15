@@ -35,7 +35,7 @@ public struct UnitChunker<Paragraphs: Sequence>: Sequence where Paragraphs.Eleme
     public struct Iterator: IteratorProtocol {
         var paragraphs: Paragraphs.Iterator
         /// The current paragraph's remaining sentences, and the one after the current sentence.
-        var sentences = SentenceIterator(list: [])
+        var sentences = SentenceIterator.list([].makeIterator())
         var upcoming: String?
         /// The uncut rest of the current sentence.
         var rest: Substring = ""
@@ -43,11 +43,8 @@ public struct UnitChunker<Paragraphs: Sequence>: Sequence where Paragraphs.Eleme
         var sentenceID = -1
         var nextUnitID = 0
         var firstUnitCut = false
-        /// Paragraphs pulled from the source, sentences taken from paragraphs,
-        /// and units cut, so far (laziness checks).
-        public private(set) var paragraphsPulled = 0
-        public private(set) var sentencesPulled = 0
-        public private(set) var unitsMade = 0
+        /// Paragraphs pulled from the source so far (laziness checks).
+        private(set) var paragraphsPulled = 0
 
         public mutating func next() -> SynthesisUnit? {
             while true {
@@ -59,14 +56,14 @@ public struct UnitChunker<Paragraphs: Sequence>: Sequence where Paragraphs.Eleme
                     // An empty head means only whitespace was left (and the tail is empty).
                     guard !head.isEmpty else { continue }
                     let endsSentence = tail.isEmpty
-                    defer { nextUnitID += 1; unitsMade += 1 }
+                    defer { nextUnitID += 1 }
                     return SynthesisUnit(
                         id: nextUnitID, paragraphID: paragraphID, sentenceID: sentenceID, text: String(head),
                         endsSentence: endsSentence, endsParagraph: endsSentence && upcoming == nil
                     )
                 }
                 if let sentence = upcoming {
-                    upcoming = pullSentence()
+                    upcoming = sentences.next()
                     sentenceID += 1
                     rest = Substring(sentence)
                     continue
@@ -75,14 +72,8 @@ public struct UnitChunker<Paragraphs: Sequence>: Sequence where Paragraphs.Eleme
                 paragraphsPulled += 1
                 paragraphID += 1
                 sentences = paragraph.makeSentenceIterator()
-                upcoming = pullSentence()
+                upcoming = sentences.next()
             }
-        }
-
-        private mutating func pullSentence() -> String? {
-            guard let sentence = sentences.next() else { return nil }
-            sentencesPulled += 1
-            return sentence
         }
     }
 
