@@ -154,6 +154,19 @@ class ReplaceFailureTests(unittest.TestCase):
                 install.check_install_target(other)
 
 
+collect = load("capture-matrix-collect")
+
+
+class CaptureCollectTests(unittest.TestCase):
+    def test_parses_probe_lines_only(self):
+        line = "2026-11-15 10:00:01.000 I  Captalo[123:abc] [com.thecreativetoken.captalo:Events] probe result=pass layer=menuCopy expectedLength=300 capturedLength=300 clipboardIntact=true focusKept=true providerMs=3 elapsedMs=120 changeDelta=2"
+        event = collect.parse(line)
+        self.assertEqual(event["event"], "probe")
+        self.assertEqual(event["result"], "pass")
+        self.assertEqual(event["changeDelta"], "2")
+        self.assertIsNone(collect.parse("2026-11-15 10:00:01.000 I  Other[1:2] unrelated line"))
+
+
 class MakefileTests(unittest.TestCase):
     def test_failed_xcodebuild_fails_the_piped_recipe(self):
         result = subprocess.run(["make", "-s", "build-unsigned-debug", "XCODEBUILD=false"],

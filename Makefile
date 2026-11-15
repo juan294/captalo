@@ -24,7 +24,8 @@ xcb = set -o pipefail; $(XCODEBUILD) -project Captalo.xcodeproj -scheme Captalo 
 PROJECT_TEAM = $(shell sed -n 's/.*DEVELOPMENT_TEAM = "*\([A-Z0-9]*\)"*;.*/\1/p' Captalo.xcodeproj/project.pbxproj | head -1)
 
 .PHONY: help xcbeautify-check signing-check build build-unsigned build-unsigned-debug build-unsigned-release \
-	test test-core-debug test-core-release script-test log-audit verify install run signing-setup
+	test test-core-debug test-core-release script-test log-audit verify install run signing-setup \
+	clipboard-sentinel capture-pdf
 
 help:
 	@echo "make build [CONFIG=Debug|Release] | build-unsigned | test | log-audit | script-test | verify"
@@ -83,3 +84,12 @@ install: xcbeautify-check signing-check build
 
 run:
 	open /Applications/Captalo.app
+
+# Capture matrix helpers (plan phase 2). clipboard-sentinel REPLACES the general clipboard.
+clipboard-sentinel:
+	xcrun swift Scripts/clipboard-sentinel.swift
+
+capture-pdf:
+	@mkdir -p .local/fixtures
+	cupsfilter Fixtures/capture-matrix.txt > .local/fixtures/capture-matrix.pdf 2>/dev/null
+	@echo ".local/fixtures/capture-matrix.pdf"

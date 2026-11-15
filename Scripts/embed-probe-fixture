@@ -1,0 +1,12 @@
+#!/bin/sh
+# Xcode Run Script phase: Debug builds embed the capture-matrix fixture for
+# the capture probe (-CaptureProbe YES). Release builds embed nothing.
+set -eu
+out="${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/CaptureProbe/capture-matrix.txt"
+if [ "$CONFIGURATION" = "Debug" ]; then
+  mkdir -p "$(dirname "$out")"
+  cp "$SRCROOT/Fixtures/capture-matrix.txt" "$out"
+else
+  rm -f "$out"
+  rmdir "$(dirname "$out")" 2>/dev/null || true
+fi

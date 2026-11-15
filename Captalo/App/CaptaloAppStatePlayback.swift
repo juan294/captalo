@@ -1,44 +1,69 @@
+import CaptaloCore
 import Foundation
 
 extension CaptaloAppState {
+    /// The read-selection shortcut (plan phase 2). The press records its
+    /// source at once; capture and the stop gesture run in the request coordinator.
     func speakSelection() {
-        guard selectionReader.isAccessibilityTrusted else {
+        guard accessibility.isProcessTrusted() else {
             accessibilityPermissionGranted = false
             updateStatus("Accessibility access required")
             onAccessibilityPermissionRequired?()
             return
         }
         accessibilityPermissionGranted = true
-
+        guard let source = accessibility.currentSource() else { return }
+        if !isCaptureProbeActive, !canSpeak {
+            updateStatus("Kokoro needs to be installed")
+            if kokoroInstallationState == .downloadRequired { onKokoroDownloadRequired?() }
+            return
+        }
+        let capture = self.capture
+        #if DEBUG
+        let probe = captureProbe
+        #endif
         Task {
-            guard canSpeak else {
-                updateStatus("Kokoro needs to be installed")
-                if kokoroInstallationState == .downloadRequired {
-                    onKokoroDownloadRequired?()
+            await requests.submit(kind: .selection, source: source) { token in
+                let started = ContinuousClock.now
+                #if DEBUG
+                let outcome = if let probe {
+                    await probe.measure(token) { await capture.capture(token) }
+                } else {
+                    await capture.capture(token)
                 }
-                return
+                #else
+                let outcome = await capture.capture(token)
+                #endif
+                var layer: CaptureLayerKind?
+                var characters = 0
+                if case let .text(text, captured) = outcome { layer = captured; characters = text.count }
+                PrivacyLog.record(.capture(kind: .selection, outcome: .init(outcome), layer: layer,
+                                           characters: characters, elapsed: started.duration(to: .now)))
+                if outcome == .permissionMissing {
+                    await MainActor.run { CaptaloAppState.shared.refreshAccessibilityPermission() }
+                }
+                return outcome
             }
+        }
+    }
 
+    var isCaptureProbeActive: Bool {
+        #if DEBUG
+        captureProbe != nil
+        #else
+        false
+        #endif
+    }
+
+    /// Starts the inherited speech for a promoted session. Returns at once.
+    func beginReading(_ text: String, token: SessionToken) {
+        recordWords(in: text)
+        let spokenText = applyingPronunciationRules(to: text)
+        updateStatus("Generating audio")
+        let requests = self.requests
+        Task {
+            guard await requests.isCurrent(token) else { return }
             do {
-                updateStatus("Reading selection...")
-                let selectionStarted = ContinuousClock.now
-                guard let text = try await selectionReader.read(), !text.isEmpty else {
-                    await speech.stop()
-                    isPaused = false
-                    updateStatus("No text selected")
-                    return
-                }
-                if await speech.isReading(text) {
-                    await speech.stop()
-                    isPaused = false
-                    updateStatus("Stopped")
-                    return
-                }
-
-                let captureTime = selectionStarted.duration(to: .now)
-                recordWords(in: text)
-                let spokenText = applyingPronunciationRules(to: text)
-                updateStatus("Generating audio - capture \(captureTime.short)")
                 try await speech.speak(
                     text: spokenText,
                     onFirstAudio: { firstAudio in
@@ -46,9 +71,7 @@ extension CaptaloAppState {
                             CaptaloAppState.shared.latestFirstAudio = firstAudio
                             CaptaloAppState.shared.finishDictationSession()
                             CaptaloAppState.shared.startDictationSession()
-                            CaptaloAppState.shared.updateStatus(
-                                "Speaking - capture \(captureTime.short), first audio \(firstAudio.short)"
-                            )
+                            CaptaloAppState.shared.updateStatus("Speaking - first audio \(firstAudio.short)")
                         }
                     },
                     onError: { error in
@@ -57,10 +80,13 @@ extension CaptaloAppState {
                         }
                     },
                     onPlaybackFinished: {
-                        Task { @MainActor in
-                            CaptaloAppState.shared.finishDictationSession()
-                            CaptaloAppState.shared.isPaused = false
-                            CaptaloAppState.shared.updateStatus("Finished")
+                        Task {
+                            await requests.sessionFinished(token)
+                            await MainActor.run {
+                                CaptaloAppState.shared.finishDictationSession()
+                                CaptaloAppState.shared.isPaused = false
+                                CaptaloAppState.shared.updateStatus("Finished")
+                            }
                         }
                     }
                 )
@@ -72,7 +98,7 @@ extension CaptaloAppState {
 
     func stopSpeaking() {
         finishDictationSession()
-        Task { await speech.stop() }
+        Task { await requests.stopSession() }
         isPaused = false
         updateStatus("Stopped")
     }

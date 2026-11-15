@@ -1,0 +1,56 @@
+#!/usr/bin/env python3
+"""Collect Cáptalo capture-probe events from the unified log into one JSON run file.
+
+Usage: Scripts/capture-matrix-collect --since "2026-11-15 10:00:00" [--app NAME --version V --case a|b|c]
+Writes .local/capture/<ISO date>-<app>.json (append-only per run). The probe
+logs only enums, counts and durations (PrivacyLog), so no captured text is read.
+"""
+import argparse
+import datetime
+import json
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+EVENT = re.compile(r"\b(probe|capture|seamSession) ((?:\w+=\S+ ?)*)$")
+
+
+def parse(line):
+    match = EVENT.search(line.strip())
+    if not match:
+        return None
+    fields = dict(pair.split("=", 1) for pair in match.group(2).split())
+    return {"event": match.group(1), **fields}
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--since", required=True)
+    parser.add_argument("--app", default="unknown")
+    parser.add_argument("--version", default="unknown")
+    parser.add_argument("--case", default="")
+    args = parser.parse_args(argv)
+    result = subprocess.run(
+        ["log", "show", "--info", "--style", "compact", "--start", args.since,
+         "--predicate", 'subsystem == "com.thecreativetoken.captalo"'],
+        capture_output=True, text=True, check=False,
+    )
+    if result.returncode != 0:
+        print(result.stderr.strip(), file=sys.stderr)
+        return result.returncode
+    events = [e for e in map(parse, result.stdout.splitlines()) if e]
+    out_dir = ROOT / ".local" / "capture"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H%M%SZ")
+    slug = re.sub(r"[^a-z0-9]+", "-", args.app.lower()).strip("-")
+    path = out_dir / f"{stamp}-{slug}.json"
+    path.write_text(json.dumps({"app": args.app, "version": args.version, "case": args.case,
+                                "since": args.since, "events": events}, indent=2) + "\n", encoding="utf-8")
+    print(f"{len(events)} events -> {path}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

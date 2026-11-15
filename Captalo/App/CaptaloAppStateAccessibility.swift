@@ -4,7 +4,7 @@ extension CaptaloAppState {
     }
 
     func refreshAccessibilityPermission() {
-        accessibilityPermissionGranted = selectionReader.isAccessibilityTrusted
+        accessibilityPermissionGranted = accessibility.isProcessTrusted()
         guard !accessibilityPermissionGranted else { return }
 
         updateStatus("Accessibility access required")
@@ -12,6 +12,6 @@ extension CaptaloAppState {
     }
 
     func openAccessibilitySettings() {
-        selectionReader.openAccessibilitySettings()
+        accessibility.openAccessibilitySettings()
     }
 }

@@ -15,6 +15,36 @@ public enum PrivacyEvent: Sendable, Equatable {
 
     case voicePrewarmed(accelerator: Accelerator)
     case firstAudio(characters: Int, elapsed: Duration, accelerator: Accelerator)
+    case restoreFailed
+    case capture(kind: InputKind, outcome: OutcomeKind, layer: CaptureLayerKind?, characters: Int, elapsed: Duration)
+    /// Debug capture probe. `providerMs` is the probe's own pre-press clipboard
+    /// materialization time; `changeDelta` is the pasteboard change count delta.
+    case probe(
+        result: CaptureProbe.Result, layer: CaptureLayerKind?, expectedLength: Int, capturedLength: Int,
+        clipboardIntact: Bool, focusKept: Bool, providerMs: Int, elapsedMs: Int, changeDelta: Int
+    )
+    /// Debug-only silent playback seam (phase 2).
+    case seamSession(state: SeamState)
+
+    public enum SeamState: String, Sendable {
+        case started, stopped, finished
+    }
+
+    /// The outcome's case name, without any payload.
+    public enum OutcomeKind: String, Sendable {
+        case text, nothingSelected, unsupported, permissionMissing, cancelled, failed
+
+        public init(_ outcome: CaptureOutcome) {
+            switch outcome {
+            case .text: self = .text
+            case .nothingSelected: self = .nothingSelected
+            case .unsupported: self = .unsupported
+            case .permissionMissing: self = .permissionMissing
+            case .cancelled: self = .cancelled
+            case .failed: self = .failed
+            }
+        }
+    }
 
     /// The rendered form written to the system log. Only enum names and numbers.
     public var rendered: String {
@@ -23,6 +53,14 @@ public enum PrivacyEvent: Sendable, Equatable {
             "voicePrewarmed accelerator=\(accelerator.rawValue)"
         case let .firstAudio(characters, elapsed, accelerator):
             "firstAudio characters=\(characters) elapsedMs=\(PrivacyEvent.milliseconds(elapsed)) accelerator=\(accelerator.rawValue)"
+        case .restoreFailed:
+            "restoreFailed"
+        case let .capture(kind, outcome, layer, characters, elapsed):
+            "capture kind=\(kind.rawValue) outcome=\(outcome.rawValue) layer=\(layer?.rawValue ?? "none") characters=\(characters) elapsedMs=\(PrivacyEvent.milliseconds(elapsed))"
+        case let .probe(result, layer, expectedLength, capturedLength, clipboardIntact, focusKept, providerMs, elapsedMs, changeDelta):
+            "probe result=\(result.rawValue) layer=\(layer?.rawValue ?? "none") expectedLength=\(expectedLength) capturedLength=\(capturedLength) clipboardIntact=\(clipboardIntact) focusKept=\(focusKept) providerMs=\(providerMs) elapsedMs=\(elapsedMs) changeDelta=\(changeDelta)"
+        case let .seamSession(state):
+            "seamSession state=\(state.rawValue)"
         }
     }
 

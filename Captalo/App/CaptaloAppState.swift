@@ -1,3 +1,4 @@
+import CaptaloCore
 import Combine
 import SwiftUI
 
@@ -31,7 +32,38 @@ final class CaptaloAppState: ObservableObject {
     @Published var pronunciationRules: [PronunciationRule]
 
     let speech = SpeechController()
-    let selectionReader = SelectionReader()
+    let accessibility = AccessibilityAdapter()
+    let clipboardLock = AsyncSerialLock()
+    private let requestsBox = WeakBox<RequestCoordinator>()
+    lazy var requests: RequestCoordinator = {
+        let box = requestsBox
+        let speech = speech
+        let seam = isCaptureProbeActive
+        let coordinator = RequestCoordinator { token, text in
+            #if DEBUG
+            if seam {
+                return SilentTimedSession { await box.value?.sessionFinished(token) ?? false }
+            }
+            #endif
+            return SpeechPlaybackSession(token: token, text: text, speech: speech) { text, token in
+                CaptaloAppState.shared.beginReading(text, token: token)
+            }
+        }
+        box.value = coordinator
+        return coordinator
+    }()
+    lazy var capture: CaptureCoordinator = {
+        let requests = self.requests
+        let lock = clipboardLock
+        return CaptureCoordinator(
+            ax: accessibility, menu: MenuCopyAdapter(), keys: KeyEventAdapter(), focus: accessibility,
+            transaction: { ClipboardTransaction(pasteboard: SystemPasteboard(), lock: lock) },
+            isCurrent: { await requests.isCurrent($0) }
+        )
+    }()
+    #if DEBUG
+    lazy var captureProbe = CaptureProbeRunner(accessibility: accessibility)
+    #endif
     var dictationSessionStartedAt: ContinuousClock.Instant?
     lazy var waveAnimator = WaveStatusIconAnimator { [weak self] image in
         self?.statusIcon = image
@@ -45,7 +77,7 @@ final class CaptaloAppState: ObservableObject {
     private init() {
         wordsSpoken = UserDefaults.standard.integer(forKey: DefaultsKey.wordsSpoken)
         totalDictationSeconds = UserDefaults.standard.double(forKey: DefaultsKey.totalDictationSeconds)
-        accessibilityPermissionGranted = selectionReader.isAccessibilityTrusted
+        accessibilityPermissionGranted = AXIsProcessTrusted()
         pronunciationRules = Self.loadPronunciationRules()
 
         if let data = UserDefaults.standard.data(forKey: DefaultsKey.globalShortcut),

@@ -1,4 +1,5 @@
 import AppKit
+import CaptaloCore
 import ApplicationServices
 import Carbon.HIToolbox
 
@@ -23,6 +24,16 @@ final class CaptaloApplicationDelegate: NSObject, NSApplicationDelegate {
             self?.presentKokoroDownloadPrompt()
         }
         CaptaloAppState.shared.checkKokoroInstallation()
+    }
+
+    /// Quit lets an open clipboard transaction finish its cleanup first (plan phase 2).
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        let requests = CaptaloAppState.shared.requests
+        Task {
+            await requests.shutdown()
+            sender.reply(toApplicationShouldTerminate: true)
+        }
+        return .terminateLater
     }
 
     func applicationWillTerminate(_ notification: Notification) {

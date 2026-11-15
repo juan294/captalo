@@ -63,6 +63,7 @@
 				0BBB61B630081CE200D9E3A3 /* Frameworks */,
 				0BBB61B730081CE200D9E3A3 /* Resources */,
 				F10000000000000000000021 /* Write build-info.json */,
+				F10000000000000000000022 /* Embed capture probe fixture */,
 			);
 			buildRules = (
 			);
@@ -149,6 +150,28 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "\"$SRCROOT/Scripts/write-build-info\"\n";
+		};
+		F10000000000000000000022 /* Embed capture probe fixture */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/Scripts/embed-probe-fixture",
+				"$(SRCROOT)/Fixtures/capture-matrix.txt",
+			);
+			name = "Embed capture probe fixture";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/CaptureProbe/capture-matrix.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"$SRCROOT/Scripts/embed-probe-fixture\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
