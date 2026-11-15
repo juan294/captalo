@@ -1,20 +1,33 @@
 #!/bin/sh
-# Phase 4 code search: the inherited shell is gone, and the built app is an agent app.
-set -eu
+# Phase 4 code search: the inherited shell is gone and the built app is an
+# agent app. Regex search over every file under Captalo/; a grep error or a
+# missing build product is a failure, never a pass.
+set -u
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 status=0
-for pattern in 'MenuBarExtra' 'setActivationPolicy(.regular)' 'RegisterEventHotKey' 'pronunciationRules' 'wordsSpoken' 'pauseForVoiceApps' 'Studio'; do
-  if grep -rnF "$pattern" "$ROOT/Captalo" --include='*.swift' >/dev/null; then
-    echo "shell-audit: found $pattern in Captalo/" >&2
-    grep -rnF "$pattern" "$ROOT/Captalo" --include='*.swift' >&2
+OUT=$(mktemp -t captalo-shell-audit)
+for pattern in 'MenuBarExtra' 'setActivationPolicy[[:space:]]*\([^)]*regular' 'RegisterEventHotKey' \
+               'pronunciationRules' 'wordsSpoken' 'pauseForVoiceApps' '[Ss]tudio' 'NSStatusItem' 'NSStatusBar' 'NSPopover'; do
+  grep -rnE "$pattern" "$ROOT/Captalo" > "$OUT" 2>&1
+  code=$?
+  if [ $code -eq 0 ]; then
+    echo "shell-audit: found /$pattern/ in Captalo/" >&2
+    cat "$OUT" >&2
+    status=1
+  elif [ $code -ne 1 ]; then
+    echo "shell-audit: grep failed ($code) for /$pattern/" >&2
     status=1
   fi
 done
+rm -f "$OUT"
+checked=0
 for config in Debug Release; do
   plist="$ROOT/.local/build/DerivedData/Build/Products/$config/Captalo.app/Contents/Info.plist"
   [ -f "$plist" ] || continue
+  checked=$((checked + 1))
   value=$(/usr/libexec/PlistBuddy -c "Print :LSUIElement" "$plist" 2>/dev/null || echo missing)
   [ "$value" = "true" ] || { echo "shell-audit: $config LSUIElement is $value" >&2; status=1; }
 done
+[ $checked -gt 0 ] || { echo "shell-audit: no built app to check; run make build-unsigned" >&2; status=1; }
 [ $status -eq 0 ] && echo "shell-audit: passed"
 exit $status

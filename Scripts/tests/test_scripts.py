@@ -225,9 +225,13 @@ class DefaultsBackupTests(unittest.TestCase):
         backup = self.run_script("defaults-backup")
         self.assertEqual(backup.returncode, 0, backup.stderr)
         self.assertTrue(self.is_empty())
+        # The check writes new keys (a recorded shortcut); restore must remove them.
+        subprocess.run(["defaults", "write", self.domain, "KeyboardShortcuts_readSelection", "test"], check=True)
+        self.assertNotEqual(self.run_script("defaults-backup").returncode, 0)  # one check at a time
         restore = self.run_script("defaults-restore")
         self.assertEqual(restore.returncode, 0, restore.stderr)
         self.assertEqual(self.read("reading.voice"), "af_bella")
+        self.assertEqual(self.read("KeyboardShortcuts_readSelection"), "")
         self.assertEqual(self.run_script("defaults-restore").returncode, 0)  # idempotent
 
     def test_absent_domain_is_recorded_and_deleted_again(self):

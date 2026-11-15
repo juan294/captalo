@@ -114,6 +114,17 @@ Plan: `2026-11-15-captalo-core-reader.md` (revision 4, accepted 2026-11-15). Imp
 - Found (phase 3 review): each launch hashed about 276 MB (bundle, store, then the engine check).
 - Chose: activation validates the installed version first and reads the bundle only when it must copy; `VoiceSetup` hands the directory validated under the consumer lock to the engine. A launch with a valid store hashes the 95 MB once. A repair from a damaged bundle still reports "Reinstall Cáptalo".
 
+### D18. Two lock-guarded adapters opt out of Sendable checking (phase 4, Swift 6)
+
+- Plan said: the Release build passes in Swift 6 mode with no new warning suppressions.
+- Found: `MenuCopyAdapter` keeps the last found menu item (`AXUIElement`) and `AVAudioSink` owns `AVAudioEngine` and `AVAudioPlayerNode`; none of these types is `Sendable`, so `Synchronization.Mutex` cannot hold them.
+- Chose: both classes are `@unchecked Sendable` with every mutable access under one `NSLock`. No `@preconcurrency` import and no warning suppression remain; the build has no warnings in Cáptalo code.
+
+### D19. Defaults restore deletes before importing (phase 4 review)
+
+- Found: `defaults import` merges into the domain, so keys written during the fresh-state check (a recorded shortcut) survived the restore and the comparison could never pass.
+- Chose: restore deletes the domain, imports the backup, compares normalized XML and marks the record restored; backup refuses to start while an unrestored record exists. Tested on a disposable domain, including an extra key written between backup and restore.
+
 ## Phase 1 handoff (2026-11-15)
 
 - Candidate: branch `feat/core-reader`, commits `a000427` (rename), `7f7737a` (cc-rpi v2.2.0), `6eb0b4a` (foundation), `556c148` (review repairs) and the simplify commit that carries this note. `make verify` (8 checks: whitespace, rpi-installation, core tests debug and release, unsigned Debug and Release builds, log-audit, script-test) passed on the simplify candidate; evidence in the worktree's ignored `.rpi/local/verification.json`.

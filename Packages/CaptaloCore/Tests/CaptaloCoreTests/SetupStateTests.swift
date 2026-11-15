@@ -66,7 +66,7 @@ import Testing
         let row = LoginItemRow.make(status: .requiresApproval)
         #expect(row.text == "Approve Cáptalo in System Settings > Login Items")
         #expect(row.action == .openLoginItemsSettings)
-        #expect(!row.isOn)
+        #expect(row.isOn)
     }
 
     @Test func notFoundExplainsTheFix() {
@@ -78,5 +78,19 @@ import Testing
     @Test func registerErrorIsVisible() {
         let row = LoginItemRow.make(status: .notRegistered, registerError: "Operation not permitted")
         #expect(row.text == "Launch at login could not be changed: Operation not permitted")
+    }
+
+    @Test func registerErrorKeepsTheApprovalButton() {
+        let row = LoginItemRow.make(status: .requiresApproval, registerError: "Operation not permitted")
+        #expect(row.action == .openLoginItemsSettings)
+        #expect(row.text?.contains("Approve Cáptalo") == true)
+        #expect(row.text?.contains("Operation not permitted") == true)
+    }
+
+    @Test func everyServiceManagementStatusMaps() {
+        #expect(LoginItemStatus(.enabled) == .enabled)
+        #expect(LoginItemStatus(.notRegistered) == .notRegistered)
+        #expect(LoginItemStatus(.requiresApproval) == .requiresApproval)
+        #expect(LoginItemStatus(.notFound) == .notFound)
     }
 }

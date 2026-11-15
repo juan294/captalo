@@ -38,16 +38,19 @@ extension CaptaloAppState {
     /// KeyboardShortcuts 3.1.0 does not report registration failure (phase 4
     /// entry probe), so the row says what to do if the shortcut does nothing.
     var shortcutNotice: String? {
-        KeyboardShortcuts.getShortcut(for: .readSelection) == nil
+        if let shortcutRejection { return shortcutRejection }
+        return KeyboardShortcuts.getShortcut(for: .readSelection) == nil
             ? "Choose a shortcut to read the selected text."
             : "If this shortcut does nothing, another app may use it; choose another."
     }
 
     /// Rejects a binding identical to the other Cáptalo shortcut (none until region reading).
     func readShortcutChanged(_ shortcut: KeyboardShortcuts.Shortcut?) {
+        shortcutRejection = nil
         if let shortcut, let other = otherShortcut(than: .readSelection),
            ShortcutValidation.validate(Self.binding(shortcut), other: Self.binding(other)) == .identicalToOther {
             KeyboardShortcuts.setShortcut(nil, for: .readSelection)
+            shortcutRejection = "That shortcut is already used by Cáptalo's other shortcut; choose another."
         }
         objectWillChange.send()
     }
@@ -63,7 +66,7 @@ extension CaptaloAppState {
     // MARK: Launch at login
 
     func refreshLoginItem(registerError: String? = nil) {
-        loginItem = LoginItemRow.make(status: Self.loginItemStatus(SMAppService.mainApp.status), registerError: registerError)
+        loginItem = LoginItemRow.make(status: LoginItemStatus(SMAppService.mainApp.status), registerError: registerError)
     }
 
     func setLaunchAtLogin(_ enabled: Bool) {
@@ -79,13 +82,4 @@ extension CaptaloAppState {
         SMAppService.openSystemSettingsLoginItems()
     }
 
-    static func loginItemStatus(_ status: SMAppService.Status) -> LoginItemStatus {
-        switch status {
-        case .enabled: .enabled
-        case .requiresApproval: .requiresApproval
-        case .notFound: .notFound
-        case .notRegistered: .notRegistered
-        @unknown default: .notFound
-        }
-    }
 }

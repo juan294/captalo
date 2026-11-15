@@ -5,9 +5,14 @@ extension CaptaloAppState {
     /// The read-selection shortcut (plan phase 2). The press records its
     /// source at once; trust, capture and the stop gesture run in the coordinators.
     func speakSelection() {
-        if !isCaptureProbeActive, !canSpeak {
-            onVoiceAttentionRequired?()
-            return
+        if !isCaptureProbeActive {
+            // The voice is still being prepared at launch: ignore the press (not a failure).
+            if voiceState == .checking { return }
+            // A failed press with required setup missing opens the settings window.
+            if !setup.isReady {
+                onVoiceAttentionRequired?()
+                return
+            }
         }
         lastReadingError = nil
         let capture = selectionCapture

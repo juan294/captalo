@@ -17,6 +17,8 @@ final class CaptaloAppState: ObservableObject {
         didSet { preferencesChanged() }
     }
     @Published var loginItem = LoginItemRow.make(status: .notRegistered)
+    /// Shown under the recorder after a binding was rejected.
+    @Published var shortcutRejection: String?
     /// "The last reading stopped because of a voice error." until the next reading.
     @Published var lastReadingError: String?
     @Published var accessibilityPermissionGranted: Bool
