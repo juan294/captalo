@@ -136,27 +136,35 @@ public actor ReadingSession {
         return await runTask!.value
     }
 
-    /// Stop or replace: silence at once; an in-flight result is discarded when it returns.
+    /// Stop or replace: silence at once. The pipeline is cancelled: a call
+    /// still waiting for a shared engine never enters it, and an in-flight
+    /// result is discarded when it returns.
     public func stop() async {
         guard !stopped else { return }
         stopped = true
         epoch += 1
         queue.removeAll()
         pending.removeAll()
+        runTask?.cancel()
         wake()
         sink.stop()
     }
 
     /// `AVAudioEngineConfigurationChange`: the sink has restarted; play again
-    /// from the start of the audible unit (owner decision 6).
+    /// from the start of the audible unit (owner decision 6). When the sink
+    /// refuses a buffer, it and every later one leave the queue (audio is never
+    /// played out of order); what was rescheduled plays, then the reading ends
+    /// with a voice error (VAL-03).
     public func deviceChanged() {
         guard !stopped else { return }
         epoch += 1
         sink.stop()
         if let first = queue.first { onEvent(.replayed(unitID: first.unit.id)) }
         for index in queue.indices { queue[index].played = false }
-        for item in queue where !scheduleToSink(item) {
+        if let refused = queue.firstIndex(where: { !scheduleToSink($0) }) {
+            queue.removeSubrange(refused...)
             failed = true
+            wake()
         }
     }
 
@@ -196,7 +204,8 @@ public actor ReadingSession {
             if !stopped { failed = true }
             return
         }
-        guard !stopped else { return } // stop or replace: the result is discarded
+        // Stop or replace, or a device recovery that failed meanwhile: the result is discarded.
+        guard !stopped, !failed else { return }
         var pause = 0.0
         if piece.isLastPiece {
             pause = piece.unit.endsSentence ? limits.sentencePause : 0
