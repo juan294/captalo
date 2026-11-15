@@ -104,7 +104,8 @@ public final class RegionReader: Sendable {
         guard let recognized = finished, await isCurrent(token) else { return .cancelled }
         switch recognized {
         case .failure:
-            // A capture cut short by a newer input is a cancel, not an OCR failure.
+            // A capture or recognition error is an OCR failure, unless the
+            // caller was cancelled after the worker returned: that is a cancel.
             return Task.isCancelled ? .cancelled : .failed(.ocrFailed)
         case let .success(items):
             let blocks = DocumentTranscript.blocks(items)
