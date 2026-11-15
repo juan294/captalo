@@ -36,12 +36,18 @@ extension CaptaloAppState {
                 case let .selected(selected): selection = selected
                 case .cancelled: return .cancelled
                 case .escapeUnavailable:
-                    // The tap needs Accessibility: a revoked grant is the likely cause.
+                    let outcome = CaptureOutcome.failed(.overlayUnavailable)
+                    PrivacyLog.record(.ocr(outcome: .failed, failure: .overlayUnavailable, blocks: 0, characters: 0,
+                                           elapsed: token.startedAt.duration(to: .now)))
+                    // The tap needs Accessibility, so a revoked grant is the likely cause.
+                    // Shown in the settings window even while the grant still looks valid.
                     await MainActor.run {
-                        CaptaloAppState.shared.refreshAccessibilityPermission()
-                        CaptaloAppState.shared.requireSetup()
+                        let state = CaptaloAppState.shared
+                        state.refreshAccessibilityPermission()
+                        state.recordRegionOutcome(outcome)
+                        state.onSetupRequired?()
                     }
-                    return .failed(.overlayUnavailable)
+                    return outcome
                 }
                 let outcome = await reader.read(token, selection)
                 await MainActor.run { CaptaloAppState.shared.recordRegionOutcome(outcome) }
@@ -51,12 +57,14 @@ extension CaptaloAppState {
     }
 
     func recordRegionOutcome(_ outcome: CaptureOutcome) {
-        ocrFailures.record(outcome)
+        regionFailures.record(outcome)
     }
 
-    /// The failure category the optional OCR row shows after three consecutive failures.
+    /// The failure the optional OCR row shows: recognition failures after
+    /// three in a row, an overlay that could not open at once.
     var regionFailureNotice: String? {
-        switch ocrFailures.surfacedCategory {
+        switch regionFailures.notice {
+        case .overlayUnavailable?: "The region overlay could not open because Cáptalo could not watch for Esc. Check the Accessibility permission, then try again."
         case .ocrTimedOut?: "Recent region readings timed out."
         case .ocrFailed?: "Recent region readings could not be recognized."
         default: nil

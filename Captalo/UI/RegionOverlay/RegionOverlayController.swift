@@ -34,7 +34,8 @@ final class RegionOverlayController {
                 body()
             }
         }) { [weak self] in
-            self?.tracker?.handle(.escape)
+            // Torn down after the tap callback returns, not inside it.
+            DispatchQueue.main.async { self?.tracker?.handle(.escape) }
         }
         guard escape.start() else { return .escapeUnavailable }
         self.escape = escape

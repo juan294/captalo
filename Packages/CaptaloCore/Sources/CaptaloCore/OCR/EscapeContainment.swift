@@ -71,7 +71,8 @@ public final class EscapeContainment {
         switch event.phase {
         case .down:
             if escapeHeld { return true } // autorepeat of the accepted Esc
-            guard !closed else { return false }
+            // A repeat without an accepted keyDown: Esc was held before the overlay opened.
+            guard !closed, !event.isRepeat else { return false }
             escapeHeld = true
             onEscape()
             return true

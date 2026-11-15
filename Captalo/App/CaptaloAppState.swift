@@ -26,7 +26,7 @@ final class CaptaloAppState: ObservableObject {
     @Published var screenRecordingGranted = CGPreflightScreenCaptureAccess()
     /// Screen Recording was requested once; after that the row offers "Quit and reopen".
     @Published var screenRecordingRequested = false
-    @Published var ocrFailures = OcrFailureCounter()
+    @Published var regionFailures = RegionFailureState()
     /// "The last reading stopped because of a voice error." until the next reading.
     @Published var lastReadingError: String?
     @Published var accessibilityPermissionGranted: Bool

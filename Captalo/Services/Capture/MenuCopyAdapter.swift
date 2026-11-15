@@ -25,8 +25,8 @@ nonisolated struct AXMenuTree: MenuTreeReading {
         case .error: return .error
         }
         guard let pair = values as? [AnyObject], pair.count == 2 else { return .error }
-        let character = AX.entry(pair[0]) { $0 as? String }
-        let modifiers = AX.entry(pair[1]) { $0 as? Int }
+        let character = AXStatus.classify(AX.entry(pair[0])) { $0 as? String }
+        let modifiers = AXStatus.classify(AX.entry(pair[1])) { $0 as? Int }
         switch (character, modifiers) {
         case (.error, _), (_, .error): return .error
         default: return .value(MenuKeyEquivalent(character: character.value, modifiers: modifiers.value))
