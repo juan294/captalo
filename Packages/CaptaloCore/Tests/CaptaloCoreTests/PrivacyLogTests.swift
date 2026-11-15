@@ -14,13 +14,14 @@ import Testing
         .clipboardSnapshot(items: 2, bytes: 4_096, elapsed: .milliseconds(3)),
         .seamSession(state: .started),
         .secondInstance,
+        .ocr(outcome: .document, characters: 120, elapsed: .milliseconds(900)),
     ]
 
     @Test func eventsRenderOnlyEnumNamesAndNumbers() {
         // Allowed tokens: an event name, then key=value pairs whose value is
         // an integer or a known enum raw value.
         var enumValues = Set(["neuralEngine", "cpuAndGPU", "true", "false", "none", "started", "stopped", "finished"])
-        enumValues.formUnion(["selection", "region", "text", "nothingSelected", "unsupported", "permissionMissing", "cancelled", "failed"])
+        enumValues.formUnion(["selection", "region", "text", "document", "nothingSelected", "unsupported", "permissionMissing", "cancelled", "failed"])
         enumValues.formUnion(["accessibility", "menuCopy", "syntheticCopy", "ocr", "pass", "fail"])
         for event in Self.allCases {
             let parts = event.rendered.split(separator: " ")
@@ -59,7 +60,7 @@ private extension PrivacyEvent {
     /// The number of cases; the switch has no default.
     var arms: Int {
         switch self {
-        case .voicePrewarmed, .firstAudio, .restoreFailed, .capture, .probe, .clipboardSnapshot, .seamSession, .secondInstance: 8
+        case .voicePrewarmed, .firstAudio, .restoreFailed, .capture, .probe, .clipboardSnapshot, .seamSession, .secondInstance, .ocr: 9
         }
     }
 }

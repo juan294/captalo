@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		F10000000000000000000001 /* CaptaloSpeech in Frameworks */ = {isa = PBXBuildFile; productRef = F10000000000000000000002 /* CaptaloSpeech */; };
 		F10000000000000000000011 /* CaptaloCore in Frameworks */ = {isa = PBXBuildFile; productRef = F10000000000000000000012 /* CaptaloCore */; };
+		F10000000000000000000031 /* CaptaloOCR in Frameworks */ = {isa = PBXBuildFile; productRef = F10000000000000000000032 /* CaptaloOCR */; };
 		F10000000000000000000014 /* KeyboardShortcuts in Frameworks */ = {isa = PBXBuildFile; productRef = F10000000000000000000015 /* KeyboardShortcuts */; };
 /* End PBXBuildFile section */
 
@@ -31,6 +32,7 @@
 			files = (
 				F10000000000000000000001 /* CaptaloSpeech in Frameworks */,
 				F10000000000000000000011 /* CaptaloCore in Frameworks */,
+				F10000000000000000000031 /* CaptaloOCR in Frameworks */,
 				F10000000000000000000014 /* KeyboardShortcuts in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -79,6 +81,7 @@
 			packageProductDependencies = (
 				F10000000000000000000002 /* CaptaloSpeech */,
 				F10000000000000000000012 /* CaptaloCore */,
+				F10000000000000000000032 /* CaptaloOCR */,
 				F10000000000000000000015 /* KeyboardShortcuts */,
 			);
 			productName = Captalo;
@@ -112,6 +115,7 @@
 			packageReferences = (
 				F10000000000000000000003 /* XCLocalSwiftPackageReference "Packages/CaptaloSpeech" */,
 				F10000000000000000000013 /* XCLocalSwiftPackageReference "Packages/CaptaloCore" */,
+				F10000000000000000000033 /* XCLocalSwiftPackageReference "Packages/CaptaloOCR" */,
 				F10000000000000000000016 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -458,6 +462,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/CaptaloSpeech;
 		};
+		F10000000000000000000033 /* XCLocalSwiftPackageReference "Packages/CaptaloOCR" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/CaptaloOCR;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 
@@ -482,6 +490,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = F10000000000000000000003 /* XCLocalSwiftPackageReference "Packages/CaptaloSpeech" */;
 			productName = CaptaloSpeech;
+		};
+		F10000000000000000000032 /* CaptaloOCR */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F10000000000000000000033 /* XCLocalSwiftPackageReference "Packages/CaptaloOCR" */;
+			productName = CaptaloOCR;
 		};
 		F10000000000000000000015 /* KeyboardShortcuts */ = {
 			isa = XCSwiftPackageProductDependency;

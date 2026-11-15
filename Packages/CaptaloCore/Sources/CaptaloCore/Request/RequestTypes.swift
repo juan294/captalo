@@ -64,10 +64,38 @@ public enum CaptureFailure: String, Sendable {
     case noText
     case ocrTimedOut
     case ocrFailed
+    /// A region press while the OCR slot is held: silent.
+    case ocrBusy
+}
+
+/// What a committed reading speaks: selected (or app-provided) text, or the
+/// structured blocks OCR recognized (never flattened before cleanup).
+public enum ReadingContent: Equatable, Sendable {
+    case text(String)
+    case document([Block])
+
+    /// The spoken material as one string, for the reading identity and counts.
+    public var plainText: String {
+        switch self {
+        case let .text(text): text
+        case let .document(blocks): blocks.map(\.plainText).joined(separator: "\n")
+        }
+    }
+}
+
+extension Block {
+    var plainText: String {
+        switch self {
+        case let .paragraph(text), let .listItem(text), let .codeLine(text): text
+        case let .tableRow(cells): cells.joined(separator: " ")
+        }
+    }
 }
 
 public enum CaptureOutcome: Equatable, Sendable {
     case text(String, layer: CaptureLayerKind)
+    /// OCR result: structured blocks in reading order.
+    case document([Block])
     case nothingSelected
     case unsupported(UnsupportedReason)
     case permissionMissing
@@ -76,14 +104,20 @@ public enum CaptureOutcome: Equatable, Sendable {
 
     /// The layer that produced text, or nil.
     public var capturedLayer: CaptureLayerKind? {
-        if case let .text(_, layer) = self { return layer }
-        return nil
+        switch self {
+        case let .text(_, layer): layer
+        case .document: .ocr
+        default: nil
+        }
     }
 
     /// Characters of captured text (0 when there is none).
     public var capturedLength: Int {
-        if case let .text(text, _) = self { return text.count }
-        return 0
+        switch self {
+        case let .text(text, _): text.count
+        case let .document(blocks): ReadingContent.document(blocks).plainText.count
+        default: 0
+        }
     }
 }
 

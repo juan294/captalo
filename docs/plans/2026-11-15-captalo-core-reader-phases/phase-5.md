@@ -22,6 +22,19 @@ A throwaway Debug spike, not merged. It answers these questions on this Mac befo
 
 The probe results choose one Esc mechanism, one capture call and the OCR lifetime contract below. Both choices are recorded in this file before 5A and 5B start ("one code path per action"). If question 1 or 3 has no working answer, stop and report: the region interaction then needs a new owner decision.
 
+### Gate 0 results (2026-11-15, this Mac, Xcode 27.0 SDK)
+
+The spike ran as scratch probes outside the repository. Without Screen Recording and without a signed install (notes D1), only the API questions and question 4 could run; questions 1 to 3 need the owner at the installed app (notes D20).
+
+| Question | Result | Evidence |
+| --- | --- | --- |
+| 1 Esc without activation | Pending (runtime). Chosen: borderless `.nonactivatingPanel` per screen with `canBecomeKey == false`; Esc through a session `CGEventTap` that swallows key code 53 while the overlay is visible (Accessibility is already a required grant). No Carbon hotkey. | Owner check: Manual criterion 3 |
+| 2 Full-screen Spaces and screen changes | Pending (runtime). Panels use `.canJoinAllSpaces` and `.fullScreenAuxiliary` at `.screenSaver` level; `didChangeScreenParametersNotification` cancels (`RegionOverlayTests.screenChangeCancels`). | Manual criteria 4 and 5 |
+| 3 Overlay-free capture | API confirmed in the macOS 26 SDK: `SCScreenshotManager.captureImage(contentFilter:configuration:)` and `SCStreamConfiguration.sourceRect`. Chosen: `SCContentFilter(display:excludingApplications:exceptingWindows:)` excluding Cáptalo, `sourceRect` from `RegionGeometry`, output size at the display's native scale. Pixel check pending (runtime). | Manual criterion 2 |
+| 4 Native cancellation | `RecognizeDocumentsRequest` honours cancellation: cancelled at 50 ms and 300 ms into a 0.66 s warm run, it threw `VisionError.requestCancelled` 0.15 ms and 0.18 ms after the cancel. A cancel after the request finished returned its result. The first run in a process took 13.5 s (model load). | Scratch probe, rerun 2026-11-15; `make ocr-probe` checks the slot is free within 1 s of a cancel |
+
+OCR lifetime contract: the caller waits at most 10 s; the worker that owns the image and the Vision call releases the slot when the native call returns or throws. Measured release after cancel: under 1 ms on this Mac.
+
 ## Units
 
 ### 5A Overlay and geometry `[batch-eligible]`

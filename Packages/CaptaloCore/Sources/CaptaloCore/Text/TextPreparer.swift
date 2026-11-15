@@ -49,6 +49,15 @@ public enum TextPreparer {
         return AnyIterator(UnitChunker(prepare(blocks, source: source)).makeIterator())
     }
 
+    /// Units for a committed reading: selection text is split into blocks;
+    /// OCR blocks go straight into cleanup with the OCR rules.
+    public static func units(for content: ReadingContent) -> AnyIterator<SynthesisUnit> {
+        switch content {
+        case let .text(text): units(for: text, source: .selection)
+        case let .document(blocks): AnyIterator(UnitChunker(prepare(blocks, source: .ocr)).makeIterator())
+        }
+    }
+
     /// False when cleanup leaves nothing to say: silence, like an empty selection.
     public static func hasSpeakableText(_ text: String, source: TextSource = .selection) -> Bool {
         units(for: text, source: source).next() != nil

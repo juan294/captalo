@@ -12,6 +12,9 @@ final class CaptaloApplicationDelegate: NSObject, NSApplicationDelegate {
         KeyboardShortcuts.onKeyDown(for: .readSelection) {
             CaptaloAppState.shared.speakSelection()
         }
+        KeyboardShortcuts.onKeyDown(for: .readRegion) {
+            CaptaloAppState.shared.readRegion()
+        }
         state.refreshAccessibilityPermission()
         state.prepareVoice()
         // Required setup missing (a voice still checking is pending): open the window at launch.

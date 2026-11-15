@@ -110,9 +110,9 @@ import Testing
 
     @Test func sessionFinishCallbackEndsOnlyItsOwnSession() async {
         let finishers = FinisherBox()
-        let coordinator = RequestCoordinator { token, text, finished in
+        let coordinator = RequestCoordinator { token, content, finished in
             finishers.append(finished)
-            return RecordingSession(name: "\(token.sessionGeneration):\(text)", log: EventLog())
+            return RecordingSession(name: "\(token.sessionGeneration):\(content.plainText)", log: EventLog())
         }
         let one = await coordinator.beginInput(kind: .selection, source: sourceA)
         _ = await coordinator.resolve(one, .text("one", layer: .accessibility))
@@ -149,16 +149,16 @@ import Testing
     @Test func interleavedPromotionsNeverStartAStaleHandle() async {
         let log = EventLog()
         let gate = Gate()
-        let coordinator = RequestCoordinator { token, text, _ in
-            GatedSession(name: "\(token.sessionGeneration):\(text)", log: log, stopGate: text == "old" ? gate : nil)
+        let coordinator = RequestCoordinator { token, content, _ in
+            GatedSession(name: "\(token.sessionGeneration):\(content.plainText)", log: log, stopGate: content == .text("old") ? gate : nil)
         }
         let first = await coordinator.beginInput(kind: .selection, source: sourceA)
         _ = await coordinator.resolve(first, .text("old", layer: .accessibility))
         let a = await coordinator.beginInput(kind: .region, source: sourceA)
-        let promoteA = Task { await coordinator.resolve(a, .text("A", layer: .ocr)) }
+        let promoteA = Task { await coordinator.resolve(a, .document([.paragraph("A")])) }
         try? await Task.sleep(for: .milliseconds(20))
         let b = await coordinator.beginInput(kind: .region, source: sourceA)
-        _ = await coordinator.resolve(b, .text("B", layer: .ocr))
+        _ = await coordinator.resolve(b, .document([.paragraph("B")]))
         await gate.open()
         _ = await promoteA.value
         #expect(!log.events.contains("start 2:A"))

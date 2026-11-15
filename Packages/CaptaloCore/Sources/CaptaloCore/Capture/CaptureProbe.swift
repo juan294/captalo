@@ -19,6 +19,8 @@ public enum CaptureProbe {
         switch outcome {
         case let .text(text, _):
             normalize(text) == normalize(expected) ? .pass : .fail
+        case .document:
+            .fail
         case .nothingSelected:
             .nothingSelected
         case .unsupported:

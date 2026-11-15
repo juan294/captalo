@@ -125,6 +125,20 @@ Plan: `2026-11-15-captalo-core-reader.md` (revision 4, accepted 2026-11-15). Imp
 - Found: `defaults import` merges into the domain, so keys written during the fresh-state check (a recorded shortcut) survived the restore and the comparison could never pass.
 - Chose: restore deletes the domain, imports the backup, compares normalized XML and marks the record restored; backup refuses to start while an unrestored record exists. Tested on a disposable domain, including an extra key written between backup and restore.
 
+### D20. Gate 0 runtime questions recorded as pending (phase 5)
+
+- Plan said: gate 0 answers questions 1 to 3 on this Mac before 5A starts, and stops if question 1 or 3 has no working answer.
+- Found: questions 1 to 3 need Screen Recording and an installed, signed app, which D1 blocks. The SDK has every API the chosen path needs, and question 4 ran.
+- Chose: build the documented mechanisms (non-activating panels, a session event tap for Esc, ScreenCaptureKit with the app excluded) and record the runtime answers as owner checks in the phase 5 manual criteria.
+- Why: no answer was negative; the questions are unanswered. If the owner check finds a negative answer, the stop condition applies then, and the region interaction needs a new owner decision.
+
+### D21. The Vision adapter lives in `Packages/CaptaloOCR` (phase 5, unit 5B)
+
+- Plan said: OCR adapter files in `Captalo/Services/OCR/`.
+- Found: `make ocr-probe` must run the app's recognition step from the command line, and the app target cannot be linked by a command-line tool.
+- Chose: `VisionRecognizer` in a small `CaptaloOCR` package used by both the app and `captalo-ocr-probe`; the ScreenCaptureKit capturer stays in `Captalo/Services/OCR/`. The image-write code search covers both.
+- Why: the probe then tests the shipped recognition code, not a copy.
+
 ## Phase 1 handoff (2026-11-15)
 
 - Candidate: branch `feat/core-reader`, commits `a000427` (rename), `7f7737a` (cc-rpi v2.2.0), `6eb0b4a` (foundation), `556c148` (review repairs) and the simplify commit that carries this note. `make verify` (8 checks: whitespace, rpi-installation, core tests debug and release, unsigned Debug and Release builds, log-audit, script-test) passed on the simplify candidate; evidence in the worktree's ignored `.rpi/local/verification.json`.

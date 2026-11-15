@@ -48,13 +48,13 @@ nonisolated final class SpeechService: Sendable {
 
     /// A committed reading of captured text, with the voice and speed of this moment.
     func makeSession(
-        text: String, source: TextSource, voice: String, speed: Float,
+        content: ReadingContent, voice: String, speed: Float,
         finished: @escaping @Sendable () async -> Bool,
         voiceError: @escaping @Sendable () -> Void
     ) -> PlaybackSession {
         guard let synthesizer = setup?.synthesizer else { return EmptySession(finished: finished) }
         let reading = ReadingSession(
-            units: { TextPreparer.units(for: text, source: source) },
+            units: { TextPreparer.units(for: content) },
             synthesizer: synthesizer, sink: sink, voice: voice, speed: speed
         )
         return ReadingPlaybackSession(reading: reading, current: current, finished: finished, voiceError: voiceError)

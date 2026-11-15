@@ -10,7 +10,7 @@ struct SettingsView: View {
         Form {
             Section("Reading") {
                 LabeledContent("Read selection") {
-                    KeyboardShortcuts.Recorder(for: .readSelection) { state.readShortcutChanged($0) }
+                    KeyboardShortcuts.Recorder(for: .readSelection) { state.shortcutChanged(.readSelection, $0) }
                 }
                 if let notice = state.shortcutNotice {
                     Text(notice).font(.caption).foregroundStyle(.secondary)
@@ -49,9 +49,27 @@ struct SettingsView: View {
                 }
             }
 
-            Section("Optional") {
-                Text("Reading a screen region arrives with on-device text recognition.")
-                    .foregroundStyle(.secondary)
+            Section("Optional: read a screen region") {
+                LabeledContent("Read region") {
+                    KeyboardShortcuts.Recorder(for: .readRegion) { state.shortcutChanged(.readRegion, $0) }
+                }
+                LabeledContent("Screen Recording") {
+                    VStack(alignment: .trailing, spacing: 4) {
+                        if state.screenRecordingGranted {
+                            Label("Allowed", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+                        } else {
+                            Button("Allow Screen Recording", action: state.requestScreenRecording)
+                            if state.screenRecordingRequested {
+                                Text("If you allowed it and region reading still does nothing, macOS needs Cáptalo to reopen.")
+                                    .font(.caption).foregroundStyle(.secondary)
+                                Button("Quit and reopen", action: state.quitAndReopen)
+                            }
+                        }
+                    }
+                }
+                if let notice = state.regionFailureNotice {
+                    Text(notice).font(.caption).foregroundStyle(.orange)
+                }
             }
 
             Section {

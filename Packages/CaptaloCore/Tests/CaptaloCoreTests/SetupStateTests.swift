@@ -41,6 +41,14 @@ import Testing
         #expect(state.optionalMissing == [.screenRecording, .regionShortcut])
     }
 
+    @Test func screenRecordingIsOptionalButRequestedOnRegionPress() {
+        #expect(SetupState.evaluate(ready).isReady)
+        #expect(SetupState.regionPressRequirement(ready) == .screenRecording)
+        var granted = ready
+        granted.screenRecordingGranted = true
+        #expect(SetupState.regionPressRequirement(granted) == nil)
+    }
+
     @Test func lastVoiceErrorShownButDoesNotBlockReady() {
         var env = ready
         env.lastReadingError = true

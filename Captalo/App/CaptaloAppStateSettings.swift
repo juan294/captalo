@@ -21,15 +21,18 @@ extension CaptaloAppState {
             voice: voiceState,
             accessibilityTrusted: accessibilityPermissionGranted,
             readShortcutSet: readShortcutSet,
+            screenRecordingGranted: screenRecordingGranted,
+            regionShortcutSet: regionShortcutSet,
             lastReadingError: lastReadingError != nil
         )
     }
 
     var setup: SetupState { SetupState.evaluate(setupEnvironment) }
 
-    /// Refreshes the parts of setup the window shows (permission, login item).
+    /// Refreshes the parts of setup the window shows (permissions, login item).
     func refreshSetup() {
         refreshAccessibilityPermission()
+        refreshScreenRecording()
         refreshLoginItem()
     }
 
@@ -44,20 +47,21 @@ extension CaptaloAppState {
             : "If this shortcut does nothing, another app may use it; choose another."
     }
 
-    /// Rejects a binding identical to the other Cáptalo shortcut (none until region reading).
-    func readShortcutChanged(_ shortcut: KeyboardShortcuts.Shortcut?) {
+    /// Rejects a binding identical to the other Cáptalo shortcut, for either recorder.
+    func shortcutChanged(_ name: KeyboardShortcuts.Name, _ shortcut: KeyboardShortcuts.Shortcut?) {
         var rejection: String?
-        if let shortcut, let other = otherShortcut(than: .readSelection),
+        if let shortcut, let other = KeyboardShortcuts.getShortcut(for: otherName(than: name)),
            ShortcutValidation.validate(Self.binding(shortcut), other: Self.binding(other)) == .identicalToOther {
-            KeyboardShortcuts.setShortcut(nil, for: .readSelection)
+            KeyboardShortcuts.setShortcut(nil, for: name)
             rejection = "That shortcut is already used by Cáptalo's other shortcut; choose another."
         }
         shortcutRejection = rejection
         readShortcutSet = KeyboardShortcuts.getShortcut(for: .readSelection) != nil
+        regionShortcutSet = KeyboardShortcuts.getShortcut(for: .readRegion) != nil
     }
 
-    func otherShortcut(than name: KeyboardShortcuts.Name) -> KeyboardShortcuts.Shortcut? {
-        nil
+    func otherName(than name: KeyboardShortcuts.Name) -> KeyboardShortcuts.Name {
+        name == .readSelection ? .readRegion : .readSelection
     }
 
     static func binding(_ shortcut: KeyboardShortcuts.Shortcut) -> ShortcutBinding {

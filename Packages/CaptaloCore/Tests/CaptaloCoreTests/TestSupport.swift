@@ -73,7 +73,7 @@ let sourceA = InputSource(pid: 101, bundleID: "com.example.a", focusedElement: E
 let sourceB = InputSource(pid: 202, bundleID: "com.example.b", focusedElement: ElementRef("field-b"))
 
 func makeCoordinator(log: EventLog) -> RequestCoordinator {
-    RequestCoordinator { token, text, _ in
-        RecordingSession(name: "\(token.sessionGeneration):\(text)", log: log)
+    RequestCoordinator { token, content, _ in
+        RecordingSession(name: "\(token.sessionGeneration):\(content.plainText)", log: log)
     }
 }

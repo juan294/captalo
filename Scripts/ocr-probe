@@ -1,0 +1,14 @@
+#!/bin/sh
+# make ocr-probe: the Release-built OCR probe on the committed synthetic
+# fixtures (block kinds, order, words), then one cancelled recognition that
+# must free the OCR slot within 1 s (gate 0 measured about 0.15 ms).
+set -eu
+: "${DEVELOPER_DIR:=/Applications/Xcode-beta.app/Contents/Developer}"
+export DEVELOPER_DIR
+ROOT=$(cd "$(dirname "$0")/.." && pwd)
+swift build -c release --package-path "$ROOT/Packages/CaptaloOCR" --product captalo-ocr-probe >&2
+PROBE="$(swift build -c release --package-path "$ROOT/Packages/CaptaloOCR" --show-bin-path)/captalo-ocr-probe"
+for fixture in ocr-two-column ocr-table; do
+  "$PROBE" "$ROOT/Fixtures/$fixture.png" "$ROOT/Fixtures/$fixture.json"
+done
+"$PROBE" --cancel "$ROOT/Fixtures/ocr-two-column.png"

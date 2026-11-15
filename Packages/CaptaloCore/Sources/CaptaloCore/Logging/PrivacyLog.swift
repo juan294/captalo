@@ -25,6 +25,8 @@ public enum PrivacyEvent: Sendable, Equatable {
     )
     /// Clipboard transaction snapshot: item count, bytes and materialization time.
     case clipboardSnapshot(items: Int, bytes: Int, elapsed: Duration)
+    /// One region recognition: outcome, recognized characters and duration (no text).
+    case ocr(outcome: OutcomeKind, characters: Int, elapsed: Duration)
     /// A second Cáptalo instance found the store's consumer lock held and exits.
     case secondInstance
     /// Debug-only silent playback seam (phase 2).
@@ -36,11 +38,12 @@ public enum PrivacyEvent: Sendable, Equatable {
 
     /// The outcome's case name, without any payload.
     public enum OutcomeKind: String, Sendable {
-        case text, nothingSelected, unsupported, permissionMissing, cancelled, failed
+        case text, document, nothingSelected, unsupported, permissionMissing, cancelled, failed
 
         public init(_ outcome: CaptureOutcome) {
             switch outcome {
             case .text: self = .text
+            case .document: self = .document
             case .nothingSelected: self = .nothingSelected
             case .unsupported: self = .unsupported
             case .permissionMissing: self = .permissionMissing
@@ -67,6 +70,8 @@ public enum PrivacyEvent: Sendable, Equatable {
             "clipboardSnapshot items=\(items) bytes=\(bytes) elapsedMs=\(PrivacyEvent.milliseconds(elapsed))"
         case .secondInstance:
             "secondInstance"
+        case let .ocr(outcome, characters, elapsed):
+            "ocr outcome=\(outcome.rawValue) characters=\(characters) elapsedMs=\(PrivacyEvent.milliseconds(elapsed))"
         case let .seamSession(state):
             "seamSession state=\(state.rawValue)"
         }

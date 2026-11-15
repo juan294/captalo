@@ -22,6 +22,11 @@ final class CaptaloAppState: ObservableObject {
     @Published var shortcutRejection: String?
     /// Cached: whether a read shortcut is recorded (updated by the recorder).
     @Published var readShortcutSet = KeyboardShortcuts.getShortcut(for: .readSelection) != nil
+    @Published var regionShortcutSet = KeyboardShortcuts.getShortcut(for: .readRegion) != nil
+    @Published var screenRecordingGranted = CGPreflightScreenCaptureAccess()
+    /// Screen Recording was requested once; after that the row offers "Quit and reopen".
+    @Published var screenRecordingRequested = false
+    @Published var ocrFailures = OcrFailureCounter()
     /// "The last reading stopped because of a voice error." until the next reading.
     @Published var lastReadingError: String?
     @Published var accessibilityPermissionGranted: Bool
@@ -42,14 +47,15 @@ final class CaptaloAppState: ObservableObject {
         #endif
         let speechService = speechService
         let settings = readingSettings
-        return RequestCoordinator { _, text, finished in
+        return RequestCoordinator { _, content, finished in
             let (voice, speed) = settings.current
             return speechService.makeSession(
-                text: text, source: .selection, voice: voice, speed: speed, finished: finished,
+                content: content, voice: voice, speed: speed, finished: finished,
                 voiceError: { Task { @MainActor in CaptaloAppState.shared.reportVoiceError() } }
             )
         }
     }()
+    lazy var regionReader: RegionReader = Self.makeRegionReader(requests: requests)
     lazy var capture: CaptureCoordinator = Self.makeCapture(
         accessibility: accessibility, requests: requests, lock: clipboardLock)
 

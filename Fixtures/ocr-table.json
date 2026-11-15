@@ -1,0 +1,28 @@
+{
+  "blocks": [
+    {
+      "kind": "paragraph",
+      "contains": "Ferry timetable"
+    },
+    {
+      "kind": "tableRow",
+      "contains": "Route"
+    },
+    {
+      "kind": "tableRow",
+      "contains": "Island"
+    },
+    {
+      "kind": "tableRow",
+      "contains": "Lighthouse"
+    },
+    {
+      "kind": "tableRow",
+      "contains": "Old town"
+    },
+    {
+      "kind": "paragraph",
+      "contains": "Tickets"
+    }
+  ]
+}

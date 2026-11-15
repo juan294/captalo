@@ -22,7 +22,7 @@ public actor RequestCoordinator {
     /// Builds a session for promoted text. `finished` reports the natural end
     /// of playback; it returns false (and does nothing) for a stale session.
     public typealias SessionFactory = @Sendable (
-        _ token: SessionToken, _ text: String, _ finished: @escaping @Sendable () async -> Bool
+        _ token: SessionToken, _ content: ReadingContent, _ finished: @escaping @Sendable () async -> Bool
     ) -> any PlaybackSession
 
     private struct Playing {
@@ -97,13 +97,15 @@ public actor RequestCoordinator {
                 await stopPlaying()
                 return .stopped
             }
-            return await promote(text, identity: identity)
+            return await promote(.text(text), identity: identity)
         case (.selection, .nothingSelected):
             guard playing != nil else { return .unchanged }
             await stopPlaying()
             return .stopped
-        case let (.region, .text(text, _)):
-            return await promote(text, identity: ReadingIdentity(capturedText: text))
+        case let (.region, .document(blocks)):
+            // Only a successful recognition replaces the reading; a region press never stops one.
+            let content = ReadingContent.document(blocks)
+            return await promote(content, identity: ReadingIdentity(capturedText: content.plainText))
         default:
             return .unchanged
         }
@@ -121,7 +123,7 @@ public actor RequestCoordinator {
     /// capture: it replaces any reading, is never a stop gesture, and leaves
     /// a pending input untouched.
     public func play(text: String) async {
-        _ = await promote(text, identity: ReadingIdentity(capturedText: text))
+        _ = await promote(.text(text), identity: ReadingIdentity(capturedText: text))
     }
 
     /// An explicit stop (inherited menu control). Pending input is untouched.
@@ -145,10 +147,10 @@ public actor RequestCoordinator {
         }
     }
 
-    private func promote(_ text: String, identity: ReadingIdentity) async -> Resolution {
+    private func promote(_ content: ReadingContent, identity: ReadingIdentity) async -> Resolution {
         sessionGeneration += 1
         let token = SessionToken(sessionGeneration: sessionGeneration)
-        let handle = makeSession(token, text) { [weak self] in await self?.sessionFinished(token) ?? false }
+        let handle = makeSession(token, content) { [weak self] in await self?.sessionFinished(token) ?? false }
         let new = Playing(token: token, identity: identity, handle: handle)
         let old = playing
         playing = new

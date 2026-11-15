@@ -103,6 +103,13 @@
       ]
     },
     {
+      "name": "ocr-probe",
+      "argv": [
+        "make",
+        "ocr-probe"
+      ]
+    },
+    {
       "name": "log-audit",
       "argv": [
         "make",

@@ -48,4 +48,10 @@ public struct SetupState: Equatable, Sendable {
         if !env.regionShortcutSet { optional.append(.regionShortcut) }
         return SetupState(requiredMissing: required, optionalMissing: optional, showsVoiceError: env.lastReadingError)
     }
+
+    /// A region press asks for Screen Recording only when it is missing; a
+    /// selection-only user never sees the request (owner decision 8).
+    public static func regionPressRequirement(_ env: SetupEnvironment) -> SetupItem? {
+        env.screenRecordingGranted ? nil : .screenRecording
+    }
 }
