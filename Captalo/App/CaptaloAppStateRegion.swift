@@ -49,7 +49,13 @@ extension CaptaloAppState {
                     return outcome
                 }
                 let outcome = await reader.read(token, selection)
-                await MainActor.run { CaptaloAppState.shared.recordRegionOutcome(outcome) }
+                await MainActor.run {
+                    let state = CaptaloAppState.shared
+                    state.recordRegionOutcome(outcome)
+                    // A screenshot that never arrived is usually a macOS screen-access
+                    // prompt waiting for an answer: say so at once, like a permission.
+                    if outcome == .failed(.captureTimedOut) { state.onSetupRequired?() }
+                }
                 return outcome
             }
         }
@@ -64,6 +70,7 @@ extension CaptaloAppState {
     var regionFailureNotice: String? {
         switch ocrFailures.surfacedCategory {
         case .overlayUnavailable?: "The region overlay could not open because Cáptalo could not watch for Esc. Check the Accessibility permission, then try again."
+        case .captureTimedOut?: "The screenshot for the last region reading did not arrive. If macOS asks whether Cáptalo may access your screen, choose Allow, then press the region shortcut again."
         case .ocrTimedOut?: "Recent region readings timed out."
         case .ocrFailed?: "Recent region readings could not be recognized."
         default: nil

@@ -83,10 +83,12 @@ public final class RegionReader: Sendable {
         // 2, 4. The worker owns the capture, the image and the reservation; it
         // releases the slot only when the capture and any Vision call have ended.
         let (slot, capturer, recognizer, isCurrent) = (self.slot, self.capturer, self.recognizer, self.isCurrent)
+        let captured = Atomic(false)
         let worker = Task { () -> Result<[TranscriptItem], any Error> in
             let result: Result<[TranscriptItem], any Error>
             do {
                 let image = try await capturer.capture(selection)
+                captured.store(true, ordering: .sequentiallyConsistent)
                 // 2a. The caller gave up (timeout, cancel) or a newer input
                 // superseded this one: drop the image, never start Vision.
                 let current = await isCurrent(token)
@@ -104,7 +106,9 @@ public final class RegionReader: Sendable {
         guard let finished = await Self.race(worker, timeout: timeout) else {
             worker.cancel()
             // A cancelled caller (newer press, quit) is a cancel, never a timeout.
-            return Task.isCancelled ? .cancelled : .failed(.ocrTimedOut)
+            // A screenshot that never arrived is told apart from a slow recognition.
+            guard !Task.isCancelled else { return .cancelled }
+            return .failed(captured.load(ordering: .sequentiallyConsistent) ? .ocrTimedOut : .captureTimedOut)
         }
         // 5. Deliver only to a current input. A dropped image (CancellationError)
         // happens only for an input that is no longer current, so it ends here.
@@ -181,7 +185,7 @@ public struct OcrFailureCounter: Equatable, Sendable {
     public static func threshold(for failure: CaptureFailure) -> Int? {
         switch failure {
         case .ocrFailed, .ocrTimedOut: 3
-        case .overlayUnavailable: 1
+        case .overlayUnavailable, .captureTimedOut: 1
         default: nil
         }
     }

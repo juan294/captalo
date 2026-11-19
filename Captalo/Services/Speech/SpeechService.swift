@@ -53,11 +53,13 @@ nonisolated final class SpeechService: Sendable {
         voiceError: @escaping @Sendable () -> Void
     ) -> PlaybackSession {
         guard let synthesizer = setup?.synthesizer else { return EmptySession(finished: finished) }
+        let log = ReadingLogRecorder()
         let reading = ReadingSession(
             units: { TextPreparer.units(for: content) },
-            synthesizer: synthesizer, sink: sink, voice: voice, speed: speed
+            synthesizer: synthesizer, sink: sink, voice: voice, speed: speed,
+            onEvent: log.observe
         )
-        return ReadingPlaybackSession(reading: reading, current: current, finished: finished, voiceError: voiceError)
+        return ReadingPlaybackSession(reading: reading, log: log, current: current, finished: finished, voiceError: voiceError)
     }
 
 }
@@ -78,13 +80,15 @@ nonisolated final class CurrentReading: Sendable {
 /// Adapts a `ReadingSession` to the request coordinator's session handle.
 nonisolated final class ReadingPlaybackSession: PlaybackSession {
     private let reading: ReadingSession
+    private let log: ReadingLogRecorder
     private let current: CurrentReading
     private let finished: @Sendable () async -> Bool
     private let voiceError: @Sendable () -> Void
 
-    init(reading: ReadingSession, current: CurrentReading, finished: @escaping @Sendable () async -> Bool,
-         voiceError: @escaping @Sendable () -> Void) {
+    init(reading: ReadingSession, log: ReadingLogRecorder, current: CurrentReading,
+         finished: @escaping @Sendable () async -> Bool, voiceError: @escaping @Sendable () -> Void) {
         self.reading = reading
+        self.log = log
         self.current = current
         self.finished = finished
         self.voiceError = voiceError
@@ -97,8 +101,10 @@ nonisolated final class ReadingPlaybackSession: PlaybackSession {
         let current = self.current
         let finished = self.finished
         let voiceError = self.voiceError
+        let log = self.log
         Task {
             let outcome = await reading.outcome()
+            PrivacyLog.record(log.event(outcome: outcome))
             current.clear(reading)
             guard outcome != .stopped else { return }
             if outcome == .voiceError { voiceError() }

@@ -69,6 +69,9 @@ public enum CaptureFailure: String, Sendable {
     case menuUnreadable
     case noText
     case ocrTimedOut
+    /// The screenshot itself did not arrive in time; macOS may be showing a
+    /// screen-access prompt (owner check, 2026-11-19).
+    case captureTimedOut
     case ocrFailed
     /// A region press while the OCR slot is held: silent.
     case ocrBusy
