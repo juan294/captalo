@@ -181,17 +181,26 @@ public struct OcrFailureCounter: Equatable, Sendable {
 
     public init() {}
 
-    /// How many consecutive failures of this category surface it; nil when it is not counted.
-    public static func threshold(for failure: CaptureFailure) -> Int? {
-        switch failure {
-        case .ocrFailed, .ocrTimedOut: 3
-        case .overlayUnavailable, .captureTimedOut: 1
-        default: nil
+    /// Failures that count together. Recognition errors and slow recognition
+    /// share a streak; an overlay failure and a blocked screenshot each have their own.
+    private enum Streak {
+        case recognition, overlay, capture
+
+        init?(_ failure: CaptureFailure) {
+            switch failure {
+            case .ocrFailed, .ocrTimedOut: self = .recognition
+            case .overlayUnavailable: self = .overlay
+            case .captureTimedOut: self = .capture
+            default: return nil
+            }
         }
+
+        var threshold: Int { self == .recognition ? 3 : 1 }
     }
 
-    private static func streak(_ failure: CaptureFailure) -> CaptureFailure {
-        failure == .ocrTimedOut ? .ocrFailed : failure
+    /// How many consecutive failures of this category surface it; nil when it is not counted.
+    public static func threshold(for failure: CaptureFailure) -> Int? {
+        Streak(failure)?.threshold
     }
 
     public var surfacedCategory: CaptureFailure? {
@@ -204,9 +213,7 @@ public struct OcrFailureCounter: Equatable, Sendable {
         case .document:
             self = OcrFailureCounter()
         case let .failed(failure) where Self.threshold(for: failure) != nil:
-            // Recognition failures (errors, slow Vision) count together; an overlay
-            // failure and a blocked screenshot are each their own streak.
-            let sameStreak = lastCategory.map { Self.streak($0) == Self.streak(failure) } ?? false
+            let sameStreak = lastCategory.map { Streak($0) == Streak(failure) } ?? false
             consecutive = sameStreak ? consecutive + 1 : 1
             lastCategory = failure
         case .cancelled:

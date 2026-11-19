@@ -44,29 +44,28 @@ extension CaptaloAppState {
                         let state = CaptaloAppState.shared
                         state.refreshAccessibilityPermission()
                         state.recordRegionOutcome(outcome)
-                        state.onSetupRequired?()
                     }
                     return outcome
                 }
                 let outcome = await reader.read(token, selection)
-                await MainActor.run {
-                    let state = CaptaloAppState.shared
-                    state.recordRegionOutcome(outcome)
-                    // A screenshot that never arrived is usually a macOS screen-access
-                    // prompt waiting for an answer: say so at once, like a permission.
-                    if outcome == .failed(.captureTimedOut) { state.onSetupRequired?() }
-                }
+                await MainActor.run { CaptaloAppState.shared.recordRegionOutcome(outcome) }
                 return outcome
             }
         }
     }
 
+    /// Counts a region outcome. A failure surfaced after one occurrence (an
+    /// overlay that could not open, or a screenshot that never arrived, usually
+    /// a macOS screen-access prompt) opens the settings window at once.
     func recordRegionOutcome(_ outcome: CaptureOutcome) {
         ocrFailures.record(outcome)
+        if case let .failed(failure) = outcome, OcrFailureCounter.threshold(for: failure) == 1 {
+            onSetupRequired?()
+        }
     }
 
     /// The failure the optional OCR row shows: recognition failures after
-    /// three in a row, an overlay that could not open at once.
+    /// three in a row; an overlay that could not open or a blocked screenshot at once.
     var regionFailureNotice: String? {
         switch ocrFailures.surfacedCategory {
         case .overlayUnavailable?: "The region overlay could not open because Cáptalo could not watch for Esc. Check the Accessibility permission, then try again."

@@ -1,5 +1,4 @@
 import Foundation
-import Synchronization
 
 public enum MenuCopyState: Equatable, Sendable {
     case enabled
@@ -85,9 +84,9 @@ public final class CaptureCoordinator: Sendable {
         }
         if hidesSelection {
             // D31: the menu reports Copy disabled too, so only the key can copy.
-            // A posted key that changes nothing means nothing was selected.
+            // A sent key that changes nothing means nothing was selected.
             let outcome = await syntheticCopy(token)
-            return outcome.posted && outcome.result == .failed(.noCopyResult) ? .nothingSelected : outcome.result
+            return outcome == .failed(.noCopyResult) ? .nothingSelected : outcome
         }
         let pid = token.source.pid
         switch menu.copyItemState(pid: pid) {
@@ -98,23 +97,19 @@ public final class CaptureCoordinator: Sendable {
         case .enabled:
             return await copy(token, layer: .menuCopy) { [menu] in menu.pressCopy(pid: pid) }
         case .absent:
-            return await syntheticCopy(token).result
+            return await syntheticCopy(token)
         }
     }
 
-    /// Cmd+C after the shortcut's modifiers are released. `posted` says
-    /// whether the key was actually sent.
-    private func syntheticCopy(_ token: InputToken) async -> (result: CaptureOutcome, posted: Bool) {
-        guard await waitForModifierRelease() else { return (.unsupported(.modifiersHeld), false) }
-        let posted = Atomic(false)
+    /// Cmd+C after the shortcut's modifiers are released.
+    private func syntheticCopy(_ token: InputToken) async -> CaptureOutcome {
+        guard await waitForModifierRelease() else { return .unsupported(.modifiersHeld) }
         // Modifiers are checked again at the post: a lock wait may have passed.
-        let result = await copy(token, layer: .syntheticCopy) { [keys] in
+        return await copy(token, layer: .syntheticCopy) { [keys] in
             guard keys.shortcutModifiersReleased() else { return false }
             keys.postCopy()
-            posted.store(true, ordering: .sequentiallyConsistent)
             return true
         }
-        return (result, posted.load(ordering: .sequentiallyConsistent))
     }
 
     private func waitForModifierRelease() async -> Bool {

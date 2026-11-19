@@ -187,7 +187,7 @@ public final class ClipboardTransaction {
         checkpoint?(.beforeCopy)
         guard await isCurrent() else { return .cancelled }
         guard pasteboard.changeCount == snapshot.changeCount else { return .failed(.ownershipUncertain) }
-        guard await copyAction() else { return .failed(.noCopyResult) }
+        guard await copyAction() else { return .failed(.copyNotSent) }
         return await attributeAndRestore(snapshot)
     }
 

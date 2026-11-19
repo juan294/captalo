@@ -250,7 +250,7 @@ final class FakeFocus: FocusEnvironment, @unchecked Sendable {
         ax.selectedText = .value("")
         var checks = 0
         keys.releasedProvider = { checks += 1; return checks == 1 }
-        #expect(await coordinator().capture(rex) == .failed(.noCopyResult))
+        #expect(await coordinator().capture(rex) == .failed(.copyNotSent))
         #expect(keys.posts == 0)
     }
 
@@ -313,7 +313,7 @@ final class FakeFocus: FocusEnvironment, @unchecked Sendable {
         }
         let result = await coordinator().capture(token)
         #expect(keys.posts == 0)
-        #expect(result == .failed(.noCopyResult))
+        #expect(result == .failed(.copyNotSent))
     }
 
     @Test func neverSetsEnhancedUserInterface() async {

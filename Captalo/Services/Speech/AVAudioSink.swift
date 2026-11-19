@@ -57,9 +57,7 @@ nonisolated final class AVAudioSink: AudioSink, @unchecked Sendable {
         }
         let gated = gate.gated(played)
         return lock.withLock {
-            if !engine.isRunning {
-                do { try startEngine() } catch { return false }
-            }
+            do { try startEngine() } catch { return false }
             player.scheduleBuffer(buffer, completionCallbackType: .dataPlayedBack) { _ in gated() }
             if !player.isPlaying { player.play() }
             return true
