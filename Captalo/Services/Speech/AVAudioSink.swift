@@ -8,6 +8,15 @@ import Foundation
 /// replays from the start of the audible unit (owner decision 6).
 nonisolated final class AVAudioSink: AudioSink, @unchecked Sendable {
     static let sampleRate = 24_000.0
+    /// The largest render slice the nodes accept. The defaults follow the
+    /// device's I/O buffer at engine start (480 to 1156 frames here). When the
+    /// device later asks for more (HAL maximum 4096), every render fails with
+    /// kAudioUnitErr_TooManyFramesToProcess and no configuration change is
+    /// posted, so the reading goes silent until relaunch (owner check and
+    /// hardware probe, 2026-11-19). The player renders at 24 kHz, so a device
+    /// at 8 kHz with a 4096-frame buffer pulls about 12,288 player frames;
+    /// 16384 covers the HAL range at any device rate down to 6 kHz.
+    static let maximumFramesToRender: AUAudioFrameCount = 16384
 
     private let engine = AVAudioEngine()
     private let player = AVAudioPlayerNode()
@@ -48,9 +57,7 @@ nonisolated final class AVAudioSink: AudioSink, @unchecked Sendable {
         }
         let gated = gate.gated(played)
         return lock.withLock {
-            if !engine.isRunning {
-                do { try engine.start() } catch { return false }
-            }
+            do { try startEngine() } catch { return false }
             player.scheduleBuffer(buffer, completionCallbackType: .dataPlayedBack) { _ in gated() }
             if !player.isPlaying { player.play() }
             return true
@@ -64,13 +71,25 @@ nonisolated final class AVAudioSink: AudioSink, @unchecked Sendable {
         }
     }
 
+    /// Starts the stopped engine with render limits that survive a later
+    /// device buffer-size change. Called with `lock` held. The limit can only
+    /// be set while render resources are deallocated, so a running engine is
+    /// left as it is.
+    private func startEngine() throws {
+        guard !engine.isRunning else { return }
+        for node in [engine.outputNode, engine.mainMixerNode, player] as [AVAudioNode] {
+            node.auAudioUnit.maximumFramesToRender = Self.maximumFramesToRender
+        }
+        try engine.start()
+    }
+
     private func configurationChanged() {
         let handler = lock.withLock { () -> (@Sendable () -> Void)? in
             // Invalidate first: the stop below completes every scheduled buffer.
             gate.invalidate()
             player.stop()
             engine.connect(player, to: engine.mainMixerNode, format: format)
-            try? engine.start()
+            try? startEngine()
             return onConfigurationChange
         }
         // The session replays from the start of the audible unit; scheduling

@@ -63,12 +63,18 @@ public enum UnsupportedReason: String, Sendable {
 public enum CaptureFailure: String, Sendable {
     case notPreservable
     case ownershipUncertain
+    /// The Copy action was sent, and the clipboard did not change in the window.
     case noCopyResult
+    /// The Copy action was not sent (menu press failed, modifiers held at the post).
+    case copyNotSent
     case restoreFailed
     case sourceChanged
     case menuUnreadable
     case noText
     case ocrTimedOut
+    /// The screenshot itself did not arrive in time; macOS may be showing a
+    /// screen-access prompt (owner check, 2026-11-19).
+    case captureTimedOut
     case ocrFailed
     /// A region press while the OCR slot is held: silent.
     case ocrBusy

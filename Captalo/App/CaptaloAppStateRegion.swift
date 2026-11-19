@@ -44,7 +44,6 @@ extension CaptaloAppState {
                         let state = CaptaloAppState.shared
                         state.refreshAccessibilityPermission()
                         state.recordRegionOutcome(outcome)
-                        state.onSetupRequired?()
                     }
                     return outcome
                 }
@@ -55,15 +54,22 @@ extension CaptaloAppState {
         }
     }
 
+    /// Counts a region outcome. A failure surfaced after one occurrence (an
+    /// overlay that could not open, or a screenshot that never arrived, usually
+    /// a macOS screen-access prompt) opens the settings window at once.
     func recordRegionOutcome(_ outcome: CaptureOutcome) {
         ocrFailures.record(outcome)
+        if case let .failed(failure) = outcome, OcrFailureCounter.threshold(for: failure) == 1 {
+            onSetupRequired?()
+        }
     }
 
     /// The failure the optional OCR row shows: recognition failures after
-    /// three in a row, an overlay that could not open at once.
+    /// three in a row; an overlay that could not open or a blocked screenshot at once.
     var regionFailureNotice: String? {
         switch ocrFailures.surfacedCategory {
         case .overlayUnavailable?: "The region overlay could not open because Cáptalo could not watch for Esc. Check the Accessibility permission, then try again."
+        case .captureTimedOut?: "The screenshot for the last region reading did not arrive. If macOS asks whether Cáptalo may access your screen, answer it first: region presses do nothing until you do. Then press the region shortcut again."
         case .ocrTimedOut?: "Recent region readings timed out."
         case .ocrFailed?: "Recent region readings could not be recognized."
         default: nil

@@ -83,10 +83,12 @@ public final class RegionReader: Sendable {
         // 2, 4. The worker owns the capture, the image and the reservation; it
         // releases the slot only when the capture and any Vision call have ended.
         let (slot, capturer, recognizer, isCurrent) = (self.slot, self.capturer, self.recognizer, self.isCurrent)
+        let captured = Atomic(false)
         let worker = Task { () -> Result<[TranscriptItem], any Error> in
             let result: Result<[TranscriptItem], any Error>
             do {
                 let image = try await capturer.capture(selection)
+                captured.store(true, ordering: .sequentiallyConsistent)
                 // 2a. The caller gave up (timeout, cancel) or a newer input
                 // superseded this one: drop the image, never start Vision.
                 let current = await isCurrent(token)
@@ -104,7 +106,9 @@ public final class RegionReader: Sendable {
         guard let finished = await Self.race(worker, timeout: timeout) else {
             worker.cancel()
             // A cancelled caller (newer press, quit) is a cancel, never a timeout.
-            return Task.isCancelled ? .cancelled : .failed(.ocrTimedOut)
+            // A screenshot that never arrived is told apart from a slow recognition.
+            guard !Task.isCancelled else { return .cancelled }
+            return .failed(captured.load(ordering: .sequentiallyConsistent) ? .ocrTimedOut : .captureTimedOut)
         }
         // 5. Deliver only to a current input. A dropped image (CancellationError)
         // happens only for an input that is no longer current, so it ends here.
@@ -177,13 +181,26 @@ public struct OcrFailureCounter: Equatable, Sendable {
 
     public init() {}
 
+    /// Failures that count together. Recognition errors and slow recognition
+    /// share a streak; an overlay failure and a blocked screenshot each have their own.
+    private enum Streak {
+        case recognition, overlay, capture
+
+        init?(_ failure: CaptureFailure) {
+            switch failure {
+            case .ocrFailed, .ocrTimedOut: self = .recognition
+            case .overlayUnavailable: self = .overlay
+            case .captureTimedOut: self = .capture
+            default: return nil
+            }
+        }
+
+        var threshold: Int { self == .recognition ? 3 : 1 }
+    }
+
     /// How many consecutive failures of this category surface it; nil when it is not counted.
     public static func threshold(for failure: CaptureFailure) -> Int? {
-        switch failure {
-        case .ocrFailed, .ocrTimedOut: 3
-        case .overlayUnavailable: 1
-        default: nil
-        }
+        Streak(failure)?.threshold
     }
 
     public var surfacedCategory: CaptureFailure? {
@@ -196,8 +213,7 @@ public struct OcrFailureCounter: Equatable, Sendable {
         case .document:
             self = OcrFailureCounter()
         case let .failed(failure) where Self.threshold(for: failure) != nil:
-            // Recognition failures count together; an overlay failure is its own streak.
-            let sameStreak = lastCategory.map { ($0 == .overlayUnavailable) == (failure == .overlayUnavailable) } ?? false
+            let sameStreak = lastCategory.map { Streak($0) == Streak(failure) } ?? false
             consecutive = sameStreak ? consecutive + 1 : 1
             lastCategory = failure
         case .cancelled:

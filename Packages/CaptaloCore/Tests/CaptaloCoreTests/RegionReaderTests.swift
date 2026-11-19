@@ -130,7 +130,8 @@ let words = [TranscriptItem(.paragraph("Read this region."), bounds: CGRect(x: 0
         defer { watchdog.cancel() }
         let started = ContinuousClock.now
         let outcome = await read.value
-        #expect(outcome == .failed(.ocrTimedOut))
+        // A blocked screenshot (for example, a macOS screen-access prompt) is its own category.
+        #expect(outcome == .failed(.captureTimedOut))
         #expect(started.duration(to: .now) < .seconds(1))
         #expect(await slot.isReserved) // the capture is still running
         await capturer.gate.open()
@@ -286,6 +287,28 @@ let words = [TranscriptItem(.paragraph("Read this region."), bounds: CGRect(x: 0
         #expect(counter.surfacedCategory == nil)
         counter.record(.failed(.ocrTimedOut))
         #expect(counter.surfacedCategory == .ocrTimedOut)
+    }
+
+    /// A blocked screenshot usually means macOS is asking for screen access:
+    /// say so after the first one, and clear it on the next success.
+    @Test func blockedScreenshotIsNoticedAtOnce() {
+        var counter = OcrFailureCounter()
+        counter.record(.failed(.captureTimedOut))
+        #expect(counter.surfacedCategory == .captureTimedOut)
+        counter.record(.document([]))
+        #expect(counter.surfacedCategory == nil)
+    }
+
+    /// A blocked screenshot is its own streak: it never counts toward the
+    /// three recognition failures.
+    @Test func blockedScreenshotDoesNotJoinTheRecognitionStreak() {
+        var counter = OcrFailureCounter()
+        counter.record(.failed(.captureTimedOut))
+        counter.record(.failed(.ocrFailed))
+        counter.record(.failed(.ocrFailed))
+        #expect(counter.surfacedCategory == nil)
+        counter.record(.failed(.ocrFailed))
+        #expect(counter.surfacedCategory == .ocrFailed)
     }
 
     @Test func emptyRegionDoesNotCount() {

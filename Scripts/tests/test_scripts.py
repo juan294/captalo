@@ -11,6 +11,7 @@ import plistlib
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
@@ -207,7 +208,11 @@ class DefaultsBackupTests(unittest.TestCase):
         self.suffix = uuid.uuid4().hex[:8]
         self.domain = self.prefix + self.suffix
         self.tmp = tempfile.TemporaryDirectory()
-        self.env = dict(os.environ, CAPTALO_DEFAULTS_DOMAIN=self.domain, CAPTALO_DEFAULTS_DIR=self.tmp.name)
+        # The running-app guard watches a task-owned path, never the owner's installed app,
+        # so these tests pass whether or not /Applications/Captalo.app is running.
+        self.app = Path(self.tmp.name) / "app" / "Captalo"
+        self.env = dict(os.environ, CAPTALO_DEFAULTS_DOMAIN=self.domain, CAPTALO_DEFAULTS_DIR=self.tmp.name,
+                        CAPTALO_DEFAULTS_APP=str(self.app))
 
     def tearDown(self):
         subprocess.run(["defaults", "delete", self.domain], capture_output=True)
@@ -226,6 +231,37 @@ class DefaultsBackupTests(unittest.TestCase):
     def is_empty(self):
         out = subprocess.run(["defaults", "export", self.domain, "-"], capture_output=True).stdout
         return plistlib.loads(out) == {} if out else True
+
+    def start_app(self):
+        """A process whose command line starts with the guarded path (a copied
+        system binary is killed at launch, so only argv[0] is renamed)."""
+        running = subprocess.Popen(["/bin/bash", "-c", 'exec -a "$0" /bin/sleep 30', str(self.app)])
+        self.addCleanup(running.wait)
+        self.addCleanup(running.kill)
+        for _ in range(50):
+            if subprocess.run(["pgrep", "-f", f"^{self.app}( |$)"], capture_output=True).returncode == 0:
+                return running
+            time.sleep(0.02)
+        self.fail("stand-in app process did not start")
+
+    def test_running_app_blocks_backup(self):
+        self.start_app()
+        result = self.run_script("defaults-backup")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("Cáptalo is running; quit it first.", result.stderr)
+        self.assertEqual(list(Path(self.tmp.name).glob("defaults-*.state")), [], "nothing recorded while running")
+
+    def test_running_app_blocks_restore(self):
+        subprocess.run(["defaults", "write", self.domain, "reading.voice", "af_bella"], check=True)
+        self.assertEqual(self.run_script("defaults-backup").returncode, 0)
+        running = self.start_app()
+        result = self.run_script("defaults-restore")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("Cáptalo is running; quit it first.", result.stderr)
+        running.kill()
+        running.wait()
+        self.assertEqual(self.run_script("defaults-restore").returncode, 0)
+        self.assertEqual(self.read("reading.voice"), "af_bella")
 
     def test_present_domain_is_exported_deleted_and_restored(self):
         subprocess.run(["defaults", "write", self.domain, "reading.voice", "af_bella"], check=True)

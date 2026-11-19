@@ -175,6 +175,85 @@ final class FakeFocus: FocusEnvironment, @unchecked Sendable {
         #expect(keys.posts == 1)
     }
 
+    // MARK: D31: apps that hide their selection (Rex)
+
+    /// Rex reports an empty Accessibility selection and a disabled Copy item
+    /// while text is selected (owner check, 2026-11-19).
+    func rexToken() -> InputToken {
+        focus.pid = 404
+        focus.element = ElementRef("terminal")
+        return InputToken(inputGeneration: 1, kind: .selection,
+                          source: InputSource(pid: 404, bundleID: "com.superlogical.rex", focusedElement: ElementRef("terminal")),
+                          startedAt: .now)
+    }
+
+    @Test func hiddenSelectionGoesStraightToSyntheticCopy() async {
+        let rex = rexToken()
+        ax.selectedText = .value("")
+        menu.state = .disabled
+        keys.onPost = { self.sourceAppCopies("terminal text") }
+        #expect(await coordinator().capture(rex) == .text("terminal text", layer: .syntheticCopy))
+        #expect(menu.presses == 0)
+        #expect(keys.posts == 1)
+    }
+
+    @Test func hiddenSelectionWithNoCopyResultIsNothingSelected() async {
+        let rex = rexToken()
+        ax.selectedText = .value("")
+        menu.state = .disabled
+        let before = board.changeCount
+        #expect(await coordinator().capture(rex) == .nothingSelected)
+        #expect(keys.posts == 1)
+        #expect(board.changeCount == before)
+    }
+
+    @Test func hiddenSelectionWithUnreadableAccessibilitySkipsTheMenu() async {
+        let rex = rexToken()
+        ax.selectedText = .error
+        menu.state = .enabled
+        keys.onPost = { self.sourceAppCopies("terminal text") }
+        #expect(await coordinator().capture(rex) == .text("terminal text", layer: .syntheticCopy))
+        #expect(menu.presses == 0)
+    }
+
+    /// Only "posted, clipboard unchanged" means nothing selected; a foreign
+    /// write during the window stays a failure.
+    @Test func hiddenSelectionOwnershipFailureStaysAFailure() async {
+        let rex = rexToken()
+        ax.selectedText = .value("")
+        keys.onPost = {
+            self.sourceAppCopies("first")
+            self.sourceAppCopies("second")
+        }
+        #expect(await coordinator().capture(rex) == .failed(.ownershipUncertain))
+    }
+
+    @Test func hiddenSelectionStillPrefersAccessibilityText() async {
+        let rex = rexToken()
+        ax.selectedText = .value("exposed")
+        #expect(await coordinator().capture(rex) == .text("exposed", layer: .accessibility))
+        #expect(keys.posts == 0)
+    }
+
+    @Test func hiddenSelectionWaitsForModifierRelease() async {
+        let rex = rexToken()
+        ax.selectedText = .value("")
+        keys.released = false
+        #expect(await coordinator().capture(rex) == .unsupported(.modifiersHeld))
+        #expect(keys.posts == 0)
+    }
+
+    /// A key that was not posted (modifiers held again at the post) is not
+    /// evidence of an empty selection.
+    @Test func hiddenSelectionUnpostedCopyIsNotNothingSelected() async {
+        let rex = rexToken()
+        ax.selectedText = .value("")
+        var checks = 0
+        keys.releasedProvider = { checks += 1; return checks == 1 }
+        #expect(await coordinator().capture(rex) == .failed(.copyNotSent))
+        #expect(keys.posts == 0)
+    }
+
     @Test func modifierTimeoutAbortsSyntheticCopy() async {
         menu.state = .absent
         keys.released = false
@@ -234,7 +313,7 @@ final class FakeFocus: FocusEnvironment, @unchecked Sendable {
         }
         let result = await coordinator().capture(token)
         #expect(keys.posts == 0)
-        #expect(result == .failed(.noCopyResult))
+        #expect(result == .failed(.copyNotSent))
     }
 
     @Test func neverSetsEnhancedUserInterface() async {

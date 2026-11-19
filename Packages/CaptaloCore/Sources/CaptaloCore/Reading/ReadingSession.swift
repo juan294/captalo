@@ -36,7 +36,7 @@ public final class PlaybackGate: Sendable {
     }
 }
 
-public enum ReadingOutcome: Equatable, Sendable {
+public enum ReadingOutcome: String, Equatable, Sendable {
     case finished
     case stopped
     case voiceError

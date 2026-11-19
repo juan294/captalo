@@ -83,10 +83,28 @@ import Testing
         #expect(row.isOn)
     }
 
-    @Test func notFoundExplainsTheFix() {
-        let row = LoginItemRow.make(status: .notFound)
+    @Test func notFoundOutsideApplicationsExplainsTheFix() {
+        let row = LoginItemRow.make(status: .notFound, inApplicationsFolder: false)
         #expect(row.text?.contains("Applications") == true)
         #expect(row.action == .none)
+    }
+
+    /// An app in /Applications that never registered also reads `.notFound`
+    /// (owner check, 2026-11-19): it must not be told to move.
+    @Test func notFoundInsideApplicationsGivesNoMoveAdvice() {
+        let row = LoginItemRow.make(status: .notFound, inApplicationsFolder: true)
+        #expect(row.text == nil)
+        #expect(!row.isOn)
+        #expect(row.action == .none)
+    }
+
+    @Test func applicationsFolderIsRecognized() {
+        let home = "/Users/someone"
+        #expect(LoginItemRow.isInApplicationsFolder(bundlePath: "/Applications/Captalo.app", home: home))
+        #expect(LoginItemRow.isInApplicationsFolder(bundlePath: "/Users/someone/Applications/Captalo.app", home: home))
+        #expect(!LoginItemRow.isInApplicationsFolder(bundlePath: "/Users/someone/Downloads/Captalo.app", home: home))
+        #expect(!LoginItemRow.isInApplicationsFolder(bundlePath: "/Applications Old/Captalo.app", home: home))
+        #expect(!LoginItemRow.isInApplicationsFolder(bundlePath: "/Applications/Tools/Captalo.app", home: home))
     }
 
     @Test func registerErrorIsVisible() {

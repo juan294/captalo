@@ -31,6 +31,11 @@ public enum PrivacyEvent: Sendable, Equatable {
     case secondInstance
     /// Debug-only silent playback seam (phase 2).
     case seamSession(state: SeamState)
+    /// One reading's sink activity: units scheduled, units played back,
+    /// device-change replays, and the time to the first scheduled unit. A
+    /// reading with `scheduled > 0` and `played == 0` never became audible.
+    case reading(outcome: ReadingOutcome, scheduled: Int, played: Int, replays: Int,
+                 firstScheduled: Duration?, elapsed: Duration)
 
     public enum SeamState: String, Sendable {
         case started, stopped, finished
@@ -74,6 +79,8 @@ public enum PrivacyEvent: Sendable, Equatable {
             "ocr outcome=\(outcome.rawValue) failure=\(failure?.rawValue ?? "none") blocks=\(blocks) characters=\(characters) elapsedMs=\(PrivacyEvent.milliseconds(elapsed))"
         case let .seamSession(state):
             "seamSession state=\(state.rawValue)"
+        case let .reading(outcome, scheduled, played, replays, firstScheduled, elapsed):
+            "reading outcome=\(outcome.rawValue) scheduled=\(scheduled) played=\(played) replays=\(replays) firstScheduledMs=\(firstScheduled.map { String(PrivacyEvent.milliseconds($0)) } ?? "none") elapsedMs=\(PrivacyEvent.milliseconds(elapsed))"
         }
     }
 

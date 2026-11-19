@@ -70,16 +70,23 @@ public final class CaptureCoordinator: Sendable {
 
     public func capture(_ token: InputToken) async -> CaptureOutcome {
         guard ax.isProcessTrusted() else { return .permissionMissing }
+        let hidesSelection = CopyPolicy.hidesSelection(bundleID: token.source.bundleID)
         switch await layer.read(token.source) {
         case let .selected(text):
             return .text(text, layer: .accessibility)
-        case .confirmedEmpty:
+        case .confirmedEmpty where !hidesSelection:
             return .nothingSelected
-        case .unavailable:
+        case .confirmedEmpty, .unavailable:
             break
         }
         guard CopyPolicy.allowsCopy(bundleID: token.source.bundleID) else {
             return .unsupported(.copyMayNotReflectSelection)
+        }
+        if hidesSelection {
+            // D31: the menu reports Copy disabled too, so only the key can copy.
+            // A sent key that changes nothing means nothing was selected.
+            let outcome = await syntheticCopy(token)
+            return outcome == .failed(.noCopyResult) ? .nothingSelected : outcome
         }
         let pid = token.source.pid
         switch menu.copyItemState(pid: pid) {
@@ -90,13 +97,18 @@ public final class CaptureCoordinator: Sendable {
         case .enabled:
             return await copy(token, layer: .menuCopy) { [menu] in menu.pressCopy(pid: pid) }
         case .absent:
-            guard await waitForModifierRelease() else { return .unsupported(.modifiersHeld) }
-            // Modifiers are checked again at the post: a lock wait may have passed.
-            return await copy(token, layer: .syntheticCopy) { [keys] in
-                guard keys.shortcutModifiersReleased() else { return false }
-                keys.postCopy()
-                return true
-            }
+            return await syntheticCopy(token)
+        }
+    }
+
+    /// Cmd+C after the shortcut's modifiers are released.
+    private func syntheticCopy(_ token: InputToken) async -> CaptureOutcome {
+        guard await waitForModifierRelease() else { return .unsupported(.modifiersHeld) }
+        // Modifiers are checked again at the post: a lock wait may have passed.
+        return await copy(token, layer: .syntheticCopy) { [keys] in
+            guard keys.shortcutModifiersReleased() else { return false }
+            keys.postCopy()
+            return true
         }
     }
 
