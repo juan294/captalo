@@ -1,13 +1,14 @@
 # Shared by defaults-backup and defaults-restore (sourced, not executed).
-# CAPTALO_DEFAULTS_DOMAIN, CAPTALO_DEFAULTS_DIR and CAPTALO_DEFAULTS_PREFS exist
-# only for the script tests.
+# CAPTALO_DEFAULTS_DOMAIN, CAPTALO_DEFAULTS_DIR, CAPTALO_DEFAULTS_PREFS and
+# CAPTALO_DEFAULTS_APP exist only for the script tests.
 DOMAIN=${CAPTALO_DEFAULTS_DOMAIN:-com.thecreativetoken.captalo}
 PREFS=${CAPTALO_DEFAULTS_PREFS:-"$HOME/Library/Preferences"}
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 DIR=${CAPTALO_DEFAULTS_DIR:-"$ROOT/.local/shell"}
+APP=${CAPTALO_DEFAULTS_APP:-/Applications/Captalo.app/Contents/MacOS/Captalo}
 
 require_quit() {
-  if pgrep -f '^/Applications/Captalo.app/Contents/MacOS/Captalo( |$)' >/dev/null; then
+  if pgrep -f "^${APP}( |\$)" >/dev/null; then
     echo "$(basename "$0"): Cáptalo is running; quit it first." >&2
     exit 1
   fi

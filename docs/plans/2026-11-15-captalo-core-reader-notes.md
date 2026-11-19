@@ -228,6 +228,11 @@ Plan: `2026-11-15-captalo-core-reader.md` (revision 4, accepted 2026-11-15). Imp
 - Region capture (plan decision 11, from the owner's 2026-11-19 instruction to fix the flagged issues): a macOS screen-access prompt held the screenshot, and the press failed silently after 10 s as `ocrTimedOut`. A screenshot that never arrives is now `captureTimedOut`, its own failure streak: the settings window opens at once with a line that asks the user to answer the prompt first, because the capture keeps the OCR slot and later presses stay silent (`ocrBusy`) until it returns (`callerDeadlineCoversBlockedCapture`, `blockedScreenshotIsNoticedAtOnce`, `blockedScreenshotDoesNotJoinTheRecognitionStreak`).
 - Shortcut field: the unset hint now says to click the field, hold ⌘, ⌥ or ⌃ and press a key. The pinned KeyboardShortcuts recorder beeps and ignores a key with no modifier or with Shift only; function keys alone are accepted (`RecorderCocoa.swift`). The hint does not mention function keys.
 
+### D35. The script tests depended on the owner's running app (test hygiene, 2026-11-19)
+
+- Found: `make verify` on `e9833e6` failed `script-test` with 13 failures in `DefaultsBackupTests`, all "Cáptalo is running; quit it first." The tests use a disposable domain, but `require_quit` (`Scripts/defaults-common.sh`) looked for the installed `/Applications/Captalo.app` process, which the owner was running. Earlier runs passed only because the app was not running. This branch had not changed `Scripts/`.
+- Chose: the guarded executable path is `CAPTALO_DEFAULTS_APP` (default: the installed app), and the tests point it at a task-owned path. New tests start a stand-in process at that path and check that backup and restore refuse (`test_running_app_blocks_backup`, `test_running_app_blocks_restore`); both fail with the guard disabled. The owner's app was not quit for verification.
+
 ## Phase 1 handoff (2026-11-15)
 
 - Candidate: branch `feat/core-reader`, commits `a000427` (rename), `7f7737a` (cc-rpi v2.2.0), `6eb0b4a` (foundation), `556c148` (review repairs) and the simplify commit that carries this note. `make verify` (8 checks: whitespace, rpi-installation, core tests debug and release, unsigned Debug and Release builds, log-audit, script-test) passed on the simplify candidate; evidence in the worktree's ignored `.rpi/local/verification.json`.
