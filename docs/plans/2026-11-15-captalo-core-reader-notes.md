@@ -242,6 +242,12 @@ Plan: `2026-11-15-captalo-core-reader.md` (revision 4, accepted 2026-11-15). Imp
 - Status (2026-11-19, signed install of `8ca0cce`): the owner confirmed the icon appears and the panel works. Not yet reported: the recorder conflict alert (Cmd+Q) and reopen from Spotlight. Owner feedback: the `text.bubble` outline looks too light beside filled menu-bar icons; a custom app icon and menu glyph are being designed (not integrated).
 - Check change: `Scripts/shell-audit` forbade `NSStatusItem`, `NSStatusBar` and `NSPopover` under the old decision, and failed `make verify` on `a6b50b2`. It now allows them only in `StatusItemController.swift` (a probe file elsewhere still fails, exit 1); `MenuBarExtra` stays forbidden.
 
+### D37. Cáptalo's own app icon and menu-bar glyph (owner choice, 2026-11-19)
+
+- Found: the owner said the `text.bubble` outline looked too light beside the filled menu-bar icons, and the app icon was still upstream artwork.
+- Chose: of three concepts (design sources in the ignored `.local/design/icons-2026-11-19/`), the owner picked A, an accented C: a heavy geometric C as an open mouth with the acute accent leaving the opening. `Captalo/Logo.icon` now holds one SVG layer on an orange gradient fill (the upstream PNG layers are removed); dark mode uses the system's automatic dark rendering. The menu glyph is `Captalo/Assets.xcassets/MenuBarGlyph.imageset` (an 18 pt SVG, template, vector preserved), loaded by `StatusItemController`.
+- Evidence: `ictool` renders of the `.icon` (macOS Default and Dark, 512 and 32 px) and the built `Logo.icns` were viewed; `assetutil` shows `MenuBarGlyph` compiled with template mode in Debug and Release. Residual (from the design review): at 1x the glyph is the smallest of the three concepts and its accent is soft; the owner's main display is 1x. Owner check: weight and legibility in the real menu bar.
+
 ## Phase 1 handoff (2026-11-15)
 
 - Candidate: branch `feat/core-reader`, commits `a000427` (rename), `7f7737a` (cc-rpi v2.2.0), `6eb0b4a` (foundation), `556c148` (review repairs) and the simplify commit that carries this note. `make verify` (8 checks: whitespace, rpi-installation, core tests debug and release, unsigned Debug and Release builds, log-audit, script-test) passed on the simplify candidate; evidence in the worktree's ignored `.rpi/local/verification.json`.

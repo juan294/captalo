@@ -6,7 +6,7 @@ Start with [the briefing](docs/briefing.md) and [the accepted design brief](docs
 
 ## Current state and authority
 
-This is a public fork of `Shreysid/Sotto`, based on `30e0dfbf2cfbef01b8c462bfec2452b3c0295a61`. Keep upstream attribution, `LICENSE`, and `THIRD_PARTY_NOTICES.md`. The app is renamed Cáptalo (project `Captalo.xcodeproj`, scheme `Captalo`, bundle ID `com.thecreativetoken.captalo`, macOS 26 minimum). Bundled artwork is still upstream. The core reader plan (`docs/plans/2026-11-15-captalo-core-reader.md`) defines the remaining work; OCR and the unobtrusive shell are not complete until its phases are accepted.
+This is a public fork of `Shreysid/Sotto`, based on `30e0dfbf2cfbef01b8c462bfec2452b3c0295a61`. Keep upstream attribution, `LICENSE`, and `THIRD_PARTY_NOTICES.md`. The app is renamed Cáptalo (project `Captalo.xcodeproj`, scheme `Captalo`, bundle ID `com.thecreativetoken.captalo`, macOS 26 minimum). The app icon (`Captalo/Logo.icon`) and the menu-bar glyph (`Captalo/Assets.xcassets/MenuBarGlyph.imageset`) are Cáptalo's own artwork (concept A, 2026-11-19). The core reader plan (`docs/plans/2026-11-15-captalo-core-reader.md`) defines the remaining work; OCR and the unobtrusive shell are not complete until its phases are accepted.
 
 Shared instructions live here; `CLAUDE.md` imports this file. Do not introduce an import cycle. Use the installed native RPI skill for the requested phase, reading its full instructions and references. Codex invokes `$rpi-plan`, `$rpi-implement`, and other `$rpi-*` skills; Claude invokes `/rpi-plan`, `/rpi-implement`, and other `/rpi-*` skills. Native `/plan` and `/status` are not RPI workflows. Planning and product implementation belong in this workspace, with the normal phase acceptance boundaries.
 

@@ -29,7 +29,11 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         popover.behavior = .transient
         popover.delegate = self
         if let button = statusItem.button {
-            button.image = NSImage(systemSymbolName: "text.bubble", accessibilityDescription: "Cáptalo")
+            // The accented C (concept A), a template image in Assets.xcassets.
+            let glyph = NSImage(named: "MenuBarGlyph")
+            glyph?.isTemplate = true
+            glyph?.accessibilityDescription = "Cáptalo"
+            button.image = glyph
             button.target = self
             button.action = #selector(togglePanel)
         }
