@@ -1,12 +1,16 @@
 {
-  "fill" : "system-light",
+  "fill" : {
+    "linear-gradient" : [
+      "srgb:1.00000,0.72157,0.29020,1.00000",
+      "srgb:0.94118,0.31373,0.16863,1.00000"
+    ]
+  },
   "groups" : [
     {
       "layers" : [
         {
-          "blend-mode" : "multiply",
-          "image-name" : "background_removed_dark.png",
-          "name" : "background_removed_dark",
+          "image-name" : "c-acentuada.svg",
+          "name" : "c-acentuada",
           "position" : {
             "scale" : 1,
             "translation-in-points" : [
@@ -22,31 +26,7 @@
       },
       "translucency" : {
         "enabled" : true,
-        "value" : 0.5
-      }
-    },
-    {
-      "layers" : [
-        {
-          "blend-mode" : "plus-darker",
-          "image-name" : "background_removed_light.png",
-          "name" : "background_removed_light",
-          "position" : {
-            "scale" : 0.97,
-            "translation-in-points" : [
-              16,
-              -0.1328125
-            ]
-          }
-        }
-      ],
-      "shadow" : {
-        "kind" : "neutral",
-        "opacity" : 0.5
-      },
-      "translucency" : {
-        "enabled" : true,
-        "value" : 0.5
+        "value" : 0.2
       }
     }
   ],
