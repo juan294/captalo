@@ -195,6 +195,13 @@ Plan: `2026-11-15-captalo-core-reader.md` (revision 4, accepted 2026-11-15). Imp
 - Chose: the Python and Swift test helpers delete their own exact disposable domain with `/usr/bin/defaults delete`, then remove that exact plist and assert it is gone. Real app domains are never touched.
 - Why: a single test run on `develop` (`49923a1`) left no plist 30 to 60 s after it ended, in the isolated suite and in full Debug and Release runs. The old in-process teardown also left none in those runs, so the leak could not be reproduced on demand. Empty `tests.<UUID>` plists did appear during the 14:46 to 15:00 `make verify` runs, while other agents ran tests in parallel, and six more appeared at 15:12 and 15:13 with no test of this session running. The leak is not proven closed and its cause is unknown. Files left so far (44 `scripttest-*` and 159 `tests.<UUID>`, all empty) were not deleted; that is an owner decision.
 
+### D30. The settings UI has no rendering check (owner check, 2026-11-15)
+
+- Plan said: `make verify` is the automated gate for each phase.
+- Found: on the signed install the settings window collapsed to its title bar. A grouped `Form` is a scroll view with no minimum height, so the hosting controller sized the window to zero content height. All 15 `make verify` checks passed on that build, because no check renders the SwiftUI settings view (the app target has no test target, as in D22).
+- Chose: `81696ae` gives the form a minimum height equal to the window's content height (600 pt). After reinstall the window list reported 480 × 632 pt (600 pt of content plus the title bar). No automated rendering check was added.
+- Why: a rendering or snapshot test needs an app test target, which is new test infrastructure outside this plan. The settings layout (every section visible, permission rows readable) stays an owner check on each signed install.
+
 ## Phase 1 handoff (2026-11-15)
 
 - Candidate: branch `feat/core-reader`, commits `a000427` (rename), `7f7737a` (cc-rpi v2.2.0), `6eb0b4a` (foundation), `556c148` (review repairs) and the simplify commit that carries this note. `make verify` (8 checks: whitespace, rpi-installation, core tests debug and release, unsigned Debug and Release builds, log-audit, script-test) passed on the simplify candidate; evidence in the worktree's ignored `.rpi/local/verification.json`.
