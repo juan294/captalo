@@ -43,7 +43,7 @@ extension CaptaloAppState {
     var shortcutNotice: String? {
         if let shortcutRejection { return shortcutRejection }
         return !readShortcutSet
-            ? "Choose a shortcut to read the selected text."
+            ? "Choose a shortcut to read the selected text: click the field, then hold ⌘, ⌥ or ⌃ and press a key."
             : "If this shortcut does nothing, another app may use it; choose another."
     }
 
@@ -71,7 +71,11 @@ extension CaptaloAppState {
     // MARK: Launch at login
 
     func refreshLoginItem(registerError: String? = nil) {
-        let row = LoginItemRow.make(status: LoginItemStatus(SMAppService.mainApp.status), registerError: registerError)
+        let inApplications = LoginItemRow.isInApplicationsFolder(
+            bundlePath: Bundle.main.bundlePath, home: FileManager.default.homeDirectoryForCurrentUser.path
+        )
+        let row = LoginItemRow.make(status: LoginItemStatus(SMAppService.mainApp.status), registerError: registerError,
+                                    inApplicationsFolder: inApplications)
         if row != loginItem { loginItem = row }
     }
 
