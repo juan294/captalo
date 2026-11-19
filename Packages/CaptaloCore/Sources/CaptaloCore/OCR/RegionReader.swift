@@ -173,7 +173,7 @@ private final class Race<Value: Sendable>: Sendable {
 }
 
 /// Consecutive region failures (not empty regions), for the settings
-/// window's optional OCR row. Recognition errors and timeouts show after
+/// panel's optional OCR row. Recognition errors and timeouts show after
 /// three in a row; an overlay that could not open (no Esc tap) shows at once.
 public struct OcrFailureCounter: Equatable, Sendable {
     public private(set) var consecutive = 0

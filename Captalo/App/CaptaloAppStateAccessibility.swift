@@ -1,5 +1,5 @@
 extension CaptaloAppState {
-    /// Updates the permission row; the window's opening is decided by `requireSetup()`.
+    /// Updates the permission row; the panel's opening is decided by `requireSetup()`.
     func refreshAccessibilityPermission() {
         let trusted = accessibility.isProcessTrusted()
         if trusted != accessibilityPermissionGranted { accessibilityPermissionGranted = trusted }

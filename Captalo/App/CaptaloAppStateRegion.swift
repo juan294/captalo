@@ -39,7 +39,7 @@ extension CaptaloAppState {
                     let outcome = CaptureOutcome.failed(.overlayUnavailable)
                     PrivacyLog.record(RegionReader.event(for: outcome, elapsed: token.startedAt.duration(to: .now)))
                     // The tap needs Accessibility, so a revoked grant is the likely cause.
-                    // Shown in the settings window even while the grant still looks valid.
+                    // Shown in the settings panel even while the grant still looks valid.
                     await MainActor.run {
                         let state = CaptaloAppState.shared
                         state.refreshAccessibilityPermission()
@@ -56,7 +56,7 @@ extension CaptaloAppState {
 
     /// Counts a region outcome. A failure surfaced after one occurrence (an
     /// overlay that could not open, or a screenshot that never arrived, usually
-    /// a macOS screen-access prompt) opens the settings window at once.
+    /// a macOS screen-access prompt) opens the settings panel at once.
     func recordRegionOutcome(_ outcome: CaptureOutcome) {
         ocrFailures.record(outcome)
         if case let .failed(failure) = outcome, OcrFailureCounter.threshold(for: failure) == 1 {

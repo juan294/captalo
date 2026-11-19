@@ -1,4 +1,4 @@
-/// Setup items in the settings window (plan phase 4; owner decision 8).
+/// Setup items in the settings panel (plan phase 4; owner decision 8).
 public enum SetupItem: String, Sendable, CaseIterable {
     case voice
     case accessibility
