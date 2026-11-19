@@ -29,7 +29,7 @@ extension CaptaloAppState {
 
     var setup: SetupState { SetupState.evaluate(setupEnvironment) }
 
-    /// Refreshes the parts of setup the window shows (permissions, login item).
+    /// Refreshes the parts of setup the panel shows (permissions, login item).
     func refreshSetup() {
         refreshAccessibilityPermission()
         refreshScreenRecording()

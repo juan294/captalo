@@ -2,7 +2,7 @@ import CaptaloCore
 import KeyboardShortcuts
 import SwiftUI
 
-/// The one settings window (plan phase 4; assessment §7).
+/// The settings panel under the menu-bar icon (plan phase 4; owner decision 12).
 struct SettingsView: View {
     @EnvironmentObject private var state: CaptaloAppState
 
@@ -83,8 +83,7 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: SettingsWindowController.width)
-        .frame(minHeight: SettingsWindowController.minHeight)
+        .frame(width: StatusItemController.width, height: StatusItemController.height)
     }
 
     private var voiceRow: some View {

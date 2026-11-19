@@ -4,11 +4,12 @@ import KeyboardShortcuts
 
 @MainActor
 final class CaptaloApplicationDelegate: NSObject, NSApplicationDelegate {
-    private var settingsWindow: SettingsWindowController?
+    private var statusItem: StatusItemController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let state = CaptaloAppState.shared
-        state.onSetupRequired = { [weak self] in self?.showSettings() }
+        statusItem = StatusItemController(state: state)
+        state.onSetupRequired = { [weak self] in self?.statusItem?.present() }
         KeyboardShortcuts.onKeyDown(for: .readSelection) {
             CaptaloAppState.shared.speakSelection()
         }
@@ -17,13 +18,14 @@ final class CaptaloApplicationDelegate: NSObject, NSApplicationDelegate {
         }
         state.refreshAccessibilityPermission()
         state.prepareVoice()
-        // Required setup missing (a voice still checking is pending): open the window at launch.
-        state.requireSetup()
+        // Required setup missing (a voice still checking is pending): open the panel at launch.
+        // The next turn of the run loop, so the icon has its place in the menu bar.
+        DispatchQueue.main.async { state.requireSetup() }
     }
 
-    /// Opening Cáptalo again (Spotlight, Finder) shows the settings window.
+    /// Opening Cáptalo again (Spotlight, Finder) shows the settings panel.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        showSettings()
+        statusItem?.present()
         return true
     }
 
@@ -39,12 +41,5 @@ final class CaptaloApplicationDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidBecomeActive(_ notification: Notification) {
         CaptaloAppState.shared.refreshSetup()
-    }
-
-    private func showSettings() {
-        if settingsWindow == nil {
-            settingsWindow = SettingsWindowController(state: CaptaloAppState.shared)
-        }
-        settingsWindow?.present()
     }
 }

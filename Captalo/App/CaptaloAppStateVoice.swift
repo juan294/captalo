@@ -11,7 +11,7 @@ extension CaptaloAppState {
         Task { apply(await service.prepare()) }
     }
 
-    /// "Reinstall voice" in the settings window. A playing reading ends first
+    /// "Reinstall voice" in the settings panel. A playing reading ends first
     /// with a voice error, so its lease is released before the repair.
     func reinstallVoice() {
         let wasReading = speechService.isReading
@@ -56,7 +56,7 @@ extension CaptaloAppState {
 }
 
 extension VoiceInstallState {
-    /// The settings window's repair button, if the state has one.
+    /// The settings panel's repair button, if the state has one.
     var repairLabel: String? {
         switch self {
         case .damaged, .failed: "Reinstall voice"

@@ -88,7 +88,7 @@ final class CaptaloAppState: ObservableObject {
     #if DEBUG
     lazy var captureProbe = CaptureProbeRunner(accessibility: accessibility)
     #endif
-    /// Shows the settings window.
+    /// Shows the settings panel.
     var onSetupRequired: (() -> Void)?
 
     private init(defaults: UserDefaults = .standard) {
@@ -100,7 +100,7 @@ final class CaptaloAppState: ObservableObject {
         readingSettings.set(voice: saved.voice, speed: saved.speed)
     }
 
-    /// Opens the settings window when required setup is missing (launch, a
+    /// Opens the settings panel when required setup is missing (launch, a
     /// failed press, a voice that needs attention). The one place that decides.
     func requireSetup() {
         if !setup.isReady { onSetupRequired?() }

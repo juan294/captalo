@@ -1,15 +1,16 @@
 #!/bin/sh
 # Phase 4 code search: the inherited shell is gone and the built app is an
-# agent app. Phase 5: no legacy window capture anywhere in the app, and no
+# agent app. Owner decision 12: the menu-bar icon and its panel live only in
+# Captalo/UI/Settings/StatusItemController.swift. Phase 5: no legacy window capture anywhere in the app, and no
 # image write in Captalo/Services/OCR or the CaptaloOCR library. Regex search; a grep error or a
 # missing build product is a failure, never a pass.
 set -u
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 status=0
 OUT=$(mktemp -t captalo-shell-audit)
-# $1: pattern, $2: directory
+# $1: pattern, $2: directory, $3: optional file name the pattern is allowed in
 forbid() {
-  grep -rnE "$1" "$2" > "$OUT" 2>&1
+  grep -rnE --exclude="${3:-/}" "$1" "$2" > "$OUT" 2>&1
   code=$?
   if [ $code -eq 0 ]; then
     echo "shell-audit: found /$1/ in ${2#"$ROOT"/}" >&2
@@ -21,9 +22,12 @@ forbid() {
   fi
 }
 for pattern in 'MenuBarExtra' 'setActivationPolicy[[:space:]]*\([^)]*regular' 'RegisterEventHotKey' \
-               'pronunciationRules' 'wordsSpoken' 'pauseForVoiceApps' '[Ss]tudio' 'NSStatusItem' 'NSStatusBar' 'NSPopover' \
+               'pronunciationRules' 'wordsSpoken' 'pauseForVoiceApps' '[Ss]tudio' \
                'CGWindowListCreateImage'; do
   forbid "$pattern" "$ROOT/Captalo"
+done
+for pattern in 'NSStatusItem' 'NSStatusBar' 'NSPopover'; do
+  forbid "$pattern" "$ROOT/Captalo" StatusItemController.swift
 done
 [ -d "$ROOT/Captalo/Services/OCR" ] || { echo "shell-audit: Captalo/Services/OCR is missing" >&2; status=1; }
 # The capture adapter and the Vision library the app links (the probe may read fixtures).
