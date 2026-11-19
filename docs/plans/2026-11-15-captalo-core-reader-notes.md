@@ -202,6 +202,32 @@ Plan: `2026-11-15-captalo-core-reader.md` (revision 4, accepted 2026-11-15). Imp
 - Chose: `81696ae` gives the form a minimum height equal to the window's content height (600 pt). After reinstall the window list reported 480 × 632 pt (600 pt of content plus the title bar). No automated rendering check was added.
 - Why: a rendering or snapshot test needs an app test target, which is new test infrastructure outside this plan. The settings layout (every section visible, permission rows readable) stays an owner check on each signed install.
 
+### D31. Rex selection through a synthetic Copy (owner decision 10, 2026-11-19)
+
+- Plan said: a confirmed empty selection never reaches Copy (review R2), and Rex is a mandatory capture app (decision 5).
+- Found: on the signed install, every ⌥P press in Rex ended `nothingSelected` in 0 ms. With text highlighted, an `osascript` Accessibility probe read Rex's focused `AXTextArea` as selected text of length 0, an empty range at the cursor, and Edit > Copy disabled. Rex's control API (`rex api list`) has no method that returns the current selection.
+- Checked before the change (scratch Rex panes, real key events): a synthetic Cmd+C with nothing selected delivered 0 bytes to a raw-mode program and left the clipboard unchanged. With a selection (Rex `pane.select_all`), Cmd+C copied it (4,486 characters), and the clipboard was then restored byte for byte. Edit > Copy still reported disabled with that selection, so the menu layer cannot be used.
+- Chose: `CopyPolicy.selectionHidden` (Rex only). For those apps an empty Accessibility answer is not evidence; capture waits for the shortcut's modifiers, sends one Cmd+C through the existing clipboard transaction, and maps a posted key with no clipboard change to `nothingSelected`. A key that was not posted stays `noCopyResult`. Accessibility text still wins when Rex provides it. Tests: `hiddenSelection*` in `CaptureCoordinatorTests`.
+- Why: owner decision 10. Residual: clipboard exposure for up to 1 s (Universal Clipboard, clipboard history), the decision 9 races, and terminal chrome in spoken text (cleanup is decision 7 only). A Rex selection API or Accessibility support would remove the clipboard path.
+
+### D32. The audio engine stalled after a device buffer-size change (owner check, 2026-11-19)
+
+- Plan said: a device change replays from the start of the audible unit (owner decision 6).
+- Found: from 2026-11-18 17:19:23 the installed app logged `kAudioUnitErr_TooManyFramesToProcess : inFramesToProcess=512, mMaxFramesPerSlice=480` about 94 times a second for 19 hours. Selection capture worked (49 characters through Accessibility) but no reading was audible until a relaunch. A hardware probe (silent buffers, the sink's graph, this process only) reproduced it: raising the output device's I/O buffer to 4096 frames gave the same error, no `AVAudioEngineConfigurationChange`, and buffers that never played. The first explanation (a restart on configuration change) was wrong: the notification is never posted in this case.
+- Chose: `AVAudioSink.startEngine()` sets `maximumFramesToRender` to 8192 on the output, mixer and player nodes before every start. In the probe this played through 480, 512 and 4096-frame buffers and through output-device switches.
+- Why: one setting removes the failure class instead of detecting it. Not added: a playback watchdog (a new fallback layer). The app target has no test target (D22), so the evidence is the probe, not an automated test; the owner check is a reading on the signed install after an output change (AirPods connect or a call).
+
+### D33. Readings are logged (owner check, 2026-11-19)
+
+- Found: the app logged captures but nothing about a reading, so the D32 stall left no trace. `PrivacyEvent.firstAudio` existed but was never recorded.
+- Chose: each reading records one `reading outcome=… scheduled=… played=… replays=… firstScheduledMs=… elapsedMs=…` line (`ReadingLogRecorder`, counts and durations only). `scheduled > 0` with `played=0` marks a reading that never became audible.
+
+### D34. Smaller fixes from the same check (2026-11-19)
+
+- Launch at login: an app in /Applications that never registered reads `.notFound`, and the row told the owner to move an app that was already there. The "move it" text now shows only outside /Applications and ~/Applications (`notFoundInsideApplicationsGivesNoMoveAdvice`). Not confirmed: that registration succeeds from the row; that stays the phase 4 manual check.
+- Region capture: a macOS screen-access prompt held the screenshot, and the press failed silently after 10 s as `ocrTimedOut`. A screenshot that never arrives is now `captureTimedOut`: the settings window opens at once with a line that asks the user to answer the prompt and press again (`callerDeadlineCoversBlockedCapture`, `blockedScreenshotIsNoticedAtOnce`).
+- Shortcut field: the unset hint now says to click the field, hold ⌘, ⌥ or ⌃ and press a key. The recorder ignores keys without a modifier (KeyboardShortcuts `RecorderCocoa.swift`).
+
 ## Phase 1 handoff (2026-11-15)
 
 - Candidate: branch `feat/core-reader`, commits `a000427` (rename), `7f7737a` (cc-rpi v2.2.0), `6eb0b4a` (foundation), `556c148` (review repairs) and the simplify commit that carries this note. `make verify` (8 checks: whitespace, rpi-installation, core tests debug and release, unsigned Debug and Release builds, log-audit, script-test) passed on the simplify candidate; evidence in the worktree's ignored `.rpi/local/verification.json`.
