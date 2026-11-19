@@ -103,6 +103,20 @@ import Testing
                         firstScheduled: .milliseconds(300), elapsed: .seconds(1)))
     }
 
+    /// An oversize unit is scheduled in pieces but plays once: count units, not pieces.
+    @Test func splitUnitCountsOnce() {
+        let recorder = ReadingLogRecorder()
+        recorder.observe(.oversizeSplit(unitID: 4))
+        recorder.observe(.scheduled(unitID: 4, sentenceID: 2, characters: 200, seconds: 20, queuedSeconds: 0))
+        recorder.observe(.scheduled(unitID: 4, sentenceID: 2, characters: 200, seconds: 20, queuedSeconds: 20))
+        recorder.observe(.played(unitID: 4))
+        guard case let .reading(_, scheduled, played, _, _, _) = recorder.event(outcome: .finished) else {
+            Issue.record("not a reading event"); return
+        }
+        #expect(scheduled == 1)
+        #expect(played == 1)
+    }
+
     /// The 2026-11-19 failure: units reach the sink, none plays, the user stops it.
     @Test func stalledReadingShowsScheduledButNotPlayed() {
         let clock = Clock()

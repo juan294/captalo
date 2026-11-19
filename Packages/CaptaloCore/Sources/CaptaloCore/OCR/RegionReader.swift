@@ -190,6 +190,10 @@ public struct OcrFailureCounter: Equatable, Sendable {
         }
     }
 
+    private static func streak(_ failure: CaptureFailure) -> CaptureFailure {
+        failure == .ocrTimedOut ? .ocrFailed : failure
+    }
+
     public var surfacedCategory: CaptureFailure? {
         guard let lastCategory, let threshold = Self.threshold(for: lastCategory) else { return nil }
         return consecutive >= threshold ? lastCategory : nil
@@ -200,8 +204,9 @@ public struct OcrFailureCounter: Equatable, Sendable {
         case .document:
             self = OcrFailureCounter()
         case let .failed(failure) where Self.threshold(for: failure) != nil:
-            // Recognition failures count together; an overlay failure is its own streak.
-            let sameStreak = lastCategory.map { ($0 == .overlayUnavailable) == (failure == .overlayUnavailable) } ?? false
+            // Recognition failures (errors, slow Vision) count together; an overlay
+            // failure and a blocked screenshot are each their own streak.
+            let sameStreak = lastCategory.map { Self.streak($0) == Self.streak(failure) } ?? false
             consecutive = sameStreak ? consecutive + 1 : 1
             lastCategory = failure
         case .cancelled:

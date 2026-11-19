@@ -70,7 +70,7 @@ extension CaptaloAppState {
     var regionFailureNotice: String? {
         switch ocrFailures.surfacedCategory {
         case .overlayUnavailable?: "The region overlay could not open because Cáptalo could not watch for Esc. Check the Accessibility permission, then try again."
-        case .captureTimedOut?: "The screenshot for the last region reading did not arrive. If macOS asks whether Cáptalo may access your screen, choose Allow, then press the region shortcut again."
+        case .captureTimedOut?: "The screenshot for the last region reading did not arrive. If macOS asks whether Cáptalo may access your screen, answer it first: region presses do nothing until you do. Then press the region shortcut again."
         case .ocrTimedOut?: "Recent region readings timed out."
         case .ocrFailed?: "Recent region readings could not be recognized."
         default: nil

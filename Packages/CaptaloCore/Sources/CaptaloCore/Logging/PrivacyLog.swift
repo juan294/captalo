@@ -31,7 +31,7 @@ public enum PrivacyEvent: Sendable, Equatable {
     case secondInstance
     /// Debug-only silent playback seam (phase 2).
     case seamSession(state: SeamState)
-    /// One reading's sink activity: units handed to the sink, units played back,
+    /// One reading's sink activity: units scheduled, units played back,
     /// device-change replays, and the time to the first scheduled unit. A
     /// reading with `scheduled > 0` and `played == 0` never became audible.
     case reading(outcome: ReadingOutcome, scheduled: Int, played: Int, replays: Int,

@@ -299,6 +299,18 @@ let words = [TranscriptItem(.paragraph("Read this region."), bounds: CGRect(x: 0
         #expect(counter.surfacedCategory == nil)
     }
 
+    /// A blocked screenshot is its own streak: it never counts toward the
+    /// three recognition failures.
+    @Test func blockedScreenshotDoesNotJoinTheRecognitionStreak() {
+        var counter = OcrFailureCounter()
+        counter.record(.failed(.captureTimedOut))
+        counter.record(.failed(.ocrFailed))
+        counter.record(.failed(.ocrFailed))
+        #expect(counter.surfacedCategory == nil)
+        counter.record(.failed(.ocrFailed))
+        #expect(counter.surfacedCategory == .ocrFailed)
+    }
+
     @Test func emptyRegionDoesNotCount() {
         var counter = OcrFailureCounter()
         for _ in 0..<5 { counter.record(.nothingSelected) }

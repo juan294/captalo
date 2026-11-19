@@ -13,8 +13,10 @@ nonisolated final class AVAudioSink: AudioSink, @unchecked Sendable {
     /// device later asks for more (HAL maximum 4096), every render fails with
     /// kAudioUnitErr_TooManyFramesToProcess and no configuration change is
     /// posted, so the reading goes silent until relaunch (owner check and
-    /// hardware probe, 2026-11-19). 8192 covers the HAL range with margin.
-    static let maximumFramesToRender: AUAudioFrameCount = 8192
+    /// hardware probe, 2026-11-19). The player renders at 24 kHz, so a device
+    /// at 8 kHz with a 4096-frame buffer pulls about 12,288 player frames;
+    /// 16384 covers the HAL range at any device rate down to 6 kHz.
+    static let maximumFramesToRender: AUAudioFrameCount = 16384
 
     private let engine = AVAudioEngine()
     private let player = AVAudioPlayerNode()
@@ -72,8 +74,11 @@ nonisolated final class AVAudioSink: AudioSink, @unchecked Sendable {
     }
 
     /// Starts the stopped engine with render limits that survive a later
-    /// device buffer-size change. Called with `lock` held.
+    /// device buffer-size change. Called with `lock` held. The limit can only
+    /// be set while render resources are deallocated, so a running engine is
+    /// left as it is.
     private func startEngine() throws {
+        guard !engine.isRunning else { return }
         for node in [engine.outputNode, engine.mainMixerNode, player] as [AVAudioNode] {
             node.auAudioUnit.maximumFramesToRender = Self.maximumFramesToRender
         }

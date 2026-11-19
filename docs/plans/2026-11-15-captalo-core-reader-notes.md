@@ -214,19 +214,19 @@ Plan: `2026-11-15-captalo-core-reader.md` (revision 4, accepted 2026-11-15). Imp
 
 - Plan said: a device change replays from the start of the audible unit (owner decision 6).
 - Found: from 2026-11-18 17:19:23 the installed app logged `kAudioUnitErr_TooManyFramesToProcess : inFramesToProcess=512, mMaxFramesPerSlice=480` about 94 times a second for 19 hours. Selection capture worked (49 characters through Accessibility) but no reading was audible until a relaunch. A hardware probe (silent buffers, the sink's graph, this process only) reproduced it: raising the output device's I/O buffer to 4096 frames gave the same error, no `AVAudioEngineConfigurationChange`, and buffers that never played. The first explanation (a restart on configuration change) was wrong: the notification is never posted in this case.
-- Chose: `AVAudioSink.startEngine()` sets `maximumFramesToRender` to 8192 on the output, mixer and player nodes before every start. In the probe this played through 480, 512 and 4096-frame buffers and through output-device switches.
+- Chose: `AVAudioSink.startEngine()` sets `maximumFramesToRender` to 16384 on the output, mixer and player nodes before it starts a stopped engine (the limit cannot change while render resources are allocated, so a running engine is left alone). 16384 covers the HAL maximum of 4096 device frames even for the 24 kHz player behind an 8 kHz device. In the probe this played through 480, 512 and 4096-frame buffers and through output-device switches; the unchanged code stalled at 4096 in the same run.
 - Why: one setting removes the failure class instead of detecting it. Not added: a playback watchdog (a new fallback layer). The app target has no test target (D22), so the evidence is the probe, not an automated test; the owner check is a reading on the signed install after an output change (AirPods connect or a call).
 
 ### D33. Readings are logged (owner check, 2026-11-19)
 
 - Found: the app logged captures but nothing about a reading, so the D32 stall left no trace. `PrivacyEvent.firstAudio` existed but was never recorded.
-- Chose: each reading records one `reading outcome=… scheduled=… played=… replays=… firstScheduledMs=… elapsedMs=…` line (`ReadingLogRecorder`, counts and durations only). `scheduled > 0` with `played=0` marks a reading that never became audible.
+- Chose: each reading records one `reading outcome=… scheduled=… played=… replays=… firstScheduledMs=… elapsedMs=…` line (`ReadingLogRecorder`, counts and durations only). Counts are units (an oversize unit split into pieces counts once); a unit the sink refused still counts, and the reading then ends with `voiceError`. Times run from the session's creation. `scheduled > 0` with `played=0` marks a reading that never became audible.
 
 ### D34. Smaller fixes from the same check (2026-11-19)
 
 - Launch at login: an app in /Applications that never registered reads `.notFound`, and the row told the owner to move an app that was already there. The "move it" text now shows only outside /Applications and ~/Applications (`notFoundInsideApplicationsGivesNoMoveAdvice`). Not confirmed: that registration succeeds from the row; that stays the phase 4 manual check.
-- Region capture: a macOS screen-access prompt held the screenshot, and the press failed silently after 10 s as `ocrTimedOut`. A screenshot that never arrives is now `captureTimedOut`: the settings window opens at once with a line that asks the user to answer the prompt and press again (`callerDeadlineCoversBlockedCapture`, `blockedScreenshotIsNoticedAtOnce`).
-- Shortcut field: the unset hint now says to click the field, hold ⌘, ⌥ or ⌃ and press a key. The recorder ignores keys without a modifier (KeyboardShortcuts `RecorderCocoa.swift`).
+- Region capture (plan decision 11, from the owner's 2026-11-19 instruction to fix the flagged issues): a macOS screen-access prompt held the screenshot, and the press failed silently after 10 s as `ocrTimedOut`. A screenshot that never arrives is now `captureTimedOut`, its own failure streak: the settings window opens at once with a line that asks the user to answer the prompt first, because the capture keeps the OCR slot and later presses stay silent (`ocrBusy`) until it returns (`callerDeadlineCoversBlockedCapture`, `blockedScreenshotIsNoticedAtOnce`, `blockedScreenshotDoesNotJoinTheRecognitionStreak`).
+- Shortcut field: the unset hint now says to click the field, hold ⌘, ⌥ or ⌃ and press a key. The pinned KeyboardShortcuts recorder beeps and ignores a key with no modifier or with Shift only; function keys alone are accepted (`RecorderCocoa.swift`). The hint does not mention function keys.
 
 ## Phase 1 handoff (2026-11-15)
 

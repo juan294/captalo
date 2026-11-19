@@ -207,6 +207,27 @@ final class FakeFocus: FocusEnvironment, @unchecked Sendable {
         #expect(board.changeCount == before)
     }
 
+    @Test func hiddenSelectionWithUnreadableAccessibilitySkipsTheMenu() async {
+        let rex = rexToken()
+        ax.selectedText = .error
+        menu.state = .enabled
+        keys.onPost = { self.sourceAppCopies("terminal text") }
+        #expect(await coordinator().capture(rex) == .text("terminal text", layer: .syntheticCopy))
+        #expect(menu.presses == 0)
+    }
+
+    /// Only "posted, clipboard unchanged" means nothing selected; a foreign
+    /// write during the window stays a failure.
+    @Test func hiddenSelectionOwnershipFailureStaysAFailure() async {
+        let rex = rexToken()
+        ax.selectedText = .value("")
+        keys.onPost = {
+            self.sourceAppCopies("first")
+            self.sourceAppCopies("second")
+        }
+        #expect(await coordinator().capture(rex) == .failed(.ownershipUncertain))
+    }
+
     @Test func hiddenSelectionStillPrefersAccessibilityText() async {
         let rex = rexToken()
         ax.selectedText = .value("exposed")
