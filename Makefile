@@ -81,10 +81,11 @@ test-core-debug:
 test-core-release:
 	swift test --package-path $(CORE) -c release
 
-test-speech-debug: vendor
+# The contract tests read the verified voice files in .local/models.
+test-speech-debug: prepare
 	swift test --package-path $(SPEECH)
 
-test-speech-release: vendor
+test-speech-release: prepare
 	swift test --package-path $(SPEECH) -c release
 
 bundle-check: vendor
