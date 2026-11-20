@@ -54,25 +54,3 @@ extension CaptaloAppState {
         Task { await requests.play(text: "This is the \(spokenName) voice. Select text and press your shortcut to hear it.") }
     }
 }
-
-extension VoiceInstallState {
-    /// The settings panel's repair button, if the state has one.
-    var repairLabel: String? {
-        switch self {
-        case .damaged, .failed: "Reinstall voice"
-        case .installFailed: "Retry"
-        case .checking, .ready, .bundleInvalid: nil
-        }
-    }
-
-    var statusText: String {
-        switch self {
-        case .checking: "Preparing local voice..."
-        case .ready: "Voice ready"
-        case .damaged: "Voice files are damaged. Reinstall voice."
-        case .bundleInvalid: "The voice in this copy of Cáptalo is damaged. Reinstall Cáptalo."
-        case let .installFailed(need): "Cáptalo needs \(Int((Double(need) / 1_000_000).rounded(.up))) MB free to install its voice."
-        case .failed: "The voice could not start."
-        }
-    }
-}
