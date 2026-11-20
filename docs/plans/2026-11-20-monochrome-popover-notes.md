@@ -103,7 +103,7 @@ Phase 3:
 
 - Independent review (fresh context, read-only): no blockers, 2 should-fix, 8 nits. Parity with the deleted `SettingsView` was confirmed control by control. Fixed: 3 (M8), 6, 7, 9. Recorded: 1 and 4 (M9). Kept: 8 (`SetupState.showsVoiceError` and `SetupEnvironment.lastReadingError` have no reader in the app now; they stay with their test). Open for the owner check: 5 and 10 (below).
 - `grep -rn "SettingsView" Captalo Scripts` returns nothing.
-- The `make verify` result for the phase 3 commit and for the merge is in the handoff below.
+- `make verify`: 16 of 16 passed on `041efa3`. The merge into `develop` has the same tree as `041efa3`, so the result covers it; only this notes file changed after it.
 
 ## Known limits (owner checks on the signed install)
 
@@ -116,5 +116,6 @@ Nothing in this plan ran the live popover: opening, the appearance switch, the r
 
 ## Handoff
 
-- Objective and scope: the plan, all three phases, completed locally. No push, release, CI change or signed install was part of the implementation commits.
+- Objective and scope: the plan, all three phases, completed locally and merged into `develop` with a merge commit. Nothing was pushed, released or installed, and `.github/workflows` is unchanged.
+- The worktree `/Users/juan/code/captalo-wt-popover` and the branch `feat/monochrome-popover` were removed after the merge. Its 16 renders and three verify logs are kept in the ignored `.local/monochrome-popover-evidence/` of the main checkout.
 - Next action: the owner checks above on a signed install (`make install CONFIG=Release`, integration owner).
