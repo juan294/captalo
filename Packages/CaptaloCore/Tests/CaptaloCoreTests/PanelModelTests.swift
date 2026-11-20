@@ -144,6 +144,33 @@ import Testing
         #expect(granted.secondaryAction == nil)
     }
 
+    /// A region press without Screen Recording opens the panel (owner decision 8):
+    /// the panel must then show the row that asks for it.
+    @Test func requestedScreenRecordingOpensSetup() {
+        let requested = model {
+            $0.environment.screenRecordingGranted = false
+            $0.screenRecordingRequested = true
+        }
+        #expect(requested.initialTab == .setup)
+        #expect(requested.attention == [.setup])
+        // Optional: the reader stays ready and Setup has no step left.
+        #expect(requested.pill(for: .read) == PanelPill(text: "Ready", kind: .positive))
+        #expect(requested.pill(for: .setup) == PanelPill(text: "All set", kind: .positive))
+
+        let granted = model { $0.screenRecordingRequested = true }
+        #expect(granted.initialTab == .read)
+        #expect(granted.attention.isEmpty)
+
+        // A required item still decides the tab first.
+        let voiceFirst = model {
+            $0.environment.voice = .damaged
+            $0.environment.screenRecordingGranted = false
+            $0.screenRecordingRequested = true
+        }
+        #expect(voiceFirst.initialTab == .voice)
+        #expect(voiceFirst.attention == [.voice, .setup])
+    }
+
     @Test func noticesSurfaceOnRead() {
         let model = model {
             $0.voiceError = "The last reading stopped because of a voice error."

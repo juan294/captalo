@@ -148,9 +148,13 @@ public struct PanelModel: Equatable, Sendable {
         let missingTabs = setup.requiredMissing.map(tab(for:))
         var attention = Set(missingTabs)
         if input.voiceError != nil || input.regionNotice != nil { attention.insert(.read) }
+        // A region press without Screen Recording opens the panel (owner
+        // decision 8): its row, on Setup, must then be what the user sees.
+        let screenRecordingAsked = input.screenRecordingRequested && !env.screenRecordingGranted
+        if screenRecordingAsked { attention.insert(.setup) }
         return PanelModel(
             attention: attention,
-            initialTab: missingTabs.first ?? .read,
+            initialTab: missingTabs.first ?? (screenRecordingAsked ? .setup : .read),
             read: readPane(input),
             voice: voicePane(input),
             setup: setupPane(input),

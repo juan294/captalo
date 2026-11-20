@@ -38,15 +38,6 @@ extension CaptaloAppState {
 
     // MARK: Shortcut
 
-    /// KeyboardShortcuts 3.1.0 does not report registration failure (phase 4
-    /// entry probe), so the row says what to do if the shortcut does nothing.
-    var shortcutNotice: String? {
-        if let shortcutRejection { return shortcutRejection }
-        return !readShortcutSet
-            ? "Choose a shortcut to read the selected text: click the field, then hold ⌘, ⌥ or ⌃ and press a key."
-            : "If this shortcut does nothing, another app may use it; choose another."
-    }
-
     /// Rejects a binding identical to the other Cáptalo shortcut, for either recorder.
     func shortcutChanged(_ name: KeyboardShortcuts.Name, _ shortcut: KeyboardShortcuts.Shortcut?) {
         var rejection: String?

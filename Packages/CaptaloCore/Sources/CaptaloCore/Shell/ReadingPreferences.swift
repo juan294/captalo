@@ -22,7 +22,7 @@ public struct ReadingPreferences: Equatable, Sendable {
         speedSteps[speedIndex(of: speed)]
     }
 
-    /// The index of the nearest supported speed (the settings slider position).
+    /// The index of the nearest supported speed.
     public static func speedIndex(of speed: Float) -> Int {
         speedSteps.indices.min { abs(speedSteps[$0] - speed) < abs(speedSteps[$1] - speed) } ?? 2
     }
