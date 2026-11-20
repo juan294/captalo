@@ -181,7 +181,7 @@ public struct PanelModel: Equatable, Sendable {
     private static func readPane(_ input: PanelInput) -> ReadPaneModel {
         let notice = input.shortcutRejection ?? (input.environment.readShortcutSet
             ? "If this shortcut does nothing, another app may use it; choose another."
-            : "Choose a shortcut to read the selected text: click the field, then hold ⌘, ⌥ or ⌃ and press a key.")
+            : "Choose a shortcut to read the selected text: click Record, then hold ⌘, ⌥ or ⌃ and press a key.")
         let selected = ReadingPreferences.snap(input.speed)
         return ReadPaneModel(
             selection: ShortcutSlot(keycaps: ShortcutKeycaps.labels(description: input.readShortcut)),

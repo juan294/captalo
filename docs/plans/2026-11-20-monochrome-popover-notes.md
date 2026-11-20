@@ -35,3 +35,43 @@ Worktree: `/Users/juan/code/captalo-wt-popover`, branch `feat/monochrome-popover
 - TDD: `PanelModelTests.swift` was written first and failed to compile ("cannot find 'PanelInput' in scope") before the model existed.
 - Independent review (fresh context, read-only): no blockers; 4 should-fix, 6 nits. Fixed: finding 5 (M4), finding 8 (rejection with the shortcut unset), finding 9 (`eachNoticeAloneRaisesTheReadDot`), finding 7 (pills are three stored values with an exhaustive switch), finding 11 (`offStepSpeedSelectsTheNearestStep`). Recorded as deviations: findings 1 to 4 and 12 (M1 to M3). Accepted as is: finding 6 (the voice error has two inputs; the phase 3 adapter sets both from `lastReadingError`), finding 10 (the login row is a pass-through; its variants are tested in the existing login item tests).
 - Known behavior, by plan: while the voice is still preparing, the Read pill says "Ready" (`SetupState` treats a checking voice as pending).
+
+### M5. The render draws the panes without the recorder and without scrolling (phase 2)
+
+- Plan said: the render and the live panel use the same views, and the pane body is a scroll view.
+- Found: `ImageRenderer` draws no AppKit view and no scroll view content.
+- Chose: the environment value `panelIsRender` (false by default, true only in `--render-panel`) swaps `KeycapRecorder` for its `KeycapsLabel` and draws the pane top-aligned and clipped, so content taller than the pane cuts the footer in the image. The live panel scrolls.
+- Why: an image with a blank scroll area proves nothing. `read-all-notices` (every notice at its longest) is about 16 pt taller than the pane: all notices are readable in the image and the footer is cut, which is the overflow the live scroll view handles.
+
+### M6. Captions changed from the mockup (phase 2)
+
+- The shortcut captions are "Select text, then press" and "Press, then drag on screen": the mockup's longer texts wrapped to two lines beside the keycaps.
+- The Voice caption is "Play a sample or choose a voice. A sampled voice becomes the voice in use, from the next reading.": the existing `playSample` also selects the voice, and this plan changes no state method.
+- The unset-shortcut hint says "click Record" (it said "click the field"): the control is now a button named Record (review finding 11).
+
+### M7. Smaller differences from the phase 2 design (review finding 1)
+
+- The render uses `ImageRenderer` at scale 2, not an `NSHostingView` with a bitmap rep. `Scripts/panel-render-check` reads the PNG header itself, not `sips`, so its tests run on any host.
+- The probe posts its key events with `NSApplication.postEvent`, and it starts each recording through `KeycapRecorderController.begin()`, the function the keycap button calls. It sends no mouse event, so the button's hit area is an owner check in phase 3 (check 5).
+- The probe has a fifth step: a Tab press while idle must not give the hidden field the keys. Idle, the field refuses the first responder (review finding 6).
+- Fewer files than the unit list: the rail, header and footer are in `PanelRootView.swift` with `PanelActions`; `SpeedControl` is in `ReadPane.swift`; the switch style is in `PanelComponents.swift`; the render command and the probe are in `PanelDebugCommands.swift`. The tab binding is named `tab`.
+- `--render-panel` writes to the directory it is given and does not check that it is under `.local/build/panel-render`; `make panel-render` always passes that path and removes only `*.png` there.
+- The phase 2 units were done by one implementer in sequence; no batch worktrees were used.
+
+## Phase 2 evidence
+
+- Entry probe, Debug build of the worktree, 2026-11-20 (final run, after the review fixes):
+
+```text
+panel-recorder-probe: ok   1 a click on the keycaps makes the recorder the first responder
+panel-recorder-probe: ok   2 a key-down stores the shortcut, calls onChange once and shows keycaps again
+panel-recorder-probe: ok   3 Esc shows keycaps again and keeps the stored shortcut
+panel-recorder-probe: ok   4 losing the first responder shows keycaps again
+panel-recorder-probe: ok   5 Tab while idle does not give the hidden recorder the keys
+panel-recorder-probe: ok   cleanup: the probe's defaults key is gone
+panel-recorder-probe: passed
+```
+
+  The owner's `KeyboardShortcuts_readSelection` and `KeyboardShortcuts_readRegion` values were read before and after the first run and were unchanged.
+- `make panel-render`: 16 images at 880 x 1040. The implementer viewed `read-ready-dark`, `read-all-notices-light`, `read-all-notices-dark`, `voice-ready-dark`, `setup-permission-missing-dark` and `setup-recording-requested-light`.
+- Independent review (fresh context, read-only; viewed 12 images and ran a hue scan over all 16): no blockers, 6 should-fix, 10 nits. No amber or orange in any image. No setting, notice or recovery action of `SettingsView` is missing. Fixed: 4 (overflow now top-aligned), 6 (idle field refuses focus; window observed from the start; Tab step), 7 (`panelIsRender`, safe default), 8 (`rm -f *.png`), 11, 13, 14, 15, the Voice card border and the rail dot position from 5. Recorded: 1 and 2 (M5 to M7). Left as is: 3 (the switch knob is white in both appearances), the other small differences in 5 (12.5 pt "In use", `textPrimary` for the active rail item, title weight), 9 (the recording field covers part of the caption; owner check), 10 (comment added), 12, 16.

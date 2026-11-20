@@ -45,7 +45,7 @@ Runtime voice/capture validation and signed distribution are separate from these
 - Work in isolated worktrees or local temporary branches, then integrate reviewed changes locally into `develop`.
 - Keep upstream history and use a merge commit when promoting `develop` to `main`; never rewrite upstream history or push to upstream.
 - No release, app distribution, signing/account changes, or production publication follows from local setup authorization. Inspect triggers and require explicit publication scope before external writes.
-- Sutura owns fleet CI routing. Do not add routing changes, mode toggles, or hosted experimentation here. `.github/workflows/ci.yml` (Sutura decision 2026-11-20) runs 13 of the 15 `make verify` checks unsigned on the hosted `xcode-27` image (Xcode 27.2) for pushes and pull requests to `develop` and `main`; `rpi-installation`, `ocr-probe` (Vision document recognition fails on the hosted VM), signing, permissions, audio and Rex stay local. Change it only through Sutura.
+- Sutura owns fleet CI routing. Do not add routing changes, mode toggles, or hosted experimentation here. `.github/workflows/ci.yml` (Sutura decision 2026-11-20) runs 13 of the 16 `make verify` checks unsigned on the hosted `xcode-27` image (Xcode 27.2) for pushes and pull requests to `develop` and `main`; `rpi-installation`, `ocr-probe` (Vision document recognition fails on the hosted VM), `panel-render` (the menu-bar panel drawn to PNG from fixtures), signing, permissions, audio and Rex stay local. Change it only through Sutura.
 
 ## Product and data constraints
 

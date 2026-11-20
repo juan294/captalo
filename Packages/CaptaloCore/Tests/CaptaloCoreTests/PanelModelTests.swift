@@ -109,7 +109,7 @@ import Testing
 
         let unset = model { $0.environment.readShortcutSet = false; $0.readShortcut = nil }
         #expect(unset.read.shortcutNotice
-            == "Choose a shortcut to read the selected text: click the field, then hold ⌘, ⌥ or ⌃ and press a key.")
+            == "Choose a shortcut to read the selected text: click Record, then hold ⌘, ⌥ or ⌃ and press a key.")
         #expect(unset.read.selection.keycaps.isEmpty)
         #expect(unset.initialTab == .read)
         #expect(unset.attention == [.read])
