@@ -1,0 +1,1658 @@
+{
+  "schema_version": 1,
+  "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+  "fixtures_sha256": "4376d4b02fb5e80627fcf7342e5b9c0658c1c4d0ee8237cb9f52163bf6e480d3",
+  "observed_model": "gpt-6.1-terra",
+  "rows": [
+    {
+      "id": "main-email-simple-plain",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "c960a977385616ed92bfb77bb2910c6c3b6b54ebefadaaad51a8162372bbcf84",
+      "source_words": 33,
+      "answer_sha256": "2241158618aeccb67916747d1120bfa6c46b84b9f07c493e76aec997bbaea74a",
+      "answer_words": 28,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "missing_facts": [],
+      "near_verbatim": true,
+      "verdict": "fail"
+    },
+    {
+      "id": "main-email-simple-metaphors",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "c960a977385616ed92bfb77bb2910c6c3b6b54ebefadaaad51a8162372bbcf84",
+      "source_words": 33,
+      "answer_sha256": "47ea103ae0731130db26063399089a22f3ed5a68c27b2b030fb23ad3aaa48117",
+      "answer_words": 40,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "missing_facts": [],
+      "near_verbatim": true,
+      "verdict": "pass"
+    },
+    {
+      "id": "main-email-middle-plain",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "c960a977385616ed92bfb77bb2910c6c3b6b54ebefadaaad51a8162372bbcf84",
+      "source_words": 33,
+      "answer_sha256": "1bb0e66a503dee1d2b301d0174c9270f854b8f5235d18b7e06ddefcf0c7d5c62",
+      "answer_words": 27,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        1,
+        2,
+        3
+      ],
+      "missing_facts": [
+        0
+      ],
+      "near_verbatim": true,
+      "verdict": "pass"
+    },
+    {
+      "id": "main-email-middle-metaphors",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "c960a977385616ed92bfb77bb2910c6c3b6b54ebefadaaad51a8162372bbcf84",
+      "source_words": 33,
+      "answer_sha256": "4adaf71df91bf6b7411b8e5fff4fd1e5251bd52e09f363072849d2bca2f0ff2d",
+      "answer_words": 38,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "missing_facts": [],
+      "near_verbatim": true,
+      "verdict": "fail"
+    },
+    {
+      "id": "main-email-detailed-plain",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "c960a977385616ed92bfb77bb2910c6c3b6b54ebefadaaad51a8162372bbcf84",
+      "source_words": 33,
+      "answer_sha256": "0290273efc8142e46ca1ee5a1ccb1a390778d55a249d9bc26ef5e5788f9c6a78",
+      "answer_words": 28,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "missing_facts": [],
+      "near_verbatim": true,
+      "verdict": "pass"
+    },
+    {
+      "id": "main-email-detailed-metaphors",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "c960a977385616ed92bfb77bb2910c6c3b6b54ebefadaaad51a8162372bbcf84",
+      "source_words": 33,
+      "answer_sha256": "4cecd41fa27355cc9703cdc9ab50555d95e87e32852debf069feb863d8967fde",
+      "answer_words": 34,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "missing_facts": [],
+      "near_verbatim": true,
+      "verdict": "pass"
+    },
+    {
+      "id": "main-agent-simple-plain",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "95e8259409d5c0bb4ad6c8157b9cb769e21bfc2a1f76c791420c0c9298ddf7d7",
+      "source_words": 43,
+      "answer_sha256": "5e2b2a60887398978b0b0d481cb0f611c2561975b03cdcd9856d5c92e0db120d",
+      "answer_words": 36,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "missing_facts": [],
+      "near_verbatim": false,
+      "verdict": "pass"
+    },
+    {
+      "id": "main-agent-simple-metaphors",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "95e8259409d5c0bb4ad6c8157b9cb769e21bfc2a1f76c791420c0c9298ddf7d7",
+      "source_words": 43,
+      "answer_sha256": "43bbdc23be9213a34a3000d7b46296441dc4bfe4518527e93014781c97f70fb6",
+      "answer_words": 43,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "missing_facts": [],
+      "near_verbatim": false,
+      "verdict": "pass"
+    },
+    {
+      "id": "main-agent-middle-plain",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "95e8259409d5c0bb4ad6c8157b9cb769e21bfc2a1f76c791420c0c9298ddf7d7",
+      "source_words": 43,
+      "answer_sha256": "85f72bf0c6e045151664b427e28de8f3bc813dcaa2d14bfedba0184a001a1c08",
+      "answer_words": 25,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        3,
+        4
+      ],
+      "missing_facts": [
+        1,
+        2
+      ],
+      "near_verbatim": false,
+      "verdict": "fail"
+    },
+    {
+      "id": "main-agent-middle-metaphors",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "95e8259409d5c0bb4ad6c8157b9cb769e21bfc2a1f76c791420c0c9298ddf7d7",
+      "source_words": 43,
+      "answer_sha256": "5b9809ac1fac9b54ae7e5775f7341362b21ea42ddd1dc3e9075abd8ebdaab70b",
+      "answer_words": 38,
+      "natural_stop": true,
+      "ambiguous": true,
+      "covered_facts": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "missing_facts": [],
+      "near_verbatim": false,
+      "verdict": "uncertain"
+    },
+    {
+      "id": "main-agent-detailed-plain",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "95e8259409d5c0bb4ad6c8157b9cb769e21bfc2a1f76c791420c0c9298ddf7d7",
+      "source_words": 43,
+      "answer_sha256": "26772cb31f1a3d861aa96297c23feccfa49e4fc4489987f5a9135333b22fa770",
+      "answer_words": 35,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "missing_facts": [],
+      "near_verbatim": true,
+      "verdict": "pass"
+    },
+    {
+      "id": "main-agent-detailed-metaphors",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "95e8259409d5c0bb4ad6c8157b9cb769e21bfc2a1f76c791420c0c9298ddf7d7",
+      "source_words": 43,
+      "answer_sha256": "d585e79ba99bdb45c13457b89d15e29aecb791e9ca3cf0a3498e3e0b71873163",
+      "answer_words": 47,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "missing_facts": [],
+      "near_verbatim": true,
+      "verdict": "pass"
+    },
+    {
+      "id": "main-legal-simple-plain",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "e1eb5f11a2786b01dcfe0db62768b0f84fbd4e26e1899b5245c31fe9ee4881e9",
+      "source_words": 40,
+      "answer_sha256": "86870dbb271cec904ac0af810342055dd491f6d5b297b53a0288eed093e4fcc1",
+      "answer_words": 36,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2
+      ],
+      "missing_facts": [],
+      "near_verbatim": true,
+      "verdict": "pass"
+    },
+    {
+      "id": "main-legal-simple-metaphors",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "e1eb5f11a2786b01dcfe0db62768b0f84fbd4e26e1899b5245c31fe9ee4881e9",
+      "source_words": 40,
+      "answer_sha256": "92e762f38637210f5eb13a9f6c1ebe1faeb14f2ec6fc422eb3cbf7d262508fe7",
+      "answer_words": 46,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2
+      ],
+      "missing_facts": [],
+      "near_verbatim": true,
+      "verdict": "pass"
+    },
+    {
+      "id": "main-legal-middle-plain",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "e1eb5f11a2786b01dcfe0db62768b0f84fbd4e26e1899b5245c31fe9ee4881e9",
+      "source_words": 40,
+      "answer_sha256": "ee811ae6ba5f99852bb002826df34aba1ed72f42fe2bf17ea2863a5e7cfb9891",
+      "answer_words": 36,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2
+      ],
+      "missing_facts": [],
+      "near_verbatim": true,
+      "verdict": "pass"
+    },
+    {
+      "id": "main-legal-middle-metaphors",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "e1eb5f11a2786b01dcfe0db62768b0f84fbd4e26e1899b5245c31fe9ee4881e9",
+      "source_words": 40,
+      "answer_sha256": "760c6ff462bfd7840c53f889f401f4e6fc97fca3a9559eb7e888c3e5c5c146d1",
+      "answer_words": 46,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2
+      ],
+      "missing_facts": [],
+      "near_verbatim": true,
+      "verdict": "pass"
+    },
+    {
+      "id": "main-legal-detailed-plain",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "e1eb5f11a2786b01dcfe0db62768b0f84fbd4e26e1899b5245c31fe9ee4881e9",
+      "source_words": 40,
+      "answer_sha256": "491fbe225989fc2119f37e7a94f071f5edccd74ee28edf135e778869d25c45d3",
+      "answer_words": 38,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2
+      ],
+      "missing_facts": [],
+      "near_verbatim": true,
+      "verdict": "pass"
+    },
+    {
+      "id": "main-legal-detailed-metaphors",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "e1eb5f11a2786b01dcfe0db62768b0f84fbd4e26e1899b5245c31fe9ee4881e9",
+      "source_words": 40,
+      "answer_sha256": "c159ddb65393329a071b64e42b74c81e37996c78311d4917c6b53af0bc8f3361",
+      "answer_words": 41,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2
+      ],
+      "missing_facts": [],
+      "near_verbatim": false,
+      "verdict": "pass"
+    },
+    {
+      "id": "main-textbook-simple-plain",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "3474deab6f9c1f0f6802ca31f311f3611c3269cbf83bf3389e90f59d25112df4",
+      "source_words": 46,
+      "answer_sha256": "5c435045ff64206a13ce979355f1b90450f9cc82bc94799ae1248b261d91bace",
+      "answer_words": 32,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "missing_facts": [],
+      "near_verbatim": false,
+      "verdict": "fail"
+    },
+    {
+      "id": "main-textbook-simple-metaphors",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "3474deab6f9c1f0f6802ca31f311f3611c3269cbf83bf3389e90f59d25112df4",
+      "source_words": 46,
+      "answer_sha256": "97d1cb29ab8eca79f059e4237678166164923b99845c7b28e3ec1042a6467838",
+      "answer_words": 26,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        2,
+        3,
+        4
+      ],
+      "missing_facts": [
+        0,
+        1
+      ],
+      "near_verbatim": false,
+      "verdict": "fail"
+    },
+    {
+      "id": "main-textbook-middle-plain",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "3474deab6f9c1f0f6802ca31f311f3611c3269cbf83bf3389e90f59d25112df4",
+      "source_words": 46,
+      "answer_sha256": "c63797d1ffb594df3e3f0960ccf23027b75ee2a7bf2b4bea910d3c6d76c4b1be",
+      "answer_words": 20,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        2,
+        3,
+        4
+      ],
+      "missing_facts": [
+        0,
+        1
+      ],
+      "near_verbatim": false,
+      "verdict": "pass"
+    },
+    {
+      "id": "main-textbook-middle-metaphors",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "3474deab6f9c1f0f6802ca31f311f3611c3269cbf83bf3389e90f59d25112df4",
+      "source_words": 46,
+      "answer_sha256": "bf3c9df5d2eee11ae96da6557281812cc658b9fb613e31b9b5ab7c565b32b7dd",
+      "answer_words": 30,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        2,
+        3,
+        4
+      ],
+      "missing_facts": [
+        0,
+        1
+      ],
+      "near_verbatim": false,
+      "verdict": "pass"
+    },
+    {
+      "id": "main-textbook-detailed-plain",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "3474deab6f9c1f0f6802ca31f311f3611c3269cbf83bf3389e90f59d25112df4",
+      "source_words": 46,
+      "answer_sha256": "4708b538c525d6bfcfe1f0be72063a58111a27c7d5401a16ca7d3cf016ae78eb",
+      "answer_words": 43,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "missing_facts": [],
+      "near_verbatim": false,
+      "verdict": "fail"
+    },
+    {
+      "id": "main-textbook-detailed-metaphors",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "3474deab6f9c1f0f6802ca31f311f3611c3269cbf83bf3389e90f59d25112df4",
+      "source_words": 46,
+      "answer_sha256": "258eedf7c36b7ba5d160571073cb2e4a0e3bf35be52a4f7aa7e3f21729dcf8a4",
+      "answer_words": 47,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "missing_facts": [],
+      "near_verbatim": false,
+      "verdict": "fail"
+    },
+    {
+      "id": "main-minutes-simple-plain",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "a0bf6c91ef581a6b438811128703c944cbc6a53258457e504e10f9706500dcfe",
+      "source_words": 31,
+      "answer_sha256": "6715d9adee3042b1882a1a49b60188bf681e015146411cbe7a41e86ea5fcbef2",
+      "answer_words": 26,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        1,
+        2,
+        3
+      ],
+      "missing_facts": [
+        0
+      ],
+      "near_verbatim": true,
+      "verdict": "pass"
+    },
+    {
+      "id": "main-minutes-simple-metaphors",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "a0bf6c91ef581a6b438811128703c944cbc6a53258457e504e10f9706500dcfe",
+      "source_words": 31,
+      "answer_sha256": "4778e418246228341dd7973d8a4fdd03e015189b24038fcedbb87e2970265987",
+      "answer_words": 35,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        1,
+        2,
+        3
+      ],
+      "missing_facts": [
+        0
+      ],
+      "near_verbatim": false,
+      "verdict": "pass"
+    },
+    {
+      "id": "main-minutes-middle-plain",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "a0bf6c91ef581a6b438811128703c944cbc6a53258457e504e10f9706500dcfe",
+      "source_words": 31,
+      "answer_sha256": "ce9505a9b8c8a7241b55f71a55af13b0c63482810f77464a484b200782776f8f",
+      "answer_words": 20,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        1,
+        3
+      ],
+      "missing_facts": [
+        0,
+        2
+      ],
+      "near_verbatim": false,
+      "verdict": "pass"
+    },
+    {
+      "id": "main-minutes-middle-metaphors",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "a0bf6c91ef581a6b438811128703c944cbc6a53258457e504e10f9706500dcfe",
+      "source_words": 31,
+      "answer_sha256": "0d9df25662247b341a9db8376e95d0503bf75acc02bb1d3507a9b1a1d5ff9f45",
+      "answer_words": 35,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        1,
+        2,
+        3
+      ],
+      "missing_facts": [
+        0
+      ],
+      "near_verbatim": false,
+      "verdict": "pass"
+    },
+    {
+      "id": "main-minutes-detailed-plain",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "a0bf6c91ef581a6b438811128703c944cbc6a53258457e504e10f9706500dcfe",
+      "source_words": 31,
+      "answer_sha256": "cae580a606e773c2901905657b52477e1593d156866c70993a42ebcd71312530",
+      "answer_words": 31,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "missing_facts": [],
+      "near_verbatim": true,
+      "verdict": "pass"
+    },
+    {
+      "id": "main-minutes-detailed-metaphors",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "a0bf6c91ef581a6b438811128703c944cbc6a53258457e504e10f9706500dcfe",
+      "source_words": 31,
+      "answer_sha256": "72739162f0d58fbcd8327406c57b4b8695f9b5edd21fd3082491aa07c8fb415a",
+      "answer_words": 41,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "missing_facts": [],
+      "near_verbatim": false,
+      "verdict": "pass"
+    },
+    {
+      "id": "main-notice-simple-plain",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "1bdaeb39f1e0d16723d4b5d40ab0a19f77d9ba94ae3f844140515ae48b6c5cce",
+      "source_words": 32,
+      "answer_sha256": "6d2cd0e82a330c87a2cc810187fed484158342b00bc7fe2d339afed1e7fd05a8",
+      "answer_words": 26,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        1,
+        2,
+        3
+      ],
+      "missing_facts": [
+        0
+      ],
+      "near_verbatim": false,
+      "verdict": "fail"
+    },
+    {
+      "id": "main-notice-simple-metaphors",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "1bdaeb39f1e0d16723d4b5d40ab0a19f77d9ba94ae3f844140515ae48b6c5cce",
+      "source_words": 32,
+      "answer_sha256": "b17d21e9357725bb1c4e406ef97f92966f37f94653162dd1b152af805bd5589e",
+      "answer_words": 31,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        2,
+        3
+      ],
+      "missing_facts": [
+        0,
+        1
+      ],
+      "near_verbatim": false,
+      "verdict": "pass"
+    },
+    {
+      "id": "main-notice-middle-plain",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "1bdaeb39f1e0d16723d4b5d40ab0a19f77d9ba94ae3f844140515ae48b6c5cce",
+      "source_words": 32,
+      "answer_sha256": "9e5717ae4e968473a9acbec73c61366c9c3a1499e5ede744eaec656f5183bac4",
+      "answer_words": 26,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "missing_facts": [],
+      "near_verbatim": false,
+      "verdict": "fail"
+    },
+    {
+      "id": "main-notice-middle-metaphors",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "1bdaeb39f1e0d16723d4b5d40ab0a19f77d9ba94ae3f844140515ae48b6c5cce",
+      "source_words": 32,
+      "answer_sha256": "65b104ebb466cb50963fe837d8b3deecb3ffd780453ffcc9772870ac2eb5c02a",
+      "answer_words": 25,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        1,
+        2,
+        3
+      ],
+      "missing_facts": [
+        0
+      ],
+      "near_verbatim": false,
+      "verdict": "fail"
+    },
+    {
+      "id": "main-notice-detailed-plain",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "1bdaeb39f1e0d16723d4b5d40ab0a19f77d9ba94ae3f844140515ae48b6c5cce",
+      "source_words": 32,
+      "answer_sha256": "9e5717ae4e968473a9acbec73c61366c9c3a1499e5ede744eaec656f5183bac4",
+      "answer_words": 26,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "missing_facts": [],
+      "near_verbatim": false,
+      "verdict": "fail"
+    },
+    {
+      "id": "main-notice-detailed-metaphors",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "1bdaeb39f1e0d16723d4b5d40ab0a19f77d9ba94ae3f844140515ae48b6c5cce",
+      "source_words": 32,
+      "answer_sha256": "b069f5fcddc656a718f94b7add27915fe62d2b9794e1fc5140c542f639ffac16",
+      "answer_words": 32,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "missing_facts": [],
+      "near_verbatim": false,
+      "verdict": "fail"
+    },
+    {
+      "id": "main-inventory-simple-plain",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "eb5ce7a6e6944871aadf29888d4cdd3380133b7f01f66e9d96898770221ab4be",
+      "source_words": 33,
+      "answer_sha256": "8a222b8a922cc0f72dd414bfccd1c0dcfcf8abff86974faa9387e5aab4e0d1ce",
+      "answer_words": 29,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2
+      ],
+      "missing_facts": [],
+      "near_verbatim": true,
+      "verdict": "pass"
+    },
+    {
+      "id": "main-inventory-simple-metaphors",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "eb5ce7a6e6944871aadf29888d4cdd3380133b7f01f66e9d96898770221ab4be",
+      "source_words": 33,
+      "answer_sha256": "703b53083cf59cbd52819096d36547b2a2ca3cacc650d8635534cd5a683d3e70",
+      "answer_words": 30,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        2
+      ],
+      "missing_facts": [
+        0,
+        1
+      ],
+      "near_verbatim": false,
+      "verdict": "fail"
+    },
+    {
+      "id": "main-inventory-middle-plain",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "eb5ce7a6e6944871aadf29888d4cdd3380133b7f01f66e9d96898770221ab4be",
+      "source_words": 33,
+      "answer_sha256": "6d8669586e9581fffcc14d9c8183ed11b90441cb7c4e178c692ef2a97878d142",
+      "answer_words": 20,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2
+      ],
+      "missing_facts": [],
+      "near_verbatim": true,
+      "verdict": "pass"
+    },
+    {
+      "id": "main-inventory-middle-metaphors",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "eb5ce7a6e6944871aadf29888d4cdd3380133b7f01f66e9d96898770221ab4be",
+      "source_words": 33,
+      "answer_sha256": "c530bf8524a7bf3caaa2f9f532ac791f2fdb432949cf5f070ebab6f136e15dfb",
+      "answer_words": 23,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        2
+      ],
+      "missing_facts": [
+        0,
+        1
+      ],
+      "near_verbatim": false,
+      "verdict": "pass"
+    },
+    {
+      "id": "main-inventory-detailed-plain",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "eb5ce7a6e6944871aadf29888d4cdd3380133b7f01f66e9d96898770221ab4be",
+      "source_words": 33,
+      "answer_sha256": "cb1102a8847664a1bced07607fed9e50758d62a045c9ab449a1220295e2627b7",
+      "answer_words": 26,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2
+      ],
+      "missing_facts": [],
+      "near_verbatim": true,
+      "verdict": "pass"
+    },
+    {
+      "id": "main-inventory-detailed-metaphors",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "eb5ce7a6e6944871aadf29888d4cdd3380133b7f01f66e9d96898770221ab4be",
+      "source_words": 33,
+      "answer_sha256": "5f3cf494d9b9c88cbf1a0fa72561957f42d54284ebee69d8c590b667fd21a0e9",
+      "answer_words": 32,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1
+      ],
+      "missing_facts": [
+        2
+      ],
+      "near_verbatim": false,
+      "verdict": "fail"
+    },
+    {
+      "id": "main-schedule-simple-plain",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "aa7c2150dc5f6195c9a3fc7e6326ffe1c654199c56b6a434d497909525b36369",
+      "source_words": 30,
+      "answer_sha256": "f6f165f1b849abaadf7a4500f3a6e665b22e0f75debab3e3375cff2c2cbbbcb8",
+      "answer_words": 28,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "missing_facts": [],
+      "near_verbatim": true,
+      "verdict": "pass"
+    },
+    {
+      "id": "main-schedule-simple-metaphors",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "aa7c2150dc5f6195c9a3fc7e6326ffe1c654199c56b6a434d497909525b36369",
+      "source_words": 30,
+      "answer_sha256": "69631309b76fb80ba14816edd060ee58185feb905ffde3ed16c7718e0c587fa6",
+      "answer_words": 36,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "missing_facts": [],
+      "near_verbatim": false,
+      "verdict": "pass"
+    },
+    {
+      "id": "main-schedule-middle-plain",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "aa7c2150dc5f6195c9a3fc7e6326ffe1c654199c56b6a434d497909525b36369",
+      "source_words": 30,
+      "answer_sha256": "880eae37fa21662385b00b3f928704cebd417c4fd0d83c45d04117aff6797f1d",
+      "answer_words": 26,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "missing_facts": [],
+      "near_verbatim": true,
+      "verdict": "pass"
+    },
+    {
+      "id": "main-schedule-middle-metaphors",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "aa7c2150dc5f6195c9a3fc7e6326ffe1c654199c56b6a434d497909525b36369",
+      "source_words": 30,
+      "answer_sha256": "272c08bd7437ba0cb834bffef92cacccfcaea00b4431ea66782752813a15c919",
+      "answer_words": 21,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        1,
+        2
+      ],
+      "missing_facts": [
+        0,
+        3
+      ],
+      "near_verbatim": false,
+      "verdict": "pass"
+    },
+    {
+      "id": "main-schedule-detailed-plain",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "aa7c2150dc5f6195c9a3fc7e6326ffe1c654199c56b6a434d497909525b36369",
+      "source_words": 30,
+      "answer_sha256": "aae828056b0031c771f334d9a2ec09cbe1017e407a1c40462aea56be7c2cdea8",
+      "answer_words": 26,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "missing_facts": [],
+      "near_verbatim": true,
+      "verdict": "pass"
+    },
+    {
+      "id": "main-schedule-detailed-metaphors",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "aa7c2150dc5f6195c9a3fc7e6326ffe1c654199c56b6a434d497909525b36369",
+      "source_words": 30,
+      "answer_sha256": "5194885ec797a609e4473c282c4d12c14f6253be034e46d3e37f7afe1823bc06",
+      "answer_words": 35,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "missing_facts": [],
+      "near_verbatim": false,
+      "verdict": "pass"
+    },
+    {
+      "id": "main-handover-simple-plain",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "bcd7b157559fa604e005d377d4cb7de83ce723544169bdb156cd190b692a4da1",
+      "source_words": 32,
+      "answer_sha256": "d3d66a11e2c8c02783526ed3e129d6ca514fd3ec61329ae40a95031271a728a5",
+      "answer_words": 27,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2
+      ],
+      "missing_facts": [],
+      "near_verbatim": true,
+      "verdict": "pass"
+    },
+    {
+      "id": "main-handover-simple-metaphors",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "bcd7b157559fa604e005d377d4cb7de83ce723544169bdb156cd190b692a4da1",
+      "source_words": 32,
+      "answer_sha256": "a22c1ef1d636f719d741086d170f65f0f42802ed35a45c63a99f8ba48a67a7d7",
+      "answer_words": 35,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        2
+      ],
+      "missing_facts": [
+        1
+      ],
+      "near_verbatim": false,
+      "verdict": "fail"
+    },
+    {
+      "id": "main-handover-middle-plain",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "bcd7b157559fa604e005d377d4cb7de83ce723544169bdb156cd190b692a4da1",
+      "source_words": 32,
+      "answer_sha256": "75200d20dd5a329d495a528499d9f438c266713b9741d2eaf8e226fa770f51b2",
+      "answer_words": 22,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2
+      ],
+      "missing_facts": [],
+      "near_verbatim": false,
+      "verdict": "pass"
+    },
+    {
+      "id": "main-handover-middle-metaphors",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "bcd7b157559fa604e005d377d4cb7de83ce723544169bdb156cd190b692a4da1",
+      "source_words": 32,
+      "answer_sha256": "2a1d76b2728f88673d8cfbd64e539543b3f9b3ac878a49fcd0ffff805bcd18ce",
+      "answer_words": 30,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        2
+      ],
+      "missing_facts": [
+        1
+      ],
+      "near_verbatim": false,
+      "verdict": "fail"
+    },
+    {
+      "id": "main-handover-detailed-plain",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "bcd7b157559fa604e005d377d4cb7de83ce723544169bdb156cd190b692a4da1",
+      "source_words": 32,
+      "answer_sha256": "de69cee6b2f49792f6dd60ff88f178e1fa2c986e9e3c3e6ab07a592f01fe472e",
+      "answer_words": 26,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2
+      ],
+      "missing_facts": [],
+      "near_verbatim": true,
+      "verdict": "pass"
+    },
+    {
+      "id": "main-handover-detailed-metaphors",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "bcd7b157559fa604e005d377d4cb7de83ce723544169bdb156cd190b692a4da1",
+      "source_words": 32,
+      "answer_sha256": "3d8cf388b07a61c614115494d2abad16d6a2c7dd2e457f947e3c9d45a623735e",
+      "answer_words": 32,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2
+      ],
+      "missing_facts": [],
+      "near_verbatim": false,
+      "verdict": "pass"
+    },
+    {
+      "id": "main-report300-simple-plain",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "96cb554b3001d360a563abf90234621a91a8f3480741f73361fe631145531047",
+      "source_words": 300,
+      "answer_sha256": "db463dab0266d5a72a9c23ef4eafe1e681e67cc13197bdd1a3543e8bdc011d6b",
+      "answer_words": 147,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "missing_facts": [],
+      "near_verbatim": false,
+      "verdict": "pass"
+    },
+    {
+      "id": "main-report300-simple-metaphors",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "96cb554b3001d360a563abf90234621a91a8f3480741f73361fe631145531047",
+      "source_words": 300,
+      "answer_sha256": "3a50292146c9e48fd7b5e2a3ddeeb297e9761e59953f3ec3d2a356c13d048e5f",
+      "answer_words": 136,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        1,
+        3,
+        4,
+        5
+      ],
+      "missing_facts": [
+        0,
+        2
+      ],
+      "near_verbatim": false,
+      "verdict": "pass"
+    },
+    {
+      "id": "main-report300-middle-plain",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "96cb554b3001d360a563abf90234621a91a8f3480741f73361fe631145531047",
+      "source_words": 300,
+      "answer_sha256": "3c57504929b64b4ae56bf249c2eba09131e097bbf48c744331c1d9035cc41420",
+      "answer_words": 127,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "missing_facts": [],
+      "near_verbatim": false,
+      "verdict": "pass"
+    },
+    {
+      "id": "main-report300-middle-metaphors",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "96cb554b3001d360a563abf90234621a91a8f3480741f73361fe631145531047",
+      "source_words": 300,
+      "answer_sha256": "198ea63bb5672c555e0448d5e701193f842456008ec1cd1e0e2591c06401e97b",
+      "answer_words": 130,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "missing_facts": [
+        0
+      ],
+      "near_verbatim": false,
+      "verdict": "fail"
+    },
+    {
+      "id": "main-report300-detailed-plain",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "96cb554b3001d360a563abf90234621a91a8f3480741f73361fe631145531047",
+      "source_words": 300,
+      "answer_sha256": "f40c3be8ce4db994d7b3ffa24000de39d3647091ffbc4430434a4c2536d2d4a1",
+      "answer_words": 142,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "missing_facts": [],
+      "near_verbatim": false,
+      "verdict": "pass"
+    },
+    {
+      "id": "main-report300-detailed-metaphors",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "96cb554b3001d360a563abf90234621a91a8f3480741f73361fe631145531047",
+      "source_words": 300,
+      "answer_sha256": "308227eb91dc4900b06de3060d6b0daf4be36ee62b4d110dd6a9a6e9b991259c",
+      "answer_words": 157,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "missing_facts": [],
+      "near_verbatim": false,
+      "verdict": "pass"
+    },
+    {
+      "id": "main-document3000-simple-plain",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "23dceb2c66d75c83c1ba4287fe55937fb7b82f87ae6194128ed5b6c9168be3c6",
+      "source_words": 3000,
+      "answer_sha256": "eea4b2d858e5d6f37dbc15ca86da1938099d1e0e0acf93e1cdccc992671c8cee",
+      "answer_words": 184,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "missing_facts": [],
+      "near_verbatim": false,
+      "verdict": "fail"
+    },
+    {
+      "id": "main-document3000-simple-metaphors",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "23dceb2c66d75c83c1ba4287fe55937fb7b82f87ae6194128ed5b6c9168be3c6",
+      "source_words": 3000,
+      "answer_sha256": "016cf84495d8173983348574ceccfd35b86e8e213cf8ac11531cf91e329bfcf0",
+      "answer_words": 196,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "missing_facts": [],
+      "near_verbatim": false,
+      "verdict": "fail"
+    },
+    {
+      "id": "main-document3000-middle-plain",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "23dceb2c66d75c83c1ba4287fe55937fb7b82f87ae6194128ed5b6c9168be3c6",
+      "source_words": 3000,
+      "answer_sha256": "2b610b1d4527930f4339564c31acdfe3d574a1b535c6ce2e261abedefe8297b0",
+      "answer_words": 200,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "missing_facts": [],
+      "near_verbatim": false,
+      "verdict": "pass"
+    },
+    {
+      "id": "main-document3000-middle-metaphors",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "23dceb2c66d75c83c1ba4287fe55937fb7b82f87ae6194128ed5b6c9168be3c6",
+      "source_words": 3000,
+      "answer_sha256": "3e7cd80c4188dc3b18034e0cd6ea2d77a41fc883b7695cf9d46f7a0f16fae070",
+      "answer_words": 186,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "missing_facts": [],
+      "near_verbatim": false,
+      "verdict": "pass"
+    },
+    {
+      "id": "main-document3000-detailed-plain",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "23dceb2c66d75c83c1ba4287fe55937fb7b82f87ae6194128ed5b6c9168be3c6",
+      "source_words": 3000,
+      "answer_sha256": "06a17d2504afb67d7b419ac6e966bea774d77cc7a3f9c1ac125ddaf1043b2dbd",
+      "answer_words": 201,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "missing_facts": [],
+      "near_verbatim": false,
+      "verdict": "fail"
+    },
+    {
+      "id": "main-document3000-detailed-metaphors",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "23dceb2c66d75c83c1ba4287fe55937fb7b82f87ae6194128ed5b6c9168be3c6",
+      "source_words": 3000,
+      "answer_sha256": "9ce6dc26156c2117e90dbc62c7d59d279e51bb5f3fdc607b71d5138da2cbf38e",
+      "answer_words": 208,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "missing_facts": [],
+      "near_verbatim": false,
+      "verdict": "fail"
+    },
+    {
+      "id": "style-agent-middle-examples",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "95e8259409d5c0bb4ad6c8157b9cb769e21bfc2a1f76c791420c0c9298ddf7d7",
+      "source_words": 43,
+      "answer_sha256": "447068a4aa52dae53c7148fb203f7ca0dde35f791bd035a0571ff02790f5e904",
+      "answer_words": 38,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "missing_facts": [],
+      "near_verbatim": false,
+      "verdict": "pass"
+    },
+    {
+      "id": "style-agent-middle-picture",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "95e8259409d5c0bb4ad6c8157b9cb769e21bfc2a1f76c791420c0c9298ddf7d7",
+      "source_words": 43,
+      "answer_sha256": "e1a97cb7b7c22fce13bd94f170de7300eea83ab8bc266a723fdf8b27a4034418",
+      "answer_words": 31,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "missing_facts": [],
+      "near_verbatim": false,
+      "verdict": "pass"
+    },
+    {
+      "id": "profile-agent-middle-metaphors",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "95e8259409d5c0bb4ad6c8157b9cb769e21bfc2a1f76c791420c0c9298ddf7d7",
+      "source_words": 43,
+      "answer_sha256": "1743568258d03846cd506eebcf66292d30a9449c3324e8e7e897c935a51c51a0",
+      "answer_words": 32,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        3,
+        4
+      ],
+      "missing_facts": [
+        2
+      ],
+      "near_verbatim": false,
+      "verdict": "pass"
+    },
+    {
+      "id": "conflict-agent-middle-plain",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "95e8259409d5c0bb4ad6c8157b9cb769e21bfc2a1f76c791420c0c9298ddf7d7",
+      "source_words": 43,
+      "answer_sha256": "7a3f2ed36453d05db7d3f69dd81acc1ef3bc9e66c88ca2ea83c215cf22fb6b22",
+      "answer_words": 30,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "missing_facts": [],
+      "near_verbatim": false,
+      "verdict": "pass"
+    },
+    {
+      "id": "held-email-middle-plain",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "acac65451b55c8e9592e1841d7ddc9f0501a007fdc0fce18f94a96bb42ab3317",
+      "source_words": 211,
+      "answer_sha256": "eaa79683d0f6db7637d10f00ea8e27c501daae4476e312f61a39703acf9a9adb",
+      "answer_words": 90,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        2,
+        4
+      ],
+      "missing_facts": [
+        1,
+        3
+      ],
+      "near_verbatim": false,
+      "verdict": "fail"
+    },
+    {
+      "id": "held-textbook-middle-plain",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "464cb3966c3dc640734b621751f27e3edcbf159c0eecde5b10154dbb8412988a",
+      "source_words": 214,
+      "answer_sha256": "328b3cba3fd845a8dd1a85142416619475edcb61a3827453f7f339b8bc36e8d9",
+      "answer_words": 93,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2
+      ],
+      "missing_facts": [
+        3,
+        4
+      ],
+      "near_verbatim": false,
+      "verdict": "fail"
+    },
+    {
+      "id": "held-report-simple-plain",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "837094e98ffc67cf5f1ac8440d1b4aa51547a1f63ddc9c70473d39fa446b3652",
+      "source_words": 213,
+      "answer_sha256": "261dc4b530e06e30056d8b265df52f0eddb2ad96a5f9995e927fd653dcf1514c",
+      "answer_words": 114,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "missing_facts": [],
+      "near_verbatim": false,
+      "verdict": "pass"
+    },
+    {
+      "id": "held-report-middle-plain",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "837094e98ffc67cf5f1ac8440d1b4aa51547a1f63ddc9c70473d39fa446b3652",
+      "source_words": 213,
+      "answer_sha256": "935692c5665e22a2424b98985a1e139637fcf3822229f5f5b6f4da25c466223f",
+      "answer_words": 101,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "missing_facts": [
+        0
+      ],
+      "near_verbatim": false,
+      "verdict": "pass"
+    },
+    {
+      "id": "held-report-detailed-plain",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "837094e98ffc67cf5f1ac8440d1b4aa51547a1f63ddc9c70473d39fa446b3652",
+      "source_words": 213,
+      "answer_sha256": "ed6265e346ad9529dd947b0358a28477359422876818ef5251263bb20151c687",
+      "answer_words": 170,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "missing_facts": [],
+      "near_verbatim": true,
+      "verdict": "pass"
+    },
+    {
+      "id": "held-report-middle-metaphors",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "837094e98ffc67cf5f1ac8440d1b4aa51547a1f63ddc9c70473d39fa446b3652",
+      "source_words": 213,
+      "answer_sha256": "87f6804c48169117543733d8908e3ae414c9cbc0ae269b0390849f8f58756d9d",
+      "answer_words": 111,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "missing_facts": [
+        0
+      ],
+      "near_verbatim": false,
+      "verdict": "pass"
+    },
+    {
+      "id": "held-report-middle-examples",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "837094e98ffc67cf5f1ac8440d1b4aa51547a1f63ddc9c70473d39fa446b3652",
+      "source_words": 213,
+      "answer_sha256": "2296bd75597559ae096db471b1423ac3497b335d1550f5adfb991b47d5ec6e1c",
+      "answer_words": 106,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        1,
+        2,
+        4
+      ],
+      "missing_facts": [
+        0,
+        3
+      ],
+      "near_verbatim": false,
+      "verdict": "pass"
+    },
+    {
+      "id": "held-report-middle-picture",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "837094e98ffc67cf5f1ac8440d1b4aa51547a1f63ddc9c70473d39fa446b3652",
+      "source_words": 213,
+      "answer_sha256": "300e8ce452384abe21eac03cca1ff80df5ee1a95ae78efde0896b0a8025ccb93",
+      "answer_words": 121,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "missing_facts": [
+        0
+      ],
+      "near_verbatim": false,
+      "verdict": "pass"
+    },
+    {
+      "id": "held-report-variant-number",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "3642bb6ae2818442ad0771e40e915cc3188056f43c6e624197ff5240cfa85958",
+      "source_words": 213,
+      "answer_sha256": "2bcab22069230f0ea03af014d79e683467eb7978bf22e9e13ea5069b48526a5f",
+      "answer_words": 106,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        1,
+        2,
+        4
+      ],
+      "missing_facts": [
+        0,
+        3
+      ],
+      "near_verbatim": false,
+      "verdict": "fail"
+    },
+    {
+      "id": "held-report-variant-actor",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "ad6ba39dc8e7e329641be0a8228a3c30bdd0db4b23cb40cc494d58bae8b473eb",
+      "source_words": 213,
+      "answer_sha256": "926abd064447de3b9159a03d87c2bc6ad0b5b43670907886292a155fac3933c6",
+      "answer_words": 94,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "missing_facts": [
+        0
+      ],
+      "near_verbatim": false,
+      "verdict": "pass"
+    },
+    {
+      "id": "held-report-variant-exception",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "e0ccb0909af3a898e47e96986cb12b2fff5b2bb515bbcdebdcd1d2b4d6d71b30",
+      "source_words": 213,
+      "answer_sha256": "f9afe0cf2adbbb9a279f6848d7d857bfd963b24dcd04acb69b88653053c15281",
+      "answer_words": 102,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        1,
+        2,
+        4
+      ],
+      "missing_facts": [
+        0,
+        3
+      ],
+      "near_verbatim": false,
+      "verdict": "fail"
+    },
+    {
+      "id": "held-report-accountant",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "837094e98ffc67cf5f1ac8440d1b4aa51547a1f63ddc9c70473d39fa446b3652",
+      "source_words": 213,
+      "answer_sha256": "939f6a0ccfef9fd30c3a480ff5ba4c55ebf576629c1e7da7ac9f7dc2a649ee29",
+      "answer_words": 122,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "missing_facts": [
+        0
+      ],
+      "near_verbatim": false,
+      "verdict": "fail"
+    },
+    {
+      "id": "held-report-conflicting-profile",
+      "configuration_sha256": "f02279dfbe1ff11187dfdfac9280ab099a6ca64311aa30d95e7e29568ac7debd",
+      "source_sha256": "837094e98ffc67cf5f1ac8440d1b4aa51547a1f63ddc9c70473d39fa446b3652",
+      "source_words": 213,
+      "answer_sha256": "1a8fb855d0cba5d1689223b6a2770b66546bf8e4b8674e74c93b146b12fd200a",
+      "answer_words": 89,
+      "natural_stop": true,
+      "ambiguous": false,
+      "covered_facts": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "missing_facts": [
+        0
+      ],
+      "near_verbatim": false,
+      "verdict": "pass"
+    }
+  ]
+}
