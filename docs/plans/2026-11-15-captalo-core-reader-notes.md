@@ -246,7 +246,7 @@ Plan: `2026-11-15-captalo-core-reader.md` (revision 4, accepted 2026-11-15). Imp
 
 - Found: the owner said the `text.bubble` outline looked too light beside the filled menu-bar icons, and the app icon was still upstream artwork.
 - Chose: of three concepts (design sources in the ignored `.local/design/icons-2026-11-19/`), the owner picked A, an accented C: a heavy geometric C as an open mouth with the acute accent leaving the opening. `Captalo/Logo.icon` now holds one SVG layer on an orange gradient fill (the upstream PNG layers are removed); dark mode uses the system's automatic dark rendering. The menu glyph is `Captalo/Assets.xcassets/MenuBarGlyph.imageset` (an 18 pt SVG, template, vector preserved), loaded by `StatusItemController`.
-- Evidence: `ictool` renders of the `.icon` (macOS Default and Dark, 512 and 32 px) and the built `Logo.icns` were viewed; `assetutil` shows `MenuBarGlyph` compiled with template mode in Debug and Release. Residual (from the design review): at 1x the glyph is the smallest of the three concepts and its accent is soft; the owner's main display is 1x. Owner check: weight and legibility in the real menu bar.
+- Evidence: `ictool` renders of the `.icon` (macOS Default and Dark, 512 and 32 px) and the built `Logo.icns` were viewed; `assetutil` shows `MenuBarGlyph` compiled with template mode in Debug and Release. Residual (from the design review): at 1x the glyph is the smallest of the three concepts and its accent is soft; the owner's main display is 1x. Owner check: weight and legibility in the real menu bar. Status: passed; the owner said it "looks great in the menu-bar" on the signed install of `ffb958d` (2026-11-20).
 
 ## Phase 1 handoff (2026-11-15)
 
