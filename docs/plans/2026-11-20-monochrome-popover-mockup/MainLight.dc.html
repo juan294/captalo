@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Cáptalo: Read, light</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+a{color:#5C5C66}a:hover{color:#17171A}
+</style>
+</helmet>
+<div style="width: 440px; height: 520px; box-sizing: border-box; display: flex; background: #FFFFFF; color: #17171A; font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif; font-size: 13px; line-height: 1.35">
+<nav aria-label="Sections" style="width: 72px; box-sizing: border-box; padding: 16px 8px 12px; background: #F4F4F5; border-right: 1px solid #E4E4E7; display: flex; flex-direction: column; align-items: center; gap: 6px">
+<div aria-hidden="true" style="width: 32px; height: 32px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 700; color: #17171A; margin-bottom: 12px">ć</div>
+<a href="MainLight.dc.html" aria-current="page" style="width: 56px; padding: 8px 0 6px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; gap: 4px; text-decoration: none; font-size: 11px; font-weight: 600; color: #17171A; background: #E4E4E7">
+<svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5v5h3.5L12 18V6L7.5 9.5H4z"></path><path d="M15.5 9a4 4 0 0 1 0 6"></path><path d="M18 6.5a7.5 7.5 0 0 1 0 11"></path></svg>
+Read</a>
+<a href="#voice" style="width: 56px; padding: 8px 0 6px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; gap: 4px; text-decoration: none; font-size: 11px; color: #5C5C66">
+<svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 10v4"></path><path d="M8 7v10"></path><path d="M12 4v16"></path><path d="M16 8v8"></path><path d="M20 10.5v3"></path></svg>
+Voice</a>
+<a href="SetupAttentionLight.dc.html" style="width: 56px; padding: 8px 0 6px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; gap: 4px; text-decoration: none; font-size: 11px; color: #5C5C66">
+<svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h9"></path><path d="M17 7h3"></path><circle cx="15" cy="7" r="2"></circle><path d="M4 17h3"></path><path d="M11 17h9"></path><circle cx="9" cy="17" r="2"></circle></svg>
+Setup</a>
+<div style="flex-grow: 1"></div>
+<button type="button" style="width: 56px; padding: 8px 0 6px; border: 0; border-radius: 10px; background: transparent; display: flex; flex-direction: column; align-items: center; gap: 4px; font: inherit; font-size: 11px; color: #5C5C66; cursor: pointer">
+<svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 4v8"></path><path d="M7.5 6.8a7 7 0 1 0 9 0"></path></svg>
+Quit</button>
+</nav>
+<main style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column">
+<div style="flex-grow: 1; padding: 20px 20px 0; display: flex; flex-direction: column; gap: 16px">
+<header style="display: flex; align-items: center; justify-content: space-between; height: 28px">
+<h1 style="margin: 0; font-size: 19px; font-weight: 650; letter-spacing: -0.2px">Read</h1>
+<span style="display: flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: rgba(31,157,87,0.12); color: #157A45; font-size: 12px; font-weight: 600"><span aria-hidden="true" style="width: 7px; height: 7px; border-radius: 50%; background: #1F9D57"></span>Ready</span>
+</header>
+<section aria-label="Shortcuts" style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 14px; border-radius: 12px; background: #F7F7F8; border: 1px solid #E4E4E7">
+<div aria-hidden="true" style="width: 36px; height: 36px; border-radius: 10px; background: #E9E9EC; color: #17171A; display: flex; align-items: center; justify-content: center; flex-shrink: 0">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9 4h6"></path><path d="M9 20h6"></path><path d="M12 4v16"></path><path d="M4 9h3"></path><path d="M4 15h3"></path><path d="M17 9h3"></path><path d="M17 15h3"></path></svg>
+</div>
+<div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+<div style="font-size: 14px; font-weight: 600">Read selection</div>
+<div style="font-size: 12px; color: #5C5C66">Select text in any app, then press</div>
+</div>
+<button type="button" aria-label="Change the Read selection shortcut, Option P" style="height: 44px; padding: 0 6px; border: 0; border-radius: 10px; background: transparent; display: flex; align-items: center; gap: 4px; font: inherit; color: #17171A; cursor: pointer">
+<kbd style="min-width: 28px; height: 28px; box-sizing: border-box; padding: 0 6px; border-radius: 7px; background: #FFFFFF; border: 1px solid #D4D4D9; border-bottom-width: 2px; display: flex; align-items: center; justify-content: center; font: inherit; font-size: 14px; font-weight: 600">⌥</kbd>
+<kbd style="min-width: 28px; height: 28px; box-sizing: border-box; padding: 0 6px; border-radius: 7px; background: #FFFFFF; border: 1px solid #D4D4D9; border-bottom-width: 2px; display: flex; align-items: center; justify-content: center; font: inherit; font-size: 14px; font-weight: 600">P</kbd>
+</button>
+</div>
+<div style="display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 14px; border-radius: 12px; background: #F7F7F8; border: 1px solid #E4E4E7">
+<div aria-hidden="true" style="width: 36px; height: 36px; border-radius: 10px; background: #E9E9EC; color: #17171A; display: flex; align-items: center; justify-content: center; flex-shrink: 0">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8"></path><path d="M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8"></path><path d="M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16"></path><path d="M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16"></path><path d="M8.5 10h7"></path><path d="M8.5 14h4.5"></path></svg>
+</div>
+<div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+<div style="font-size: 14px; font-weight: 600">Read region</div>
+<div style="font-size: 12px; color: #5C5C66">Press, then drag over the screen</div>
+</div>
+<button type="button" aria-label="Change the Read region shortcut, Option O" style="height: 44px; padding: 0 6px; border: 0; border-radius: 10px; background: transparent; display: flex; align-items: center; gap: 4px; font: inherit; color: #17171A; cursor: pointer">
+<kbd style="min-width: 28px; height: 28px; box-sizing: border-box; padding: 0 6px; border-radius: 7px; background: #FFFFFF; border: 1px solid #D4D4D9; border-bottom-width: 2px; display: flex; align-items: center; justify-content: center; font: inherit; font-size: 14px; font-weight: 600">⌥</kbd>
+<kbd style="min-width: 28px; height: 28px; box-sizing: border-box; padding: 0 6px; border-radius: 7px; background: #FFFFFF; border: 1px solid #D4D4D9; border-bottom-width: 2px; display: flex; align-items: center; justify-content: center; font: inherit; font-size: 14px; font-weight: 600">O</kbd>
+</button>
+</div>
+</section>
+<section aria-label="Speed" style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; align-items: baseline; justify-content: space-between">
+<h2 style="margin: 0; font-size: 12px; font-weight: 600; color: #5C5C66; letter-spacing: 0.3px; text-transform: uppercase">Speed</h2>
+<span style="font-size: 12px; color: #5C5C66">From the next reading</span>
+</div>
+<div style="display: flex; gap: 2px; padding: 3px; height: 44px; box-sizing: border-box; border-radius: 12px; background: #F7F7F8; border: 1px solid #E4E4E7; font-variant-numeric: tabular-nums">
+<button type="button" style="flex: 1; border: 0; border-radius: 9px; background: transparent; color: #3A3A40; font: inherit; font-size: 12.5px; cursor: pointer">0.75×</button>
+<button type="button" style="flex: 1; border: 0; border-radius: 9px; background: transparent; color: #3A3A40; font: inherit; font-size: 12.5px; cursor: pointer">0.85×</button>
+<button type="button" aria-pressed="true" style="flex: 1; border: 0; border-radius: 9px; background: #17171A; color: #FFFFFF; font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer">1.00×</button>
+<button type="button" style="flex: 1; border: 0; border-radius: 9px; background: transparent; color: #3A3A40; font: inherit; font-size: 12.5px; cursor: pointer">1.15×</button>
+<button type="button" style="flex: 1; border: 0; border-radius: 9px; background: transparent; color: #3A3A40; font: inherit; font-size: 12.5px; cursor: pointer">1.25×</button>
+<button type="button" style="flex: 1; border: 0; border-radius: 9px; background: transparent; color: #3A3A40; font: inherit; font-size: 12.5px; cursor: pointer">1.35×</button>
+</div>
+</section>
+<a href="#voice" style="display: flex; align-items: center; gap: 12px; height: 48px; box-sizing: border-box; padding: 0 12px 0 14px; border-radius: 12px; background: #F7F7F8; border: 1px solid #E4E4E7; text-decoration: none; color: #17171A">
+<span style="flex-grow: 1; font-size: 14px; font-weight: 600">Voice</span>
+<span style="font-size: 13px; color: #5C5C66">Heart</span>
+<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5C5C66" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>
+</a>
+</div>
+<footer style="height: 44px; box-sizing: border-box; padding: 0 20px; border-top: 1px solid #E4E4E7; display: flex; align-items: center; gap: 8px; font-size: 12px; color: #5C5C66">
+<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>
+Speech and OCR run on this Mac
+</footer>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":440,"height":520}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>
