@@ -28,7 +28,7 @@ let package = Package(
         ),
         .testTarget(
             name: "CaptaloSpeechTests",
-            dependencies: ["CaptaloSpeech"],
+            dependencies: ["CaptaloSpeech", "CaptaloSpeechProbe"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
     ]
