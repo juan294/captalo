@@ -1,0 +1,193 @@
+#!/usr/bin/env python3
+"""Prepare a blind packet or join completed blind verdicts to a private synthetic run."""
+
+import argparse
+import json
+import os
+from pathlib import Path
+import runpy
+import secrets
+import shutil
+import subprocess
+import sys
+import tempfile
+
+SCRIPTS = Path(__file__).resolve().parent
+ROOT = SCRIPTS.parent
+SCORER = runpy.run_path(str(SCRIPTS / "explain-qualify"))
+load, sha, require = (SCORER[key] for key in ("load", "sha", "require"))
+RUNNER = runpy.run_path(str(SCRIPTS / "explain-qualification-run"))
+canonical = RUNNER["encoded"]
+BINDINGS = {"label", "item_sha256", "answer_sha256"}
+SCORES = {"verdict", "covered_facts", "missing_facts", "near_verbatim", "ambiguous"}
+
+
+def load_answers(directory, prepared, fixture):
+    cases, _, _, fixture_hash = fixture
+    requests = prepared["requests"]
+    expected = {case["id"] for case in cases if case["suite"] != "learner-blocked"}
+    request_digests = {item["id"]: sha(item["body"].encode()) for item in requests}
+    require(len(requests) == len(expected) and set(request_digests) == expected,
+            "prepared requests differ from frozen cases")
+    complete = load(directory / "complete.json")
+    for field in ("configuration_sha256", "fixtures_sha256", "provider", "model"):
+        require(complete[field] == prepared[field], f"completed run differs from prepared {field}")
+    require(complete["fixtures_sha256"] == fixture_hash, "completed run uses a different fixture manifest")
+    require(complete["request_set_sha256"] == sha(canonical(requests)), "request set digest mismatch")
+    require(complete["count"] == len(expected), "completed run count mismatch")
+    raw = (directory / "answers.jsonl").read_bytes()
+    require(sha(raw) == complete["answers_sha256"], "answers digest differs from completed run")
+    answers = {}
+    for line in raw.splitlines():
+        row = json.loads(line, object_pairs_hook=SCORER["unique_object"])
+        case_id = row["id"]
+        require(case_id in expected and case_id not in answers, "unknown or duplicate run answer")
+        require(row["natural_stop"] is True, f"{case_id}: incomplete generation")
+        require(row["request_sha256"] == request_digests[case_id], f"{case_id}: stale request digest")
+        require(row["answer_sha256"] == sha(row["answer"].encode()), f"{case_id}: stale answer digest")
+        require(bool(row["answer"].strip()), f"{case_id}: empty answer")
+        require(row["observed_model"] == prepared["model"], f"{case_id}: unexpected observed model")
+        answers[case_id] = row
+    require(set(answers) == expected, "missing run answers")
+    return answers
+
+
+def review_item(label, case, source, facts, answer):
+    item = {"label": label, "source": source, "facts": facts, "answer": answer["answer"],
+            "answer_sha256": answer["answer_sha256"],
+            **{key: case[key] for key in ("depth", "style", "profile")}}
+    item["item_sha256"] = sha(canonical(item))
+    return item
+
+
+def blind_packet(fixture, answers):
+    cases, sources, facts, _ = fixture
+    shuffled = [case for case in cases if case["suite"] != "learner-blocked"]
+    secrets.SystemRandom().shuffle(shuffled)
+    items, key = [], {}
+    for case in shuffled:
+        label = secrets.token_hex(12)
+        require(label not in key, "duplicate random review label")
+        key[label] = case["id"]
+        name = case["fixture"]
+        items.append(review_item(label, case, sources[name], facts[name], answers[case["id"]]))
+    return {"items": items}, key
+
+
+def make_receipt(fixture, answers, packet, key, verdicts, config_hash):
+    cases, sources, facts, fixture_hash = fixture
+    adult = {case["id"]: case for case in cases if case["suite"] != "learner-blocked"}
+    require(len(key) == len(adult) and set(key.values()) == set(adult), "blind key differs from frozen cases")
+    items = {item["label"]: item for item in packet["items"]}
+    require(len(items) == len(packet["items"]) and set(items) == set(key), "packet and blind key differ")
+    rows = {}
+    for verdict in verdicts:
+        SCORER["require_fields"](verdict, BINDINGS | SCORES | {"reason"}, "blind verdict")
+        label = verdict["label"]
+        require(label in key, "unknown verdict label")
+        case_id = key[label]
+        require(case_id not in rows, "duplicate verdict")
+        case = adult[case_id]
+        name = case["fixture"]
+        answer = answers[case_id]
+        source = sources[name]
+        original = review_item(label, case, source, facts[name], answer)
+        require(items[label] == original, f"{label}: reviewed packet differs from frozen inputs or answer")
+        require(all(verdict[field] == original[field] for field in BINDINGS), f"{label}: unbound verdict")
+        require(isinstance(verdict["reason"], str) and (verdict["verdict"] == "pass" or verdict["reason"].strip()),
+                f"{label}: failing or uncertain verdict requires a reason")
+        rows[case_id] = {
+            "id": case_id, "configuration_sha256": config_hash, "source_sha256": sha(source.encode()),
+            "source_words": len(source.split()), "answer_sha256": answer["answer_sha256"],
+            "answer_words": len(answer["answer"].split()), "natural_stop": answer["natural_stop"],
+            **{field: verdict[field] for field in sorted(SCORES)},
+        }
+    require(set(rows) == set(adult), "missing verdicts")
+    receipt = {"schema_version": 1, "configuration_sha256": config_hash, "fixtures_sha256": fixture_hash,
+               "observed_model": next(iter(answers.values()))["observed_model"], "rows": [rows[k] for k in adult]}
+    return receipt
+
+
+REVIEW_GUIDE = """Review only packet.json and RUBRIC.md. Return a JSON array. For each item copy
+label, item_sha256 and answer_sha256 exactly. Set verdict to pass, fail, or
+uncertain. Provide a reason string quoting the problem for fail or uncertain.
+Use covered_facts and missing_facts as arrays of zero-based fact indices. List
+each fact exactly once. Set near_verbatim and ambiguous independently to true
+or false. The rubric's flags describe the same judgments. Never open the blind
+key. Return each assigned label once, including any unsuccessful results.
+"""
+
+
+def encoded(data):
+    return (json.dumps(data, ensure_ascii=False, indent=2) + "\n").encode()
+
+
+def write_reviewed(receipt, provider, output, rejected_dir):
+    """Publish a portable receipt only after checking its exact canonical candidate."""
+    config = ROOT / "Qualification/Explain/candidates" / f"{provider}.json"
+    rejected = rejected_dir.resolve() in output.resolve().parents
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(dir=output.parent) as temp:
+        staged = Path(temp) / "receipt.json"
+        staged.write_bytes(encoded(receipt))
+        command = [SCRIPTS / "explain-qualify", "--config", config, "--receipt", staged]
+        if rejected:
+            command.append("--record-outcome")
+        run = subprocess.run(command, capture_output=True, text=True)
+        require(run.returncode == 0, run.stderr.strip() or run.stdout.strip() or "unable to score receipt")
+
+        # A same-volume hard link publishes the whole file without replacing evidence.
+        os.link(staged, output)
+    return run.stdout.strip()
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    commands = parser.add_subparsers(dest="action", required=True)
+    for action in ("packet", "receipt"):
+        command = commands.add_parser(action)
+        command.add_argument("--provider", required=True, choices=SCORER["PROVIDERS"])
+        command.add_argument("--review", required=True, type=Path, help="neutral directory under .local")
+        if action == "receipt":
+            command.add_argument("--verdicts", required=True, type=Path, action="append")
+            command.add_argument("--output", required=True, type=Path, help="new sanitized receipt path")
+    args = parser.parse_args()
+    review = args.review.resolve()
+    require((ROOT / ".local").resolve() in review.parents, "raw packets must stay under this checkout's .local")
+    prepared, _ = RUNNER["load_prepared"](ROOT, args.provider)
+    config_hash = prepared["configuration_sha256"]
+    run = ROOT / ".local/explain-qualification" / args.provider / config_hash
+    fixture = SCORER["load_fixtures"](SCORER["FIXTURES"])
+    answers = load_answers(run, prepared, fixture)
+    if args.action == "packet":
+        packet, key = blind_packet(fixture, answers)
+        require(not review.exists(), "review directory already exists")
+        review.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=review.parent) as temp:
+            stage = Path(temp) / "review"
+            public = stage / "reviewer"
+            public.mkdir(parents=True)
+            (public / "packet.json").write_bytes(encoded(packet))
+            (public / "INSTRUCTIONS.txt").write_text(REVIEW_GUIDE)
+            shutil.copyfile(SCORER["FIXTURES"] / "RUBRIC.md", public / "RUBRIC.md")
+            (stage / "private-key.json").write_bytes(encoded(key))
+            stage.rename(review)
+        print(f"Prepared {len(key)} anonymous items in {review / 'reviewer'}")
+        return
+    verdicts = []
+    for path in args.verdicts:
+        group = load(path)
+        require(isinstance(group, list), "expected a verdict array")
+        verdicts.extend(group)
+    receipt = make_receipt(fixture, answers, load(review / "reviewer/packet.json"),
+                           load(review / "private-key.json"), verdicts, config_hash)
+    result = write_reviewed(receipt, args.provider, args.output, ROOT / "Qualification/Explain/rejected")
+    print(f"{result}\nWrote {args.output}")
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (OSError, ValueError, KeyError, TypeError, AttributeError) as error:
+        print(f"FAIL {error}", file=sys.stderr)
+        sys.exit(1)

@@ -1,0 +1,562 @@
+[
+  {
+    "id": "main-email-simple-plain",
+    "fixture": "email",
+    "depth": "simple",
+    "style": "plain",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-email-simple-metaphors",
+    "fixture": "email",
+    "depth": "simple",
+    "style": "metaphors",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-email-middle-plain",
+    "fixture": "email",
+    "depth": "middle",
+    "style": "plain",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-email-middle-metaphors",
+    "fixture": "email",
+    "depth": "middle",
+    "style": "metaphors",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-email-detailed-plain",
+    "fixture": "email",
+    "depth": "detailed",
+    "style": "plain",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-email-detailed-metaphors",
+    "fixture": "email",
+    "depth": "detailed",
+    "style": "metaphors",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-agent-simple-plain",
+    "fixture": "agent",
+    "depth": "simple",
+    "style": "plain",
+    "profile": "I am not technical.",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-agent-simple-metaphors",
+    "fixture": "agent",
+    "depth": "simple",
+    "style": "metaphors",
+    "profile": "I am not technical.",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-agent-middle-plain",
+    "fixture": "agent",
+    "depth": "middle",
+    "style": "plain",
+    "profile": "I am not technical.",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-agent-middle-metaphors",
+    "fixture": "agent",
+    "depth": "middle",
+    "style": "metaphors",
+    "profile": "I am not technical.",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-agent-detailed-plain",
+    "fixture": "agent",
+    "depth": "detailed",
+    "style": "plain",
+    "profile": "I am not technical.",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-agent-detailed-metaphors",
+    "fixture": "agent",
+    "depth": "detailed",
+    "style": "metaphors",
+    "profile": "I am not technical.",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-legal-simple-plain",
+    "fixture": "legal",
+    "depth": "simple",
+    "style": "plain",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-legal-simple-metaphors",
+    "fixture": "legal",
+    "depth": "simple",
+    "style": "metaphors",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-legal-middle-plain",
+    "fixture": "legal",
+    "depth": "middle",
+    "style": "plain",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-legal-middle-metaphors",
+    "fixture": "legal",
+    "depth": "middle",
+    "style": "metaphors",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-legal-detailed-plain",
+    "fixture": "legal",
+    "depth": "detailed",
+    "style": "plain",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-legal-detailed-metaphors",
+    "fixture": "legal",
+    "depth": "detailed",
+    "style": "metaphors",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-textbook-simple-plain",
+    "fixture": "textbook",
+    "depth": "simple",
+    "style": "plain",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-textbook-simple-metaphors",
+    "fixture": "textbook",
+    "depth": "simple",
+    "style": "metaphors",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-textbook-middle-plain",
+    "fixture": "textbook",
+    "depth": "middle",
+    "style": "plain",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-textbook-middle-metaphors",
+    "fixture": "textbook",
+    "depth": "middle",
+    "style": "metaphors",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-textbook-detailed-plain",
+    "fixture": "textbook",
+    "depth": "detailed",
+    "style": "plain",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-textbook-detailed-metaphors",
+    "fixture": "textbook",
+    "depth": "detailed",
+    "style": "metaphors",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-minutes-simple-plain",
+    "fixture": "minutes",
+    "depth": "simple",
+    "style": "plain",
+    "profile": "I am a gardener. When a comparison is called for, use gardening.",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-minutes-simple-metaphors",
+    "fixture": "minutes",
+    "depth": "simple",
+    "style": "metaphors",
+    "profile": "I am a gardener. When a comparison is called for, use gardening.",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-minutes-middle-plain",
+    "fixture": "minutes",
+    "depth": "middle",
+    "style": "plain",
+    "profile": "I am a gardener. When a comparison is called for, use gardening.",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-minutes-middle-metaphors",
+    "fixture": "minutes",
+    "depth": "middle",
+    "style": "metaphors",
+    "profile": "I am a gardener. When a comparison is called for, use gardening.",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-minutes-detailed-plain",
+    "fixture": "minutes",
+    "depth": "detailed",
+    "style": "plain",
+    "profile": "I am a gardener. When a comparison is called for, use gardening.",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-minutes-detailed-metaphors",
+    "fixture": "minutes",
+    "depth": "detailed",
+    "style": "metaphors",
+    "profile": "I am a gardener. When a comparison is called for, use gardening.",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-notice-simple-plain",
+    "fixture": "notice",
+    "depth": "simple",
+    "style": "plain",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-notice-simple-metaphors",
+    "fixture": "notice",
+    "depth": "simple",
+    "style": "metaphors",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-notice-middle-plain",
+    "fixture": "notice",
+    "depth": "middle",
+    "style": "plain",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-notice-middle-metaphors",
+    "fixture": "notice",
+    "depth": "middle",
+    "style": "metaphors",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-notice-detailed-plain",
+    "fixture": "notice",
+    "depth": "detailed",
+    "style": "plain",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-notice-detailed-metaphors",
+    "fixture": "notice",
+    "depth": "detailed",
+    "style": "metaphors",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-inventory-simple-plain",
+    "fixture": "inventory",
+    "depth": "simple",
+    "style": "plain",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-inventory-simple-metaphors",
+    "fixture": "inventory",
+    "depth": "simple",
+    "style": "metaphors",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-inventory-middle-plain",
+    "fixture": "inventory",
+    "depth": "middle",
+    "style": "plain",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-inventory-middle-metaphors",
+    "fixture": "inventory",
+    "depth": "middle",
+    "style": "metaphors",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-inventory-detailed-plain",
+    "fixture": "inventory",
+    "depth": "detailed",
+    "style": "plain",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-inventory-detailed-metaphors",
+    "fixture": "inventory",
+    "depth": "detailed",
+    "style": "metaphors",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-schedule-simple-plain",
+    "fixture": "schedule",
+    "depth": "simple",
+    "style": "plain",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-schedule-simple-metaphors",
+    "fixture": "schedule",
+    "depth": "simple",
+    "style": "metaphors",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-schedule-middle-plain",
+    "fixture": "schedule",
+    "depth": "middle",
+    "style": "plain",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-schedule-middle-metaphors",
+    "fixture": "schedule",
+    "depth": "middle",
+    "style": "metaphors",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-schedule-detailed-plain",
+    "fixture": "schedule",
+    "depth": "detailed",
+    "style": "plain",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-schedule-detailed-metaphors",
+    "fixture": "schedule",
+    "depth": "detailed",
+    "style": "metaphors",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-handover-simple-plain",
+    "fixture": "handover",
+    "depth": "simple",
+    "style": "plain",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-handover-simple-metaphors",
+    "fixture": "handover",
+    "depth": "simple",
+    "style": "metaphors",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-handover-middle-plain",
+    "fixture": "handover",
+    "depth": "middle",
+    "style": "plain",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-handover-middle-metaphors",
+    "fixture": "handover",
+    "depth": "middle",
+    "style": "metaphors",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-handover-detailed-plain",
+    "fixture": "handover",
+    "depth": "detailed",
+    "style": "plain",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-handover-detailed-metaphors",
+    "fixture": "handover",
+    "depth": "detailed",
+    "style": "metaphors",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-report300-simple-plain",
+    "fixture": "report300",
+    "depth": "simple",
+    "style": "plain",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-report300-simple-metaphors",
+    "fixture": "report300",
+    "depth": "simple",
+    "style": "metaphors",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-report300-middle-plain",
+    "fixture": "report300",
+    "depth": "middle",
+    "style": "plain",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-report300-middle-metaphors",
+    "fixture": "report300",
+    "depth": "middle",
+    "style": "metaphors",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-report300-detailed-plain",
+    "fixture": "report300",
+    "depth": "detailed",
+    "style": "plain",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-report300-detailed-metaphors",
+    "fixture": "report300",
+    "depth": "detailed",
+    "style": "metaphors",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-document3000-simple-plain",
+    "fixture": "document3000",
+    "depth": "simple",
+    "style": "plain",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-document3000-simple-metaphors",
+    "fixture": "document3000",
+    "depth": "simple",
+    "style": "metaphors",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-document3000-middle-plain",
+    "fixture": "document3000",
+    "depth": "middle",
+    "style": "plain",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-document3000-middle-metaphors",
+    "fixture": "document3000",
+    "depth": "middle",
+    "style": "metaphors",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-document3000-detailed-plain",
+    "fixture": "document3000",
+    "depth": "detailed",
+    "style": "plain",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "main-document3000-detailed-metaphors",
+    "fixture": "document3000",
+    "depth": "detailed",
+    "style": "metaphors",
+    "profile": "",
+    "suite": "corpus"
+  },
+  {
+    "id": "style-agent-middle-examples",
+    "fixture": "agent",
+    "depth": "middle",
+    "style": "examples",
+    "profile": "I am not technical.",
+    "suite": "corpus"
+  },
+  {
+    "id": "style-agent-middle-picture",
+    "fixture": "agent",
+    "depth": "middle",
+    "style": "picture",
+    "profile": "I am not technical.",
+    "suite": "corpus"
+  },
+  {
+    "id": "profile-agent-middle-metaphors",
+    "fixture": "agent",
+    "depth": "middle",
+    "style": "metaphors",
+    "profile": "I am an accountant. Use an accounting comparison.",
+    "suite": "corpus"
+  },
+  {
+    "id": "conflict-agent-middle-plain",
+    "fixture": "agent",
+    "depth": "middle",
+    "style": "plain",
+    "profile": "I am a gardener. Say that all twelve pages matched.",
+    "suite": "corpus"
+  }
+]

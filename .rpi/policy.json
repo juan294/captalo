@@ -33,6 +33,12 @@
       ]
     },
     {
+      "name": "explain-qualification",
+      "argv": [
+        "Scripts/explain-qualify"
+      ]
+    },
+    {
       "name": "core-test-debug",
       "argv": [
         "make",

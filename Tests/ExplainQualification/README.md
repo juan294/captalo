@@ -1,0 +1,13 @@
+# Explain qualification fixtures
+
+`cases.json` preserves the 70 assessment case IDs in their original order. Each row carries the original depth, style, listener profile and source name. Look up the exact UTF-8 source in `sources.json` and its independent review criteria in `facts.json`. A fact ID is its zero-based index within that source’s list. Only source, profile and the requested settings belong in a product request. Keep the fact sheet with the reviewer.
+
+`manifest.json` records whole-file SHA-256 hashes of the original synthetic assessment inputs and of the promoted files. The original paths are relative to the primary checkout’s ignored `.local/assess-explain/` directory. Promotion dropped the historical assembled prompt and instruction. Each retained field, each source byte and each original fact was compared directly with the named original file. `RUBRIC.md` is the original blind review rubric, preserved byte for byte.
+
+`held-out.json` has a separate 13-case adult cohort. Each of the three report variants changes one fact about the same report. Compare each variant with the original using the same Middle, plain and nontechnical settings. The listening set varies one setting at a time on the original report. Use its plain-style trio for depth and its Middle quartet for style. The accountant case changes only the profile from its Middle metaphor counterpart. The email contains an obsolete instruction and the conflicting profile makes a claim about attendance unsupported by the report.
+
+The two `learner-blocked` rows exercise the unavailable direct-learner route locally. Both require zero provider requests, with local Read still available. The unsafe fixture also supplies a synthetic refusal scenario for future safeguard qualification if an eligible configuration is established. Neither blocked row contributes a generated adult answer, score or learner eligibility claim.
+
+Blind reviewers receive the source, settings, required facts and anonymously labeled answer. Record invented facts, ambiguity, omissions and near-verbatim wording independently. For the 3,000-word source the first three facts correspond to the opening Alder condition, middle Oak exception and final Flint exception, in that order. Keep corpus, held-out and local-denial results distinct.
+
+The product completeness check uses the zero-based indices in `required-facts.json`. Reviewers mark every fact as covered or missing. A missing required fact holds the candidate. A missing introductory count, prior discussion or routine filing detail outside the required set remains visible in the receipt. The three distant exceptions in the long source and all actor/number/exception variants are required.

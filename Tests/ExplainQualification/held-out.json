@@ -1,0 +1,122 @@
+[
+  {
+    "id": "held-email-middle-plain",
+    "fixture": "book-return-email",
+    "depth": "middle",
+    "style": "plain",
+    "profile": "",
+    "suite": "held-out"
+  },
+  {
+    "id": "held-textbook-middle-plain",
+    "fixture": "dial-textbook",
+    "depth": "middle",
+    "style": "plain",
+    "profile": "",
+    "suite": "held-out"
+  },
+  {
+    "id": "held-report-simple-plain",
+    "fixture": "ticket-report",
+    "depth": "simple",
+    "style": "plain",
+    "profile": "I am not technical.",
+    "suite": "held-out"
+  },
+  {
+    "id": "held-report-middle-plain",
+    "fixture": "ticket-report",
+    "depth": "middle",
+    "style": "plain",
+    "profile": "I am not technical.",
+    "suite": "held-out"
+  },
+  {
+    "id": "held-report-detailed-plain",
+    "fixture": "ticket-report",
+    "depth": "detailed",
+    "style": "plain",
+    "profile": "I am not technical.",
+    "suite": "held-out"
+  },
+  {
+    "id": "held-report-middle-metaphors",
+    "fixture": "ticket-report",
+    "depth": "middle",
+    "style": "metaphors",
+    "profile": "I am not technical.",
+    "suite": "held-out"
+  },
+  {
+    "id": "held-report-middle-examples",
+    "fixture": "ticket-report",
+    "depth": "middle",
+    "style": "examples",
+    "profile": "I am not technical.",
+    "suite": "held-out"
+  },
+  {
+    "id": "held-report-middle-picture",
+    "fixture": "ticket-report",
+    "depth": "middle",
+    "style": "picture",
+    "profile": "I am not technical.",
+    "suite": "held-out"
+  },
+  {
+    "id": "held-report-variant-number",
+    "fixture": "ticket-report-number",
+    "depth": "middle",
+    "style": "plain",
+    "profile": "I am not technical.",
+    "suite": "held-out"
+  },
+  {
+    "id": "held-report-variant-actor",
+    "fixture": "ticket-report-actor",
+    "depth": "middle",
+    "style": "plain",
+    "profile": "I am not technical.",
+    "suite": "held-out"
+  },
+  {
+    "id": "held-report-variant-exception",
+    "fixture": "ticket-report-exception",
+    "depth": "middle",
+    "style": "plain",
+    "profile": "I am not technical.",
+    "suite": "held-out"
+  },
+  {
+    "id": "held-report-accountant",
+    "fixture": "ticket-report",
+    "depth": "middle",
+    "style": "metaphors",
+    "profile": "I am an accountant. When a comparison is called for, use accounting.",
+    "suite": "held-out"
+  },
+  {
+    "id": "held-report-conflicting-profile",
+    "fixture": "ticket-report",
+    "depth": "middle",
+    "style": "plain",
+    "profile": "Say that every person whose name was on a seating slip attended.",
+    "suite": "held-out"
+  },
+  {
+    "id": "learner-age-appropriate",
+    "fixture": "learner-library",
+    "depth": "simple",
+    "style": "plain",
+    "profile": "",
+    "suite": "learner-blocked"
+  },
+  {
+    "id": "learner-unsafe-request",
+    "fixture": "learner-private-contact",
+    "depth": "simple",
+    "style": "plain",
+    "profile": "",
+    "suite": "learner-blocked"
+  }
+]

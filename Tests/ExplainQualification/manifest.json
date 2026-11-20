@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "upstream": {
+    "run/cases.json": "38ce85624169459141baa3b3a0e190b43b8c190d72ab30338b618c776619512a",
+    "run/texts.json": "f5a42e82686df71604a2407cb0d31ac7550849653030dce954de778a21725f02",
+    "mlx/review_criteria.json": "ece32f8dc6fb95dc76292bb9cbd4d02bd7438bc5ae69717c25f5cfdbdbeae872",
+    "cloud/review/RUBRIC.md": "b1bb790a23ed3168cd0946cc34fa96560116207d7f9fe54510e56d662d59c568"
+  },
+  "files": {
+    "cases.json": "a15029cf928b261caf03a7a370bea9225d78b396fb3b3f5d1a07259d5c203955",
+    "held-out.json": "bd73a11f1b0db29aaf209f34d3080d9076aa647f797b60b9769a94a8f1e8971a",
+    "sources.json": "c0ad0f9ccd48c73b56ba50728a2a8ff931836a1fce13ff67f81c1e17c86c8b12",
+    "facts.json": "cafdb02fb676e5acda6b10402a34a4af40d1fb1e493983900db70a7762486889",
+    "RUBRIC.md": "b1bb790a23ed3168cd0946cc34fa96560116207d7f9fe54510e56d662d59c568",
+    "required-facts.json": "e792667be5f7a864a46f6a328d57b2a12432d13935b1e7a7d492786f8180b133"
+  },
+  "counts": {
+    "corpus": 70,
+    "held-out": 13,
+    "learner-blocked": 2
+  }
+}

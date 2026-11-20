@@ -1,0 +1,290 @@
+#!/usr/bin/env python3
+"""Run a frozen synthetic corpus once. The default operation is an offline price check."""
+import argparse
+import hashlib
+import http.client
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+from decimal import Decimal, InvalidOperation
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+MODELS = {"openai": "gpt-6.1-terra", "anthropic": "claude-sonnet-5-5"}
+KEY_VARS = {"openai": "OPENAI_API_KEY", "anthropic": "ANTHROPIC_API_KEY"}
+
+
+def require(condition, message):
+    if not condition:
+        raise ValueError(message)
+
+
+def digest(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def encoded(value):
+    return json.dumps(value, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode()
+
+
+def load_prepared(root, provider):
+    require(provider in MODELS, "unsupported provider")
+    model = MODELS[provider]
+    snapshot = (root / "Qualification/Explain/candidates" / (provider + ".json")).read_bytes()
+    candidate = json.loads(snapshot)
+    prepared = json.loads((root / ".local/explain-qualification" / provider / "prepared.json").read_bytes())
+    require(prepared["configuration_sha256"] == digest(snapshot)
+            and prepared["fixtures_sha256"] == candidate["fixtures_sha256"]
+            and re.fullmatch("[0-9a-f]{64}", candidate["fixtures_sha256"])
+            and candidate["provider"] == prepared["provider"] == provider
+            and candidate["model"] == prepared["model"] == model, "candidate identity mismatch")
+    rows = prepared["requests"]
+    require(isinstance(rows, list) and rows
+            and candidate["request_set_sha256"] == digest(encoded(rows)), "request set identity mismatch")
+    ids = set()
+    for row in rows:
+        case = row["id"]
+        require(re.fullmatch(r"[a-zA-Z0-9_.-]+", case) and case not in ids, "invalid case ID")
+        ids.add(case)
+    return prepared, candidate
+
+
+def price_bound(provider, raw):
+    body = json.loads(raw)
+    require(body["model"] == MODELS[provider] and body["stream"] is True, "unexpected model or mode")
+    if provider == "openai":
+        fields = {"model", "instructions", "input", "reasoning", "stream", "store", "service_tier", "max_output_tokens"}
+        require(set(body) == fields and body["service_tier"] == "default" and body["store"] is False,
+                "expected a standard, unstored, tool-free Responses request")
+        require(isinstance(body["input"], str) and isinstance(body["instructions"], str), "expected plain text")
+        input_rate, output_rate = Decimal("1.25"), 5
+        limit = body["max_output_tokens"]
+    else:
+        fields = {"model", "system", "messages", "thinking", "output_config", "max_tokens", "stream"}
+        require(set(body) == fields and isinstance(body["system"], str) and len(body["messages"]) == 1
+                and set(body["messages"][0]) == {"role", "content"} and body["messages"][0]["role"] == "user"
+                and isinstance(body["messages"][0]["content"], str), "expected a tool-free text Message")
+        input_rate, output_rate = Decimal(2), 10
+        limit = body["max_tokens"]
+
+    # For these two short text-only messages, charge every UTF-8 wire byte as a token
+    # and reserve 1,024 more for provider framing. All totals use list-price USD.
+    # The default OpenAI implicit cache write is dearer than an uncached input token.
+    input_bound = len(raw) + 1024
+    require(type(limit) is int and 0 < limit <= 4096 and input_bound <= 200000, "request outside priced range")
+    return (input_bound * input_rate + limit * output_rate) / 1000000
+
+
+def stream_events(stream):
+    """Both endpoints emit UTF-8 SSE with JSON data. Require complete records."""
+    total = 0
+    deadline = time.monotonic() + 180
+    data = []
+    label = None
+    while True:
+        raw = stream.readline(1024 * 1024 + 1)
+        if not raw:
+            break
+        total += len(raw)
+        require(time.monotonic() < deadline and total <= 8 * 1024 * 1024 and len(raw) <= 1024 * 1024,
+                "stream exceeded bounds")
+        line = raw.decode("utf-8").rstrip("\r\n")
+        if line.startswith("data:"):
+            data.append(line[5:].lstrip(" "))
+        elif line.startswith("event:"):
+            label = line[6:].strip()
+        elif line == "" and data:
+            payload = "\n".join(data)
+            if payload == "[DONE]":
+                yield {"type": "[DONE]"}
+            else:
+                event = json.loads(payload)
+                require(isinstance(event, dict) and isinstance(event.get("type"), str)
+                        and (label is None or label == event["type"]), "invalid stream event")
+                yield event
+            data, label = [], None
+        elif line == "":
+            label = None
+    require(not data and label is None, "unterminated stream event")
+
+
+def openai_answer(events, model):
+    parts, completed = [], False
+    for event in events:
+        kind = event["type"]
+        if kind == "[DONE]":
+            require(completed, "premature stream terminator")
+            continue
+        require(not completed, "event after completion")
+        if kind == "response.output_text.delta":
+            parts.append(event["delta"])
+        elif kind == "response.completed":
+            response = event["response"]
+            require(response["model"] == model and response["status"] == "completed"
+                    and not response.get("error") and not response.get("incomplete_details"),
+                    "incomplete response or model mismatch")
+            messages = [item for item in response["output"] if item["type"] != "reasoning"]
+            require(len(messages) == 1 and messages[0]["type"] == "message"
+                    and messages[0]["role"] == "assistant" and messages[0]["status"] == "completed",
+                    "expected one completed assistant message")
+            content = messages[0]["content"]
+            require(content and all(part["type"] == "output_text" for part in content), "non-text response")
+            require("".join(parts) == "".join(part["text"] for part in content), "inconsistent streamed text")
+            completed = True
+        elif kind in {"error", "response.failed", "response.incomplete"} or "refusal" in kind:
+            raise ValueError("provider declined or failed")
+    answer = "".join(parts)
+    require(completed and answer.strip(), "missing natural text completion")
+    return answer, model
+
+
+def anthropic_answer(events, model):
+    parts = []
+    started = stopped = end_turn = False
+    block = None
+    for event in events:
+        kind = event["type"]
+        require(not stopped, "event after completion")
+        if kind == "ping":
+            continue
+        if kind == "message_start":
+            require(not started and event["message"]["model"] == model and event["message"]["content"] == [],
+                    "invalid message start or model mismatch")
+            started = True
+            continue
+        require(started, "event before message")
+        if kind == "content_block_start":
+            item = event["content_block"]
+            require(not end_turn and block is None and item["type"] == "text", "unexpected content block")
+            block = event["index"]
+            parts.append(item["text"])
+        elif kind == "content_block_delta":
+            require(block is not None and block == event["index"] and event["delta"]["type"] == "text_delta",
+                    "unexpected content delta")
+            parts.append(event["delta"]["text"])
+        elif kind == "content_block_stop":
+            require(block is not None and block == event["index"], "unexpected block stop")
+            block = None
+        elif kind == "message_delta":
+            require(not end_turn and block is None and event["delta"].get("stop_reason") == "end_turn"
+                    and not event["delta"].get("stop_details"), "abnormal stop reason")
+            end_turn = True
+        elif kind == "message_stop":
+            require(end_turn, "missing natural end_turn")
+            stopped = True
+        else:
+            raise ValueError("unexpected provider event")
+    answer = "".join(parts)
+    require(stopped and answer.strip(), "missing natural text completion")
+    return answer, model
+
+
+def read_answer(stream, provider, model):
+    events = stream_events(stream)
+    if provider == "openai":
+        return openai_answer(events, model)
+    return anthropic_answer(events, model)
+
+
+class ProviderError(ValueError):
+    """Only this script's fixed messages and HTTP status numbers are displayable."""
+
+
+def send_request(provider, model, body):
+    key = os.environ.get(KEY_VARS[provider])
+    require(key, "provider credential unavailable")
+    if provider == "openai":
+        host, path = "api.openai.com", "/v1/responses"
+        headers = {"Authorization": "Bearer " + key}
+    else:
+        host, path = "api.anthropic.com", "/v1/messages"
+        headers = {"x-api-key": key, "anthropic-version": "2023-06-01"}
+    headers.update({"Content-Type": "application/json", "Accept": "text/event-stream"})
+    connection = http.client.HTTPSConnection(host, timeout=30)
+    try:
+        connection.request("POST", path, body, headers)
+        response = connection.getresponse()
+        if response.status != 200:
+            raise ProviderError(f"HTTP {response.status}")
+        require(response.getheader("Content-Type", "").split(";")[0].strip() == "text/event-stream",
+                "expected event stream")
+        return read_answer(response, provider, model)
+    finally:
+        connection.close()
+
+
+def append_record(file, row):
+    file.write(encoded(row) + b"\n")
+    file.flush()
+    os.fsync(file.fileno())
+
+
+def run(root, provider, max_requests, max_usd, send):
+    prepared, candidate = load_prepared(root, provider)
+    rows = prepared["requests"]
+    bounds = [price_bound(provider, row["body"].encode()) for row in rows]
+    require(max_usd.is_finite() and max_usd > 0 and 0 < len(rows) <= max_requests
+            and sum(bounds) <= max_usd, "run exceeds authorized request or USD limit")
+    model = candidate["model"]
+    identity = {name: prepared[name] for name in ("provider", "model", "configuration_sha256", "fixtures_sha256")}
+    identity["request_set_sha256"] = candidate["request_set_sha256"]
+    evidence = root / ".local/explain-qualification" / provider / prepared["configuration_sha256"]
+    try:
+        evidence.mkdir(mode=0o700)
+    except FileExistsError:
+        raise ValueError("evidence already exists for this candidate") from None
+    auth = dict(identity, credential_scope=KEY_VARS[provider], max_requests=max_requests, max_usd=str(max_usd),
+                case_ids=[row["id"] for row in rows], reserved_usd=str(sum(bounds)))
+    (evidence / "authorization.json").write_bytes(encoded(auth))
+    reserved = Decimal(0)
+    with (evidence / "answers.jsonl").open("xb") as answers, (evidence / "attempts.jsonl").open("xb") as attempts:
+        for number, (row, bound) in enumerate(zip(rows, bounds), 1):
+            reserved += bound
+            require(number <= max_requests and reserved <= max_usd, "authorization exhausted")
+            case = row["id"]
+            body = row["body"].encode()
+            # Persist the reservation first. Timeouts and process termination can leave a billable request.
+            append_record(attempts, {"id": case, "number": number, "reserved_usd": str(reserved)})
+            try:
+                answer, observed = send(provider, model, body)
+            except Exception as error:
+                reason = str(error) if isinstance(error, ProviderError) else "invalid stream, credential or transport"
+                raise ValueError(f"case {case} stopped ({reason})") from None
+            append_record(answers, {"id": case, "answer": answer, "answer_sha256": digest(answer.encode()),
+                                    "request_sha256": digest(body), "observed_model": observed, "natural_stop": True})
+    complete = dict(identity, count=len(rows), answers_sha256=digest((evidence / "answers.jsonl").read_bytes()))
+    (evidence / "complete.json").write_bytes(encoded(complete))
+    return evidence
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("provider", choices=MODELS)
+    parser.add_argument("--execute", action="store_true", help="send the exact reviewed synthetic requests")
+    parser.add_argument("--max-requests", type=int)
+    parser.add_argument("--max-usd", type=Decimal, help="authorized ceiling for provider model usage in USD")
+    args = parser.parse_args()
+    if args.execute:
+        if args.max_requests is None or args.max_usd is None:
+            parser.error("--execute requires --max-requests and --max-usd")
+        preflight = subprocess.run([ROOT / "Scripts/explain-candidate", "check"], cwd=ROOT)
+        require(preflight.returncode == 0, "frozen candidate preflight failed")
+        require(os.environ.get(KEY_VARS[args.provider]), "provider credential unavailable")
+        print(run(ROOT, args.provider, args.max_requests, args.max_usd, send_request))
+    else:
+        prepared, _ = load_prepared(ROOT, args.provider)
+        rows = prepared["requests"]
+        bound = sum(price_bound(args.provider, row["body"].encode()) for row in rows)
+        print(f"{args.provider} offline preview: {len(rows)} requests, model usage bound USD {bound:f}")
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (KeyError, TypeError, OSError, InvalidOperation, UnicodeError, json.JSONDecodeError):
+        sys.exit("Qualification failed: invalid input or unavailable evidence.")
+    except ValueError as error:
+        sys.exit(str(error))

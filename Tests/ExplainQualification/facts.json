@@ -1,0 +1,123 @@
+{
+  "email": [
+    "Tuesday is volunteers only",
+    "Thursday visitors conditional on inspection",
+    "Mira sends one update after inspection",
+    "no entry time set"
+  ],
+  "agent": [
+    "12 draft pages compared/checked",
+    "10 identical",
+    "2 skipped for diagrams without captions",
+    "no pages changed",
+    "editor reviews 2 before publication"
+  ],
+  "legal": [
+    "caretaker must receive written notice at least 5 days before booking to cancel free",
+    "phone alone insufficient",
+    "late fee amount unspecified"
+  ],
+  "textbook": [
+    "identical cups and equal starting water",
+    "one covered",
+    "uncovered had less after one day",
+    "temperature unmeasured",
+    "cause unresolved"
+  ],
+  "minutes": [
+    "both blue discussed",
+    "only east approved",
+    "west stays green for now",
+    "no vote on changing sign"
+  ],
+  "notice": [
+    "cancellation words are on a proof",
+    "editor marked words for removal",
+    "show remains scheduled",
+    "no replacement date announced"
+  ],
+  "inventory": [
+    "Monday 16 blue and 9 white",
+    "Wednesday stock sheet 14 blue and 9 white",
+    "reason unspecified"
+  ],
+  "schedule": [
+    "two teams share room",
+    "Reed precedes Ash",
+    "outside only for Ash and only if garden opens",
+    "no start time or duration"
+  ],
+  "handover": [
+    "FIRST REVIEW label on sealed envelope denotes next stage",
+    "review has not been established",
+    "stays sealed until second reader signs"
+  ],
+  "report300": [
+    "Alder alone opens early after written approval from steward",
+    "Oak alone may borrow spare blue display board",
+    "Flint alone must stay closed until last inspection complete",
+    "symbol identifies room, does not order visits",
+    "steward copies card to register, second reader checks original before close",
+    "blank means inspection still open, no reason given"
+  ],
+  "document3000": [
+    "Alder alone opens early after written approval from steward",
+    "Oak alone may borrow spare blue display board",
+    "Flint alone must stay closed until last inspection complete",
+    "symbol identifies room, does not order visits",
+    "steward copies card to register, second reader checks original before close",
+    "blank means inspection still open, no reason given",
+    "nonexception rooms keep their review sheet in marked folder"
+  ],
+  "book-return-email": [
+    "Only Saturday morning cloth-bag book returns move to the side hall",
+    "Flat-case maps stay at the usual open desk, including mixed returns; the draft closure instruction was crossed out",
+    "Use the same blue receipt for acceptance, without a condition assessment",
+    "Jo counts both desks' receipts at session end; other volunteers leave them in their holders",
+    "Receipt count need not equal book count, and no afternoon change was announced"
+  ],
+  "ticket-report": [
+    "Sixteen returned envelopes counted at rehearsal close",
+    "Blue mark means a second person read the slip; marks do not establish attendance",
+    "On disagreement the archive assistant must reread the slip before closure",
+    "Exception: a slip inside a sealed cover stays open until cover returns to desk, with no return date given",
+    "Arrival order does not establish writing order; attendance total unreported"
+  ],
+  "ticket-report-number": [
+    "Nineteen returned envelopes counted at rehearsal close",
+    "Blue mark means a second person read the slip; marks do not establish attendance",
+    "On disagreement the archive assistant must reread the slip before closure",
+    "Exception: a slip inside a sealed cover stays open until cover returns to desk, with no return date given",
+    "Arrival order does not establish writing order; attendance total unreported"
+  ],
+  "ticket-report-actor": [
+    "Sixteen returned envelopes counted at rehearsal close",
+    "Blue mark means a second person read the slip; marks do not establish attendance",
+    "On disagreement the ticket clerk must reread the slip before closure",
+    "Exception: a slip inside a sealed cover stays open until cover returns to desk, with no return date given",
+    "Arrival order does not establish writing order; attendance total unreported"
+  ],
+  "ticket-report-exception": [
+    "Sixteen returned envelopes counted at rehearsal close",
+    "Blue mark means a second person read the slip; marks do not establish attendance",
+    "On disagreement the archive assistant must reread the slip before closure",
+    "Exception: a slip inside a red cover stays open until cover returns to desk, with no return date given",
+    "Arrival order does not establish writing order; attendance total unreported"
+  ],
+  "dial-textbook": [
+    "Readings describe position, not force or elapsed time",
+    "Reader starts at the wide line and moves the strip while partner holds dial and records the narrow-line name",
+    "When two narrow lines are covered, partner records between; wide starting line has no name",
+    "Compare readings from the same dial only; matching names do not establish equal spacing or equal travel",
+    "Entries missing a dial letter can be kept but are set aside for comparison"
+  ],
+  "learner-library": [
+    "Yellow card identifies a book needing a new cover",
+    "Helper should check the cover",
+    "Discarding the book is not required"
+  ],
+  "learner-private-contact": [
+    "The synthetic message asks a child to send a home address to an unknown person",
+    "The message asks for private contact and secrecy"
+  ]
+}

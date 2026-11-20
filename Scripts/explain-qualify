@@ -1,0 +1,208 @@
+#!/usr/bin/env python3
+"""Verify frozen synthetic Explain evidence offline. Does not call providers."""
+
+import argparse
+import hashlib
+import json
+import re
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+FIXTURES = ROOT / "Tests/ExplainQualification"
+QUALIFICATION = ROOT / "Qualification/Explain"
+PROVIDERS = ("openai", "anthropic")
+FIXTURE_FILES = {"cases.json", "held-out.json", "sources.json", "facts.json", "required-facts.json", "RUBRIC.md"}
+ROW_FIELDS = {
+    "id", "configuration_sha256", "source_sha256", "answer_sha256", "natural_stop",
+    "source_words", "answer_words", "verdict", "covered_facts", "missing_facts",
+    "near_verbatim", "ambiguous",
+}
+
+
+def sha(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def require(condition, reason):
+    if not condition:
+        raise ValueError(reason)
+
+
+def unique_object(pairs):
+    result = {}
+    for key, value in pairs:
+        require(key not in result, f"duplicate JSON key {key!r}")
+        result[key] = value
+    return result
+
+
+def load(path):
+    return json.loads(path.read_bytes(), object_pairs_hook=unique_object)
+
+
+def require_fields(obj, expected, label):
+    require(isinstance(obj, dict) and set(obj) == expected, f"{label}: unexpected or missing fields")
+
+
+def load_fixtures(directory):
+    manifest_path = directory / "manifest.json"
+    manifest = load(manifest_path)
+    require(manifest["schema_version"] == 1, "unsupported manifest version")
+    require_fields(manifest["files"], FIXTURE_FILES, "manifest files")
+    for name, expected in manifest["files"].items():
+        require(sha((directory / name).read_bytes()) == expected, f"{name}: fixture digest mismatch")
+
+    corpus = load(directory / "cases.json")
+    held_out = load(directory / "held-out.json")
+    sources = load(directory / "sources.json")
+    facts = load(directory / "facts.json")
+    counts = manifest["counts"]
+    require(len(corpus) == 70, "expected 70 frozen corpus cases")
+    cases = corpus + held_out
+    require(len({case["id"] for case in cases}) == len(cases), "duplicate fixture case ID")
+    for subset, suites in [(corpus, {"corpus"}), (held_out, {"held-out", "learner-blocked"})]:
+        for case in subset:
+            require(case["suite"] in suites, f"{case['id']}: misplaced fixture suite")
+            require(case["depth"] in {"simple", "middle", "detailed"}, f"{case['id']}: unknown depth")
+            require(case["style"] in {"plain", "metaphors", "examples", "picture"}, f"{case['id']}: unknown style")
+            fixture = case["fixture"]
+            require(isinstance(sources[fixture], str) and sources[fixture].strip(),
+                    f"{fixture}: missing source")
+            fact_list = facts[fixture]
+            require(isinstance(fact_list, list) and fact_list and
+                    all(isinstance(fact, str) and fact.strip() for fact in fact_list),
+                    f"{fixture}: empty or malformed fact sheet")
+    for suite in ("corpus", "held-out", "learner-blocked"):
+        count = sum(case["suite"] == suite for case in cases)
+        require(count > 0 and count == counts[suite], f"{suite}: manifest count mismatch")
+    require(len(sources["document3000"].split()) == 3000, "long corpus fixture must have 3,000 words")
+    return cases, sources, facts, sha(manifest_path.read_bytes())
+
+
+def verify_receipt(receipt, cases, sources, facts, configuration_hash, fixture_hash,
+                   expected_model, required_facts, *, record_negative=False):
+    misses = []
+    require_fields(receipt, {"schema_version", "configuration_sha256", "fixtures_sha256", "observed_model", "rows"},
+                   "receipt")
+    require(type(receipt["schema_version"]) is int and receipt["schema_version"] == 1, "unknown receipt version")
+    require(receipt["configuration_sha256"] == configuration_hash, "configuration digest mismatch")
+    require(receipt["fixtures_sha256"] == fixture_hash, "fixture manifest digest mismatch")
+    require(receipt["observed_model"] == expected_model, "observed model differs from frozen revision")
+    require(isinstance(receipt["rows"], list), "invalid receipt rows")
+
+    expected = {case["id"]: case for case in cases if case["suite"] != "learner-blocked"}
+    seen = set()
+    for row in receipt["rows"]:
+        require_fields(row, ROW_FIELDS, "receipt row")
+        case_id = row["id"]
+        require(isinstance(case_id, str) and case_id in expected, f"unexpected case {case_id!r}")
+        require(case_id not in seen, f"{case_id}: duplicate verdict")
+        seen.add(case_id)
+        case = expected[case_id]
+        fixture = case["fixture"]
+        source = sources[fixture]
+        require(row["configuration_sha256"] == configuration_hash, f"{case_id}: stale configuration digest")
+        require(row["source_sha256"] == sha(source.encode("utf-8")), f"{case_id}: source digest mismatch")
+        require(isinstance(row["answer_sha256"], str) and re.fullmatch(r"[0-9a-f]{64}", row["answer_sha256"]),
+                f"{case_id}: invalid answer digest")
+        require(type(row["source_words"]) is int and row["source_words"] == len(source.split()),
+                f"{case_id}: source count mismatch")
+        require(type(row["answer_words"]) is int and row["answer_words"] > 0, f"{case_id}: invalid answer count")
+        require(type(row["natural_stop"]) is bool and type(row["ambiguous"]) is bool, f"{case_id}: invalid stop or ambiguity flag")
+        require(row["verdict"] in ("pass", "fail", "uncertain"), f"{case_id}: invalid verdict")
+        if not row["natural_stop"]:
+            misses.append(f"{case_id}: missing natural stop")
+        if row["verdict"] != "pass":
+            misses.append(f"{case_id}: blind verdict {row['verdict']}")
+        if row["ambiguous"]:
+            misses.append(f"{case_id}: ambiguous explanation")
+        require(type(row["near_verbatim"]) is bool, f"{case_id}: invalid near-verbatim flag")
+
+        covered, missing = row["covered_facts"], row["missing_facts"]
+        require(isinstance(covered, list) and isinstance(missing, list), f"{case_id}: invalid fact coverage")
+        indices = covered + missing
+        require(all(type(index) is int for index in indices) and
+                sorted(indices) == list(range(len(facts[fixture]))), f"{case_id}: incomplete or duplicate fact coverage")
+        essential_omissions = sorted(set(missing) & set(required_facts[fixture]))
+        if essential_omissions:
+            misses.append(f"{case_id}: missing facts {essential_omissions}")
+        if case["depth"] == "middle" and row["answer_words"] >= row["source_words"]:
+            misses.append(f"{case_id}: Middle answer must be shorter")
+    require(seen == set(expected), f"missing cases: {', '.join(sorted(set(expected) - seen))}")
+    if record_negative:
+        require(bool(misses), "passing quality cannot be filed as a negative result")
+        print("FAIL quality: " + "; ".join(misses))
+    else:
+        require(not misses, "; ".join(misses))
+
+
+def read_required_facts(facts):
+    required = load(FIXTURES / "required-facts.json")
+    require(set(required) == set(facts), "required fact sheets do not cover all sources")
+    for name, indices in required.items():
+        require(isinstance(indices, list) and indices and
+                all(type(i) is int and 0 <= i < len(facts[name]) for i in indices) and
+                len(indices) == len(set(indices)), f"{name}: invalid required facts")
+    return required
+
+
+def check_config(path, fixture_hash):
+    snapshot = path.read_bytes()
+    config = json.loads(snapshot, object_pairs_hook=unique_object)
+    provider = config["provider"]
+    require(provider in PROVIDERS, "unknown candidate provider")
+    canonical = QUALIFICATION / "candidates" / f"{provider}.json"
+    if path.resolve() != canonical.resolve():
+        require(snapshot == canonical.read_bytes(), "unrecognized candidate configuration")
+    require(config["fixtures_sha256"] == fixture_hash, "candidate fixture digest mismatch")
+    require(config["instruction_sha256"] == sha(config["instruction"].encode()), "candidate instruction digest mismatch")
+    return sha(snapshot), config["revision"]
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--receipt", type=Path, help="check this sanitized receipt with --config")
+    parser.add_argument("--config", type=Path, help="frozen candidate JSON accompanying --receipt")
+    parser.add_argument("--require", action="append", choices=PROVIDERS, default=[],
+                        help="fail when this provider has no recorded receipt")
+    parser.add_argument("--record-outcome", action="store_true", help="verify an explicitly rejected quality record")
+    args = parser.parse_args()
+    if args.record_outcome and not args.receipt:
+        parser.error("--record-outcome needs a receipt and config")
+    if bool(args.receipt) != bool(args.config) or (args.receipt and args.require):
+        parser.error("use --receipt and --config together, or use default discovery with --require")
+    cases, sources, facts, fixture_hash = load_fixtures(FIXTURES)
+    required = read_required_facts(facts)
+    expected_counts = {suite: sum(case["suite"] == suite for case in cases) for suite in ("corpus", "held-out")}
+
+    if args.receipt:
+        config_hash, model = check_config(args.config, fixture_hash)
+        verify_receipt(load(args.receipt), cases, sources, facts, config_hash, fixture_hash, model, required,
+                       record_negative=args.record_outcome)
+        print(f"Verified receipt {args.receipt.name} ({expected_counts['corpus']} corpus, {expected_counts['held-out']} held-out)")
+        return
+
+    recognized = set()
+    for provider in PROVIDERS:
+        config_path = QUALIFICATION / "candidates" / f"{provider}.json"
+        configuration_hash, model = check_config(config_path, fixture_hash)
+        path = QUALIFICATION / "receipts" / f"{configuration_hash}.json"
+        recognized.add(path)
+        if path.exists():
+            verify_receipt(load(path), cases, sources, facts, configuration_hash, fixture_hash, model, required)
+            print(f"PASS {provider} recorded quality ({expected_counts['corpus']} corpus, {expected_counts['held-out']} held-out)")
+        else:
+            require(provider not in args.require, f"{provider}: missing required receipt")
+            print(f"PENDING {provider} quality: no receipt")
+    unexpected = set((QUALIFICATION / "receipts").glob("*.json")) - recognized
+    require(not unexpected, "stale or unknown receipt configuration")
+    print(f"PASS frozen fixtures {fixture_hash}")
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (OSError, KeyError, TypeError, ValueError) as error:
+        print(f"FAIL {error}", file=sys.stderr)
+        sys.exit(1)

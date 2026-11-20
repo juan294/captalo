@@ -12,6 +12,7 @@ let package = Package(
             name: "CaptaloCore",
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
+        .executableTarget(name: "ExplainQualificationProbe", dependencies: ["CaptaloCore"]),
         .testTarget(
             name: "CaptaloCoreTests",
             dependencies: ["CaptaloCore"],

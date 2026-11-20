@@ -1,0 +1,70 @@
+#!/usr/bin/env python3
+"""Reproduce both candidates offline from the product serializer and the reviewed fixtures."""
+import argparse
+import hashlib
+import json
+import os
+import subprocess
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+FIXTURES = ROOT / "Tests/ExplainQualification"
+CONFIGS = ROOT / "Qualification/Explain/candidates"
+
+
+def sha(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def canonical(value):
+    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()
+
+
+def fixtures():
+    def read(name):
+        return json.loads((FIXTURES / name).read_bytes())
+    manifest = (FIXTURES / "manifest.json").read_bytes()
+    for name, expected in json.loads(manifest)["files"].items():
+        if sha((FIXTURES / name).read_bytes()) != expected:
+            raise SystemExit(f"Fixture file changed: {name}")
+    sources = read("sources.json")
+    cases = read("cases.json") + read("held-out.json")
+    return [{**row, "source": sources[row["fixture"]]} for row in cases
+            if row["suite"] in {"corpus", "held-out"}], sha(manifest)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("mode", choices=["check", "freeze", "prepare"],
+                        help="freeze updates versioned configs; prepare writes ignored synthetic request sets")
+    options = parser.parse_args()
+    cases, fixture_hash = fixtures()
+    env = os.environ.copy()
+    env.setdefault("DEVELOPER_DIR", "/Applications/Xcode-beta.app/Contents/Developer")
+    build = ["swift", "build", "--package-path", str(ROOT / "Packages/CaptaloCore")]
+    subprocess.run([*build, "--product", "ExplainQualificationProbe"], env=env, check=True, stdout=subprocess.DEVNULL)
+    binary = Path(subprocess.check_output([*build, "--show-bin-path"], env=env, text=True).strip()) / "ExplainQualificationProbe"
+
+    for provider in ["openai", "anthropic"]:
+        requests = json.loads(subprocess.check_output([binary, provider, "requests"], input=canonical(cases)))
+        config = json.loads(subprocess.check_output([binary, provider, "config"]))
+        config.update(instruction_sha256=sha(config["instruction"].encode()), fixtures_sha256=fixture_hash,
+                      request_set_sha256=sha(canonical(requests)))
+        snapshot = (json.dumps(config, ensure_ascii=False, sort_keys=True, indent=2) + "\n").encode()
+        config_hash = sha(snapshot)
+        path = CONFIGS / f"{provider}.json"
+        if options.mode == "freeze":
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(snapshot)
+        elif not path.exists() or path.read_bytes() != snapshot:
+            raise SystemExit(f"{provider} candidate differs from its frozen inputs")
+        if options.mode == "prepare":
+            target = ROOT / ".local/explain-qualification" / provider / "prepared.json"
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(canonical(dict(configuration_sha256=config_hash, fixtures_sha256=fixture_hash,
+                                              provider=provider, model=config["model"], requests=requests)))
+        print(f"{provider}: {len(requests)} requests, configuration {config_hash}")
+
+
+if __name__ == "__main__":
+    main()

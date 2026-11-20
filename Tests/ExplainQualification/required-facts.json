@@ -1,0 +1,119 @@
+{
+  "email": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "agent": [
+    1,
+    2,
+    3,
+    4
+  ],
+  "legal": [
+    0,
+    1,
+    2
+  ],
+  "textbook": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "minutes": [
+    1,
+    2,
+    3
+  ],
+  "notice": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "inventory": [
+    0,
+    1,
+    2
+  ],
+  "schedule": [
+    1,
+    2,
+    3
+  ],
+  "handover": [
+    0,
+    1,
+    2
+  ],
+  "report300": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "document3000": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "book-return-email": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "ticket-report": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "ticket-report-number": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "ticket-report-actor": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "ticket-report-exception": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "dial-textbook": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "learner-library": [
+    0,
+    1,
+    2
+  ],
+  "learner-private-contact": [
+    0,
+    1
+  ]
+}
