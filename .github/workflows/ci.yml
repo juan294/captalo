@@ -48,9 +48,14 @@ jobs:
       - run: make bundle-check
       - run: make offline-test
       - run: make completeness-test
-      - run: make ocr-probe
+      # ocr-probe stays local: Vision document recognition fails with
+      # unknownError on the hosted VM (run 44737348486).
+      # These two run after an earlier failure so each gets a hosted result;
+      # a failure above still fails the job.
       - run: make log-audit
+        if: ${{ !cancelled() }}
       - run: make script-test
+        if: ${{ !cancelled() }}
       - name: Build logs
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
