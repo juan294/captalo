@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+    branches: [develop, main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    name: Gate (unsigned)
+    # Standard-size image only; xcode-27-xlarge is billed even on public repositories.
+    runs-on: xcode-27
+    timeout-minutes: 60
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.3.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+          command -v xcbeautify >/dev/null || brew install xcbeautify
+      - name: Cache pinned voice files
+        uses: actions/cache@v6
+        with:
+          path: .local/models
+          key: models-${{ hashFiles('Models.manifest.json') }}
+      - name: whitespace
+        run: git diff --check 30e0dfbf2cfbef01b8c462bfec2452b3c0295a61
+      - run: make test-core-debug
+      - run: make test-core-release
+      - run: make test-speech-debug
+      - run: make test-speech-release
+      - run: make build-unsigned-debug
+      - run: make build-unsigned-release
+      - run: make shell-audit
+      - run: make bundle-check
+      - run: make offline-test
+      - run: make completeness-test
+      - run: make ocr-probe
+      - run: make log-audit
+      - run: make script-test
+      - name: Build logs
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: build-logs
+          path: .local/build/logs
+          retention-days: 7
