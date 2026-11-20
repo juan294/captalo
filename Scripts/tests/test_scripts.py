@@ -31,6 +31,7 @@ def load(name):
 signing = load("signing-identity")
 install = load("install")
 log_audit = load("log-audit")
+panel_render_check = load("panel-render-check")
 
 
 class SigningIdentityTests(unittest.TestCase):
@@ -422,6 +423,66 @@ def summary_record(voice, outcome="finished", queued=0.0):
             "playedExactlyOnceInOrder": True, "textReassembles": True, "playedInOrder": True,
             "maxUnitSeconds": 10.0, "maxQueuedSeconds": queued, "maxRetained": 2, "firstAudioMs": 100,
             "totalMs": 900, "peakFootprintMB": 500.0, "oversizeSplits": 0}
+
+
+class PanelRenderCheckTests(unittest.TestCase):
+    """make panel-render: the check must fail for a missing, wrong-size or unreadable image."""
+
+    @staticmethod
+    def png(width, height):
+        return b"\x89PNG\r\n\x1a\n" + (13).to_bytes(4, "big") + b"IHDR" + width.to_bytes(4, "big") + height.to_bytes(4, "big")
+
+    def render(self, directory):
+        for name in panel_render_check.expected_names():
+            (Path(directory) / name).write_bytes(self.png(880, 1040))
+
+    def run_script(self, directory):
+        return subprocess.run([sys.executable, str(SCRIPTS / "panel-render-check"), str(directory)],
+                              capture_output=True, text=True, check=False)
+
+    def test_complete_set_passes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            self.render(directory)
+            result = self.run_script(directory)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("16 images at 880x1040", result.stdout)
+
+    def test_missing_image_fails_and_is_named(self):
+        with tempfile.TemporaryDirectory() as directory:
+            self.render(directory)
+            (Path(directory) / "voice-damaged-light.png").unlink()
+            result = self.run_script(directory)
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("missing voice-damaged-light.png", result.stderr)
+
+    def test_wrong_size_fails(self):
+        with tempfile.TemporaryDirectory() as directory:
+            self.render(directory)
+            (Path(directory) / "read-ready-dark.png").write_bytes(self.png(440, 520))
+            result = self.run_script(directory)
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("read-ready-dark.png is 440x520, expected 880x1040", result.stderr)
+
+    def test_file_that_is_not_a_png_fails(self):
+        with tempfile.TemporaryDirectory() as directory:
+            self.render(directory)
+            (Path(directory) / "setup-all-set-dark.png").write_bytes(b"not an image")
+            result = self.run_script(directory)
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("setup-all-set-dark.png is not a readable PNG", result.stderr)
+
+    def test_unexpected_image_fails(self):
+        with tempfile.TemporaryDirectory() as directory:
+            self.render(directory)
+            (Path(directory) / "old-fixture-dark.png").write_bytes(self.png(880, 1040))
+            result = self.run_script(directory)
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("unexpected old-fixture-dark.png", result.stderr)
+
+    def test_missing_directory_fails(self):
+        result = self.run_script("/nonexistent/captalo-panel-render")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("is not a directory", result.stderr)
 
 
 class CompletenessHarnessTests(unittest.TestCase):

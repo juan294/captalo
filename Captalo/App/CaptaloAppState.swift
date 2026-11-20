@@ -18,7 +18,7 @@ final class CaptaloAppState: ObservableObject {
         didSet { preferencesChanged() }
     }
     @Published var loginItem = LoginItemRow.make(status: .notRegistered)
-    /// Shown under the recorder after a binding was rejected.
+    /// Shown on the Read pane after a binding was rejected.
     @Published var shortcutRejection: String?
     /// Cached: whether a read shortcut is recorded (updated by the recorder).
     @Published var readShortcutSet = KeyboardShortcuts.getShortcut(for: .readSelection) != nil

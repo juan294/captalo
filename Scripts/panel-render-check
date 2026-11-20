@@ -1,0 +1,76 @@
+#!/usr/bin/env python3
+"""Check the PNG set that `Captalo --render-panel` wrote (make panel-render).
+
+Every fixture must exist in dark and light at 880 x 1040 px (440 x 520 pt at
+2x), and no other PNG may be in the directory. A missing file, another size or
+an unreadable file is a failure, never a pass.
+"""
+import struct
+import sys
+from pathlib import Path
+
+FIXTURES = [
+    "read-ready",
+    "voice-ready",
+    "setup-all-set",
+    "setup-permission-missing",
+    "read-shortcut-unset",
+    "read-all-notices",
+    "voice-damaged",
+    "setup-recording-requested",
+]
+SIZE = (880, 1040)
+PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+
+
+def expected_names():
+    return [f"{fixture}-{scheme}.png" for fixture in FIXTURES for scheme in ("dark", "light")]
+
+
+def png_size(path):
+    """The pixel size from the IHDR chunk, or None when the file is not a PNG."""
+    try:
+        header = path.read_bytes()[:24]
+    except OSError:
+        return None
+    if len(header) < 24 or header[:8] != PNG_SIGNATURE or header[12:16] != b"IHDR":
+        return None
+    return struct.unpack(">II", header[16:24])
+
+
+def problems(directory):
+    directory = Path(directory)
+    if not directory.is_dir():
+        return [f"{directory} is not a directory"]
+    found = []
+    expected = expected_names()
+    for name in expected:
+        path = directory / name
+        if not path.is_file():
+            found.append(f"missing {name}")
+            continue
+        size = png_size(path)
+        if size is None:
+            found.append(f"{name} is not a readable PNG")
+        elif size != SIZE:
+            found.append(f"{name} is {size[0]}x{size[1]}, expected {SIZE[0]}x{SIZE[1]}")
+    extra = sorted(p.name for p in directory.glob("*.png") if p.name not in expected)
+    found.extend(f"unexpected {name}" for name in extra)
+    return found
+
+
+def main(argv):
+    if len(argv) != 1:
+        print("usage: panel-render-check <directory>", file=sys.stderr)
+        return 2
+    found = problems(argv[0])
+    for problem in found:
+        print(f"panel-render-check: {problem}", file=sys.stderr)
+    if found:
+        return 1
+    print(f"panel-render-check: {len(expected_names())} images at {SIZE[0]}x{SIZE[1]}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

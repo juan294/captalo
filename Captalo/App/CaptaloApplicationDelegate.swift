@@ -7,6 +7,10 @@ final class CaptaloApplicationDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: StatusItemController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        #if DEBUG
+        // A panel debug command renders or probes, then exits: no icon, no voice.
+        if PanelDebugCommands.runIfRequested() { return }
+        #endif
         let state = CaptaloAppState.shared
         statusItem = StatusItemController(state: state)
         state.onSetupRequired = { [weak self] in self?.statusItem?.present() }

@@ -75,6 +75,13 @@
       ]
     },
     {
+      "name": "panel-render",
+      "argv": [
+        "make",
+        "panel-render"
+      ]
+    },
+    {
       "name": "shell-audit",
       "argv": [
         "make",

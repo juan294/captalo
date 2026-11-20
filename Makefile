@@ -28,11 +28,12 @@ PROJECT_TEAM = $(shell sed -n 's/.*DEVELOPMENT_TEAM = "*\([A-Z0-9]*\)"*;.*/\1/p'
 .PHONY: help xcbeautify-check signing-check build build-unsigned build-unsigned-debug build-unsigned-release \
 	test test-core-debug test-core-release script-test log-audit verify install run signing-setup \
 	clipboard-sentinel capture-pdf vendor fetch-models update-model-manifest bundle-check offline-test \
-	completeness-test test-speech-debug test-speech-release prepare shell-audit defaults-backup defaults-restore ocr-probe
+	completeness-test test-speech-debug test-speech-release prepare shell-audit defaults-backup defaults-restore ocr-probe \
+	panel-render
 
 help:
 	@echo "make build [CONFIG=Debug|Release] | build-unsigned | test | log-audit | script-test | verify"
-	@echo "make fetch-models | bundle-check | offline-test | completeness-test | ocr-probe | update-model-manifest [VOICES=a,b]"
+	@echo "make fetch-models | bundle-check | offline-test | completeness-test | ocr-probe | panel-render | update-model-manifest [VOICES=a,b]"
 	@echo "make signing-setup [TEAM=<team id>]   one-time Apple Development certificate setup"
 	@echo "make install [CONFIG=Debug|Release]    integration owner only: fixed install at /Applications/Captalo.app"
 
@@ -99,6 +100,15 @@ completeness-test: vendor
 
 shell-audit:
 	Scripts/shell-audit
+
+# The menu-bar panel drawn from fixtures, dark and light (monochrome popover
+# plan): the Debug app writes the PNGs, the check counts and measures them.
+# View them in .local/build/panel-render before a signed install.
+PANEL_RENDER := .local/build/panel-render
+panel-render: build-unsigned-debug
+	mkdir -p $(PANEL_RENDER) && rm -f $(PANEL_RENDER)/*.png
+	$(DERIVED)/Build/Products/Debug/Captalo.app/Contents/MacOS/Captalo --render-panel "$(CURDIR)/$(PANEL_RENDER)"
+	Scripts/panel-render-check $(PANEL_RENDER)
 
 # Region OCR (phase 5): Release-built Vision probe on the synthetic fixtures, plus one cancel.
 ocr-probe:

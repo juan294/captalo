@@ -64,7 +64,7 @@ extension CaptaloAppState {
         }
     }
 
-    /// The failure the optional OCR row shows: recognition failures after
+    /// The region failure the Read pane shows: recognition failures after
     /// three in a row; an overlay that could not open or a blocked screenshot at once.
     var regionFailureNotice: String? {
         switch ocrFailures.surfacedCategory {
