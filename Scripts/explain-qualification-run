@@ -222,9 +222,23 @@ def append_record(file, row):
     os.fsync(file.fileno())
 
 
-def run(root, provider, max_requests, max_usd, send):
-    prepared, candidate = load_prepared(root, provider)
+def selected_requests(root, prepared, case_ids):
     rows = prepared["requests"]
+    if case_ids is None:
+        return rows
+    wanted = set(case_ids)
+    corpus = json.loads((root / "Tests/ExplainQualification/cases.json").read_bytes())
+    require(wanted <= {row["id"] for row in corpus if row["suite"] == "corpus"},
+            "only original corpus cases are available for tuning")
+    selected = [row for row in rows if row["id"] in wanted]
+    require(selected and len(wanted) == len(case_ids) == len(selected),
+            "tuning requires unique known frozen case IDs")
+    return selected
+
+
+def run(root, provider, max_requests, max_usd, send, case_ids=None):
+    prepared, candidate = load_prepared(root, provider)
+    rows = selected_requests(root, prepared, case_ids)
     bounds = [price_bound(provider, row["body"].encode()) for row in rows]
     require(max_usd.is_finite() and max_usd > 0 and 0 < len(rows) <= max_requests
             and sum(bounds) <= max_usd, "run exceeds authorized request or USD limit")
@@ -232,8 +246,11 @@ def run(root, provider, max_requests, max_usd, send):
     identity = {name: prepared[name] for name in ("provider", "model", "configuration_sha256", "fixtures_sha256")}
     identity["request_set_sha256"] = candidate["request_set_sha256"]
     evidence = root / ".local/explain-qualification" / provider / prepared["configuration_sha256"]
+    if case_ids is not None:
+        subset_hash = digest(encoded([row["id"] for row in rows]))
+        evidence = evidence.parent / "tuning" / evidence.name / subset_hash
     try:
-        evidence.mkdir(mode=0o700)
+        evidence.mkdir(mode=0o700, parents=True)
     except FileExistsError:
         raise ValueError("evidence already exists for this candidate") from None
     auth = dict(identity, credential_scope=KEY_VARS[provider], max_requests=max_requests, max_usd=str(max_usd),
@@ -266,6 +283,8 @@ def main():
     parser.add_argument("--execute", action="store_true", help="send the exact reviewed synthetic requests")
     parser.add_argument("--max-requests", type=int)
     parser.add_argument("--max-usd", type=Decimal, help="authorized ceiling for provider model usage in USD")
+    parser.add_argument("--case", action="append", dest="case_ids", metavar="ID",
+                        help="tune on an original corpus case; repeat to select more cases")
     args = parser.parse_args()
     if args.execute:
         if args.max_requests is None or args.max_usd is None:
@@ -273,10 +292,10 @@ def main():
         preflight = subprocess.run([ROOT / "Scripts/explain-candidate", "check"], cwd=ROOT)
         require(preflight.returncode == 0, "frozen candidate preflight failed")
         require(os.environ.get(KEY_VARS[args.provider]), "provider credential unavailable")
-        print(run(ROOT, args.provider, args.max_requests, args.max_usd, send_request))
+        print(run(ROOT, args.provider, args.max_requests, args.max_usd, send_request, args.case_ids))
     else:
         prepared, _ = load_prepared(ROOT, args.provider)
-        rows = prepared["requests"]
+        rows = selected_requests(ROOT, prepared, args.case_ids)
         bound = sum(price_bound(args.provider, row["body"].encode()) for row in rows)
         print(f"{args.provider} offline preview: {len(rows)} requests, model usage bound USD {bound:f}")
 

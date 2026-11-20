@@ -26,10 +26,12 @@ public struct ExplainInput: Encodable, Sendable {
     public let depth: ExplainDepth
     public let style: ExplainStyle
     public let profile: String
+    public let sourceWords: Int
     public let targetWords: Int
 
     enum CodingKeys: String, CodingKey {
         case source, depth, style, profile
+        case sourceWords = "source_words"
         case targetWords = "target_words"
     }
 
@@ -43,6 +45,7 @@ public struct ExplainInput: Encodable, Sendable {
         self.depth = depth
         self.style = style
         self.profile = profile
+        self.sourceWords = count
         self.targetWords = max(20, (count * depth.targetPercent + 99) / 100)
     }
 }

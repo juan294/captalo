@@ -99,6 +99,27 @@ class RunTests(unittest.TestCase):
                 main()
         self.assertEqual(list(self.work.iterdir()), [self.prepared_path])
 
+    def test_tuning_uses_only_named_frozen_requests_and_separate_evidence(self):
+        sent = []
+        def send(provider, model, body):
+            sent.append(body)
+            return "Blue.", model
+
+        # "one" represents a held-out adult case included in the full qualification set.
+        fixtures = self.root / "Tests/ExplainQualification"
+        fixtures.mkdir(parents=True)
+        (fixtures / "cases.json").write_text(json.dumps([{"id": "two", "suite": "corpus"}]))
+        for ids in [["absent"], ["two", "two"], ["one"]]:
+            with self.assertRaises(ValueError):
+                self.runner["run"](self.root, "openai", 1, Decimal("1"), send, case_ids=ids)
+        self.assertEqual(sent, [])
+        evidence = self.runner["run"](self.root, "openai", 1, Decimal("1"), send, case_ids=["two"])
+        self.assertEqual(sent, [self.requests[1]["body"].encode()])
+        self.assertEqual(json.loads((evidence / "authorization.json").read_bytes())["case_ids"], ["two"])
+        self.assertFalse((self.work / self.prepared["configuration_sha256"] / "complete.json").exists())
+        with self.assertRaisesRegex(ValueError, "exists"):
+            self.runner["run"](self.root, "openai", 1, Decimal("1"), self.fail, case_ids=["two"])
+
     def test_natural_completions_only(self):
         parse = self.runner["read_answer"]
         for provider, model, events in [

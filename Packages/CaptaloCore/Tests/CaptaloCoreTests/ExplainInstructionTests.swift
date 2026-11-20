@@ -36,6 +36,7 @@ struct ExplainInstructionTests {
             #expect(data["source"] as? String == source)
             #expect(data["profile"] as? String == profile)
             #expect(data["style"] as? String == "metaphors")
+            #expect(data["source_words"] as? Int == source.split(whereSeparator: \.isWhitespace).count)
             #expect(data["target_words"] as? Int == 20)
         }
     }

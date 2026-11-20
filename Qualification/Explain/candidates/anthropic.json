@@ -14,6 +14,6 @@
     }
   },
   "provider": "anthropic",
-  "request_set_sha256": "fa27c207cf945bc2de131b7925aebdb335e32416f3801b75bde961dcc30b3366",
+  "request_set_sha256": "94fd8ae31604c9521260b90a52bf1ebe50ade2f5312bd6f43cbf05eebf72cec5",
   "revision": "claude-sonnet-5-5"
 }

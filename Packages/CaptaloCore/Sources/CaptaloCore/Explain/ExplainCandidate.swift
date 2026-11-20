@@ -22,7 +22,12 @@ public enum ExplainCandidate: String, CaseIterable, Sendable {
         For plain style give no comparison. For examples give one brief explicitly hypothetical real-life example. For metaphors introduce one short comparison with “It is like”. For picture ask the listener to imagine one scene. Keep imagined details inside the comparison and preserve the source's logic.
         """
         switch self {
-        case .openai: return common
+        case .openai:
+            return common + """
+
+            Before answering, distinguish what happened from what a record says, permits, or leaves unknown. Preserve each quantity, actor, time and condition at that same level of certainty. Keep independent observations separate unless the passage explicitly connects them. In a comparison, map only the relationship the source establishes.
+            At Middle, source_words is the length of the original passage. Spend the word budget on the essential facts first. Fit a requested comparison into that summary, using a short phrase that carries one of the facts. Count the entire draft including the comparison. If it reaches source_words, tighten the wording before speaking. For a long passage group repeated entries, preserve the distinct exceptions, and use sentences that work aloud.
+            """
         case .anthropic: return common + "\nKeep the answer close to the passage. Stop once the facts and any requested comparison are clear."
         }
     }

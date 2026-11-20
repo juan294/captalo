@@ -2,6 +2,10 @@ import copy
 import hashlib
 import json
 import runpy
+import shutil
+import subprocess
+import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -128,6 +132,91 @@ class QualificationTests(unittest.TestCase):
         self.row["answer"] = GOOD
         with self.assertRaisesRegex(ValueError, "fields"):
             self.verify()
+
+
+class HistoricalRejectionTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        self.script = self.root / "Scripts/explain-qualify"
+        self.script.parent.mkdir()
+        shutil.copyfile(SCRIPT, self.script)
+        original = SCRIPT.parents[1]
+        self.qual = self.root / "Qualification/Explain"
+        shutil.copytree(original / "Qualification/Explain/candidates", self.qual / "candidates")
+        fixtures = self.root / "Tests/ExplainQualification"
+        shutil.copytree(original / "Tests/ExplainQualification", fixtures)
+        self.fixture_data = runpy.run_path(str(self.script))["load_fixtures"](fixtures)
+        self.archives = self.qual / "rejected/configurations"
+        self.archives.mkdir(parents=True)
+        self.config = json.loads((self.qual / "candidates/openai.json").read_bytes())
+        self.config["instruction"] += " Historical synthetic test variant."
+        self.config["instruction_sha256"] = digest(self.config["instruction"])
+
+    def archive(self):
+        snapshot = json.dumps(self.config)
+        identity = digest(snapshot)
+        path = self.archives / f"{identity}.json"
+        path.write_text(snapshot)
+        cases, sources, facts, _ = self.fixture_data
+        _, _, _, receipt = example()
+        template = receipt["rows"][0]
+        rows = []
+        for case in cases:
+            if case["suite"] != "learner-blocked":
+                source = sources[case["fixture"]]
+                rows.append({**template, "id": case["id"], "configuration_sha256": identity,
+                             "source_sha256": digest(source), "source_words": len(source.split()),
+                             "covered_facts": list(range(len(facts[case["fixture"]]))), "answer_words": 1})
+        rows[0]["verdict"] = "fail"
+        receipt.update(configuration_sha256=identity, fixtures_sha256=self.config["fixtures_sha256"],
+                       observed_model=self.config["revision"], rows=rows)
+        record = self.qual / "rejected" / path.name
+        record.write_text(json.dumps(receipt))
+        return path, record, receipt
+
+    def cli(self, *args):
+        return subprocess.run([sys.executable, self.script, *args], capture_output=True, text=True)
+
+    def test_default_rechecks_negative_without_admitting_archived_config(self):
+        config, record, receipt = self.archive()
+        checked = self.cli()
+        self.assertEqual(checked.returncode, 0, checked.stderr)
+        self.assertIn("REJECTED openai", checked.stdout)
+        self.assertNotIn("blind verdict", checked.stdout)
+        explicit = self.cli("--record-outcome", "--config", config, "--receipt", record)
+        self.assertEqual(explicit.returncode, 0, explicit.stderr)
+        self.assertIn("blind verdict fail", explicit.stdout)
+        ordinary = self.cli("--config", config, "--receipt", record)
+        self.assertNotEqual(ordinary.returncode, 0)
+        self.assertIn("unrecognized candidate", ordinary.stderr)
+        receipt["rows"][0]["verdict"] = "pass"
+        record.write_text(json.dumps(receipt))
+        result = self.cli()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("passing quality", result.stderr)
+
+    def test_refuses_modified_archived_configuration(self):
+        config, record, _ = self.archive()
+        config.write_text(config.read_text() + "\n")
+        for args in ((), ("--record-outcome", "--config", config, "--receipt", record)):
+            with self.subTest(args=args):
+                self.assertNotEqual(self.cli(*args).returncode, 0)
+
+    def test_older_fixtures_unavailable_only_for_historical_verification(self):
+        self.config["fixtures_sha256"] = digest("older frozen corpus")
+        config, record, receipt = self.archive()
+        default = self.cli()
+        self.assertEqual(default.returncode, 0, default.stderr)
+        self.assertIn("historical fixtures unavailable", default.stdout)
+        self.assertNotIn("REJECTED openai", default.stdout)
+        explicit = self.cli("--record-outcome", "--config", config, "--receipt", record)
+        self.assertNotEqual(explicit.returncode, 0)
+        self.assertIn("fixture", explicit.stderr)
+        receipt["fixtures_sha256"] = digest("different binding")
+        record.write_text(json.dumps(receipt))
+        self.assertNotEqual(self.cli().returncode, 0)
 
 
 if __name__ == "__main__":

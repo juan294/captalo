@@ -132,9 +132,9 @@ def verify_receipt(receipt, cases, sources, facts, configuration_hash, fixture_h
     require(seen == set(expected), f"missing cases: {', '.join(sorted(set(expected) - seen))}")
     if record_negative:
         require(bool(misses), "passing quality cannot be filed as a negative result")
-        print("FAIL quality: " + "; ".join(misses))
     else:
         require(not misses, "; ".join(misses))
+    return misses
 
 
 def read_required_facts(facts):
@@ -147,17 +147,45 @@ def read_required_facts(facts):
     return required
 
 
-def check_config(path, fixture_hash):
+def check_config(path, fixture_hash=None, *, allow_archived=False):
     snapshot = path.read_bytes()
+    identity = sha(snapshot)
     config = json.loads(snapshot, object_pairs_hook=unique_object)
     provider = config["provider"]
     require(provider in PROVIDERS, "unknown candidate provider")
     canonical = QUALIFICATION / "candidates" / f"{provider}.json"
-    if path.resolve() != canonical.resolve():
+    archived = QUALIFICATION / "rejected/configurations" / f"{identity}.json"
+    if not (allow_archived and path.resolve() == archived.resolve()):
         require(snapshot == canonical.read_bytes(), "unrecognized candidate configuration")
-    require(config["fixtures_sha256"] == fixture_hash, "candidate fixture digest mismatch")
+    require(re.fullmatch(r"[0-9a-f]{64}", config["fixtures_sha256"]), "invalid candidate fixture digest")
+    if fixture_hash is not None:
+        require(config["fixtures_sha256"] == fixture_hash, "candidate fixture digest mismatch")
     require(config["instruction_sha256"] == sha(config["instruction"].encode()), "candidate instruction digest mismatch")
-    return sha(snapshot), config["revision"]
+    return identity, config
+
+
+def check_rejections(active, cases, sources, facts, fixture_hash, required):
+    directory = QUALIFICATION / "rejected"
+    for record in sorted(directory.glob("*.json")):
+        identity = record.stem
+        archived = directory / "configurations" / record.name
+        config_path = archived if archived.exists() else active.get(identity)
+        require(config_path is not None, f"{record.name}: missing rejected candidate configuration")
+        config_hash, config = check_config(config_path, allow_archived=True)
+        receipt = load(record)
+        require(config_hash == receipt["configuration_sha256"] == identity, "rejected record configuration digest mismatch")
+        require(receipt["fixtures_sha256"] == config["fixtures_sha256"], "rejected record fixture binding mismatch")
+        require(receipt["observed_model"] == config["revision"], "rejected record model mismatch")
+        if receipt["fixtures_sha256"] != fixture_hash:
+            require(isinstance(receipt["rows"], list) and receipt["rows"] and
+                    all(row["configuration_sha256"] == identity for row in receipt["rows"]),
+                    "historical rows differ from archived configuration")
+            print(f"UNVERIFIED {config['provider']} {identity[:12]}: historical fixtures unavailable "
+                  f"({receipt['fixtures_sha256']})")
+            continue
+        misses = verify_receipt(receipt, cases, sources, facts, identity, fixture_hash,
+                                config["revision"], required, record_negative=True)
+        print(f"REJECTED {config['provider']} {identity[:12]}: {len(misses)} quality misses")
 
 
 def main():
@@ -177,26 +205,32 @@ def main():
     expected_counts = {suite: sum(case["suite"] == suite for case in cases) for suite in ("corpus", "held-out")}
 
     if args.receipt:
-        config_hash, model = check_config(args.config, fixture_hash)
-        verify_receipt(load(args.receipt), cases, sources, facts, config_hash, fixture_hash, model, required,
-                       record_negative=args.record_outcome)
+        config_hash, config = check_config(args.config, fixture_hash, allow_archived=args.record_outcome)
+        misses = verify_receipt(load(args.receipt), cases, sources, facts, config_hash, fixture_hash,
+                                config["revision"], required, record_negative=args.record_outcome)
+        if args.record_outcome:
+            print("FAIL quality: " + "; ".join(misses))
         print(f"Verified receipt {args.receipt.name} ({expected_counts['corpus']} corpus, {expected_counts['held-out']} held-out)")
         return
 
-    recognized = set()
+    active = {}
     for provider in PROVIDERS:
         config_path = QUALIFICATION / "candidates" / f"{provider}.json"
-        configuration_hash, model = check_config(config_path, fixture_hash)
+        configuration_hash, config = check_config(config_path, fixture_hash)
+        active[configuration_hash] = config_path
         path = QUALIFICATION / "receipts" / f"{configuration_hash}.json"
-        recognized.add(path)
+        rejected = QUALIFICATION / "rejected" / path.name
         if path.exists():
-            verify_receipt(load(path), cases, sources, facts, configuration_hash, fixture_hash, model, required)
+            require(not rejected.exists(), "candidate has both positive and negative receipts")
+            verify_receipt(load(path), cases, sources, facts, configuration_hash, fixture_hash, config["revision"], required)
             print(f"PASS {provider} recorded quality ({expected_counts['corpus']} corpus, {expected_counts['held-out']} held-out)")
         else:
             require(provider not in args.require, f"{provider}: missing required receipt")
-            print(f"PENDING {provider} quality: no receipt")
-    unexpected = set((QUALIFICATION / "receipts").glob("*.json")) - recognized
-    require(not unexpected, "stale or unknown receipt configuration")
+            if not rejected.exists():
+                print(f"PENDING {provider} quality: no receipt")
+    require(all(p.stem in active for p in (QUALIFICATION / "receipts").glob("*.json")),
+            "stale or unknown receipt configuration")
+    check_rejections(active, cases, sources, facts, fixture_hash, required)
     print(f"PASS frozen fixtures {fixture_hash}")
 
 
