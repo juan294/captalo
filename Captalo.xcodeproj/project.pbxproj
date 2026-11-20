@@ -9,8 +9,8 @@
 /* Begin PBXBuildFile section */
 		F10000000000000000000001 /* CaptaloSpeech in Frameworks */ = {isa = PBXBuildFile; productRef = F10000000000000000000002 /* CaptaloSpeech */; };
 		F10000000000000000000011 /* CaptaloCore in Frameworks */ = {isa = PBXBuildFile; productRef = F10000000000000000000012 /* CaptaloCore */; };
-		F10000000000000000000031 /* CaptaloOCR in Frameworks */ = {isa = PBXBuildFile; productRef = F10000000000000000000032 /* CaptaloOCR */; };
 		F10000000000000000000014 /* KeyboardShortcuts in Frameworks */ = {isa = PBXBuildFile; productRef = F10000000000000000000015 /* KeyboardShortcuts */; };
+		F10000000000000000000031 /* CaptaloOCR in Frameworks */ = {isa = PBXBuildFile; productRef = F10000000000000000000032 /* CaptaloOCR */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -454,20 +454,19 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		F10000000000000000000013 /* XCLocalSwiftPackageReference "Packages/CaptaloCore" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = Packages/CaptaloCore;
-		};
 		F10000000000000000000003 /* XCLocalSwiftPackageReference "Packages/CaptaloSpeech" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/CaptaloSpeech;
+		};
+		F10000000000000000000013 /* XCLocalSwiftPackageReference "Packages/CaptaloCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/CaptaloCore;
 		};
 		F10000000000000000000033 /* XCLocalSwiftPackageReference "Packages/CaptaloOCR" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/CaptaloOCR;
 		};
 /* End XCLocalSwiftPackageReference section */
-
 
 /* Begin XCRemoteSwiftPackageReference section */
 		F10000000000000000000016 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */ = {
@@ -481,25 +480,25 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		F10000000000000000000012 /* CaptaloCore */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = F10000000000000000000013 /* XCLocalSwiftPackageReference "Packages/CaptaloCore" */;
-			productName = CaptaloCore;
-		};
 		F10000000000000000000002 /* CaptaloSpeech */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = F10000000000000000000003 /* XCLocalSwiftPackageReference "Packages/CaptaloSpeech" */;
 			productName = CaptaloSpeech;
 		};
-		F10000000000000000000032 /* CaptaloOCR */ = {
+		F10000000000000000000012 /* CaptaloCore */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = F10000000000000000000033 /* XCLocalSwiftPackageReference "Packages/CaptaloOCR" */;
-			productName = CaptaloOCR;
+			package = F10000000000000000000013 /* XCLocalSwiftPackageReference "Packages/CaptaloCore" */;
+			productName = CaptaloCore;
 		};
 		F10000000000000000000015 /* KeyboardShortcuts */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = F10000000000000000000016 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */;
 			productName = KeyboardShortcuts;
+		};
+		F10000000000000000000032 /* CaptaloOCR */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F10000000000000000000033 /* XCLocalSwiftPackageReference "Packages/CaptaloOCR" */;
+			productName = CaptaloOCR;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
