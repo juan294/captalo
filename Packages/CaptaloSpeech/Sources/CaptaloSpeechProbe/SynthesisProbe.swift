@@ -11,15 +11,46 @@ import Synchronization
 enum SynthesisProbe {
     /// Plays instantly (no pace) or at `pace` times real time on a timer, so
     /// the queue and a device change behave as in the app, only faster.
+    ///
+    /// A paced sink starts its clock once `prefill` buffers are scheduled, so
+    /// playback is the bottleneck even when synthesis is slower than the pace
+    /// (CI run 44721202345). The paced runs therefore test the queue, stop and
+    /// replay logic, not startup timing (the app plays at once). When no new
+    /// buffer arrives for `flushAfter` (synthesis failed early), the held
+    /// buffers play, so the reading still ends.
     final class ProbeSink: AudioSink, Sendable {
+        private struct Clock {
+            /// nil until the clock starts.
+            var busyUntil: ContinuousClock.Instant?
+            var held: [(seconds: Double, played: @Sendable () -> Void)] = []
+            /// Changes on every hold and stop, so a stale flush does nothing.
+            var holds = 0
+
+            /// Starts the clock if needed and gives each held buffer its due time, in order.
+            mutating func release(pace: Double) -> [(ContinuousClock.Instant, @Sendable () -> Void)] {
+                defer { held.removeAll() }
+                return held.map { buffer in
+                    let until = max(busyUntil ?? .now, .now).advanced(by: .seconds(buffer.seconds / pace))
+                    busyUntil = until
+                    return (until, buffer.played)
+                }
+            }
+        }
+
         let pace: Double?
+        let prefill: Int
+        let flushAfter: Duration
         let maxSeconds = Mutex(0.0)
         let firstScheduled = Mutex<ContinuousClock.Instant?>(nil)
-        private let busyUntil = Mutex(ContinuousClock.now)
+        private let clock = Mutex(Clock())
         /// Same rule as the app's AVAudioSink: buffers dropped by a stop are not reported as played.
         private let gate = PlaybackGate()
 
-        init(pace: Double?) { self.pace = pace }
+        init(pace: Double?, prefill: Int = 1, flushAfter: Duration = .seconds(30)) {
+            self.pace = pace
+            self.prefill = max(1, prefill)
+            self.flushAfter = flushAfter
+        }
 
         func schedule(_ samples: [Float], sampleRate: Int, played: @escaping @Sendable () -> Void) -> Bool {
             let seconds = audioSeconds(samples: samples.count, sampleRate: sampleRate)
@@ -30,20 +61,42 @@ enum SynthesisProbe {
                 return true
             }
             let played = gate.gated(played)
-            let due = busyUntil.withLock { until -> ContinuousClock.Instant in
-                until = max(until, .now).advanced(by: .seconds(seconds / pace))
-                return until
+            let (due, hold) = clock.withLock { clock -> ([(ContinuousClock.Instant, @Sendable () -> Void)], Int?) in
+                clock.held.append((seconds, played))
+                if clock.busyUntil == nil, clock.held.count < prefill {
+                    clock.holds += 1
+                    return ([], clock.holds)
+                }
+                return (clock.release(pace: pace), nil)
             }
-            Task.detached {
-                try? await Task.sleep(until: due, clock: .continuous)
-                played()
+            play(due)
+            if let hold {
+                Task.detached { [self] in
+                    try? await Task.sleep(for: flushAfter)
+                    play(clock.withLock { clock in
+                        clock.holds == hold && clock.busyUntil == nil ? clock.release(pace: pace) : []
+                    })
+                }
             }
             return true
         }
 
+        private func play(_ due: [(ContinuousClock.Instant, @Sendable () -> Void)]) {
+            for (until, played) in due {
+                Task.detached {
+                    try? await Task.sleep(until: until, clock: .continuous)
+                    played()
+                }
+            }
+        }
+
         func stop() {
             gate.invalidate()
-            busyUntil.withLock { $0 = .now }
+            clock.withLock { clock in
+                clock.held.removeAll()
+                clock.holds += 1
+                if clock.busyUntil != nil { clock.busyUntil = .now }
+            }
         }
     }
 
@@ -94,9 +147,11 @@ enum SynthesisProbe {
         }
         let engine = setup.synthesizer
 
+        let expectedUnits = Array(AnySequence { TextPreparer.units(for: .text(fixture)) })
         for voice in voices {
             let recorder = RecordingSynthesizer(engine)
-            let sink = ProbeSink(pace: arguments.values["pace"].flatMap(Double.init))
+            let sink = ProbeSink(pace: arguments.values["pace"].flatMap(Double.init),
+                                 prefill: prefill(expectedUnits: expectedUnits.count))
             let log = Mutex<[ReadingEvent]>([])
             let started = ContinuousClock.now
             let peak = PeakMemory()
@@ -142,7 +197,6 @@ enum SynthesisProbe {
 
             let events = log.withLock { $0 }
             let played = events.compactMap { if case let .played(id) = $0 { id } else { nil } }
-            let expectedUnits = Array(AnySequence { TextPreparer.units(for: .text(fixture)) })
             var calls = recorder.calls.withLock { $0 }[...]
             let scheduled = events.compactMap { event -> (unit: Int, sentence: Int, characters: Int, seconds: Double, queued: Double)? in
                 guard case let .scheduled(unit, sentence, characters, seconds, queued) = event else { return nil }
@@ -182,6 +236,12 @@ enum SynthesisProbe {
             ])
         }
         await engine.stop()
+    }
+
+    /// The audible buffer plus a full lookahead, or the whole text when it is
+    /// shorter. The probe's sessions use the default limits, as here.
+    static func prefill(expectedUnits: Int) -> Int {
+        min(ReadingLimits().lookahead + 1, expectedUnits)
     }
 
     static func milliseconds(_ duration: Duration) -> Int {
