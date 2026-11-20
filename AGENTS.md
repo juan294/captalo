@@ -49,7 +49,7 @@ Runtime voice/capture validation and signed distribution are separate from these
 
 ## Product and data constraints
 
-All speech and OCR processing must remain local. No cloud fallback, telemetry, retained captured text, or screenshots by default. Model/dependency downloads are explicit setup operations. Preserve clipboard data, focus, and user permissions; use synthetic text for testing. Never silently read unrelated or stale clipboard content when selection capture fails.
+All speech and OCR processing must remain local. No cloud fallback, telemetry, retained captured text, or screenshots by default. Owner decision 2026-11-20: a future Explain action may send captured text to a cloud language model, only after the user connects a provider; Read, OCR and speech never use the network. Explain is not built; see [the opt-in brief](docs/research/2026-11-20-explain-cloud-opt-in-brief.md). Model/dependency downloads are explicit setup operations. Preserve clipboard data, focus, and user permissions; use synthetic text for testing. Never silently read unrelated or stale clipboard content when selection capture fails.
 
 Read [the resource contract](docs/development/resource-lifecycle.md) before allocating task services, reusing caches, or cleaning resources. Application support files, downloaded model caches, macOS permission grants and inherited preferences are persistent user data, not disposable worktree resources.
 
