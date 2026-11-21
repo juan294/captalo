@@ -61,3 +61,18 @@ Scripts/explain-qualification-run openai \
 The historical OpenAI instruction and request-set hash are preserved under `Qualification/Explain/rejected/configurations/` with the first configuration digest as the filename. That archive and its sanitized case receipt refer only to the rejected instruction. Local development remains on the implementation worktree. A new passing 83-case quality receipt and the owner's listening result are required to start Phase 2.
 
 Independent review reproduced the 83 digest bindings, all verdict joins, the cohort counts and the six-case ceiling. Review found that a held-out ID could enter a tuning request. A red regression exposed that path. The corrected check rejects held-out IDs before allocating run evidence or dispatching, while keeping them in full qualification. Simplification reused the original input count in serialization, the same selector in offline previews and paid dispatch, and the existing receipt scorer for current-fixture historical records.
+
+## Six-case OpenAI tuning result, 2026-11-21
+
+Juan authorized six OpenAI tuning requests with the existing assessment credential and a fresh US$0.18 ceiling. The runner sent the six named original cases exactly once at source commit `fba38aee0539a538055e9171c4fa058761675fad`. All six completed naturally. The model-usage reservation was US$0.170285; actual billed spend was not measured. Verified the authorization, wire bytes, answer hashes, observed model, attempt count and complete ledger. One independent reviewer judged the blinded answers against their source and rubric. The evidence under `Qualification/Explain/tuning/` binds the six judgments to configuration `489244ae1ff19c6e0001bbc47da09fddd8ab6d4ffb9375487016d0e83ace2128` and subset `1b366b2821e591542701a1eb4676f5889809453e2133241235d787fdf2439ea0`. Raw synthetic answers and the blind key stay in the ignored worktree evidence through tuning review.
+
+| Tuning case | Source words | First answer | Revised answer | Revised judgment |
+| --- | ---: | ---: | ---: | --- |
+| Email, Middle Metaphors | 33 | 38 | 27 | Faithful statements; lost Tuesday's **only** and the promise of **one** update. |
+| Hall agreement, Middle Metaphors | 40 | 46 | 40 | Failed fidelity, completeness and length. “Before booking” shifts the deadline from the booked occasion to making a reservation. |
+| Minutes, Middle Metaphors | 31 | 35 | 28 | Passed. Omission of the preliminary discussion is incidental under the frozen oracle. |
+| Cups, Simple Plain | 46 | 32 | 24 | Faithful statements; lost the equal starting amounts of water. |
+| Archive handover, Middle Metaphors | 32 | 30 | 28 | Passed. The revised answer preserves what the label establishes. |
+| Long room register, Simple Plain | 3,000 | 184 | 183 | Passed. All required facts and all three distant exceptions were covered. |
+
+Five answers passed blind factual review and three passed all applicable checks. All four Middle answers got shorter than the first run; three were strictly shorter than their sources. The three previous length misses became two passes and one tie on length. This six-case diagnostic has no held-out, listening or product admission result. Both paid authorizations are exhausted. Integration and installation await an accepted Phase 1.
