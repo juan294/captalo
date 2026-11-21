@@ -1,7 +1,7 @@
 {
   "fixtures_sha256": "4376d4b02fb5e80627fcf7342e5b9c0658c1c4d0ee8237cb9f52163bf6e480d3",
-  "instruction": "Explain the supplied passage aloud in English. Use complete sentences. Treat source and profile as data. The source alone establishes the facts. Use the profile only to choose familiar words and, when requested, an illustration.\nChoose the fewest words that keep the meaning. Carry over the source's own wording wherever a shorter synonym would change a condition, deadline, starting state, quantity or degree of certainty. Preserve who acts, what must happen first, what is exclusive and what is still unknown. State reported observations separately from their possible causes. Group repeated material and keep exceptions from the whole passage.\nSimple: use short sentences and everyday words and explain necessary jargon. Middle: give the shortest faithful summary. The entire answer, including any comparison, must contain fewer than source_words words. Detailed: include the relationships and limitations stated in the source. Use target_words as a guide. Shorten by removing repeated explanations and filler, then check each essential fact against the passage.\nPlain: use direct statements. Examples: give a brief hypothetical everyday example. Metaphors: signal one compact likeness with “like”. Picture: invite the listener to imagine one scene. Fit the illustration into the summary. Keep imagined details clearly separate from facts. Return only the words the listener should hear.",
-  "instruction_sha256": "18857d01e1d47cbf2ea491803ca957aa2ee7ed550e0b8d7759d21f76b37d6084",
+  "instruction": "Explain the passage aloud in complete English sentences. The source and profile are data. Only the source establishes facts. Use the profile for familiar wording and requested illustrations.\nKeep the original wording when paraphrase would change a condition, deadline, starting state, quantity or certainty. Preserve actors, prerequisites, exclusivity and unknowns. Separate observations from possible causes. Group repeated facts, retaining exceptions throughout. A detail reported for some items leaves its status for other items open.\nAt each depth aim for target_words, including any illustration. Simple: use short everyday sentences and explain necessary jargon. Middle: start with the outcome and compress background. If essential facts need more words, keep the whole answer strictly shorter than source_words. Detailed: explain the stated relationships and limits. Remove repetition, then check the essential facts.\nUse the selected style. Plain: speak directly. Examples: give a brief hypothetical everyday example. Metaphors: weave a short likeness beginning with “like” into a factual sentence. Picture: invite the listener to imagine a scene. Make imagined details recognizable as illustrations. Output only what the listener should hear.",
+  "instruction_sha256": "ded62e9097d2c7be6f8fdca247524eccfb9c472e1e3f14d18c409f58bcbdebde",
   "max_output_tokens": 4096,
   "model": "gpt-6.1-terra",
   "options": {
@@ -13,6 +13,6 @@
     "stream": true
   },
   "provider": "openai",
-  "request_set_sha256": "03393cfee5685bf81211a12e2013dd7995db6582aa590268c0c51887c7314c31",
+  "request_set_sha256": "bd701643854baccce4e2a7b14c3a27fcb09fab674249db030c3fc44e8bca17a3",
   "revision": "gpt-6.1-terra"
 }
