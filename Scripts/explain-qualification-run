@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Run a frozen synthetic corpus once. The default operation is an offline price check."""
 import argparse
+import fcntl
 import hashlib
 import http.client
 import json
 import os
 import re
+import runpy
 import subprocess
 import sys
 import time
@@ -13,6 +15,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+CHECK_REQUESTS = runpy.run_path(str(ROOT / "Scripts/explain-candidate"))["check_requests"]
 MODELS = {"openai": "gpt-6.1-terra", "anthropic": "claude-sonnet-5-5"}
 KEY_VARS = {"openai": "OPENAI_API_KEY", "anthropic": "ANTHROPIC_API_KEY"}
 
@@ -30,20 +33,26 @@ def encoded(value):
     return json.dumps(value, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode()
 
 
-def load_prepared(root, provider):
+def load_prepared(root, provider, candidate_name=None):
     require(provider in MODELS, "unsupported provider")
     model = MODELS[provider]
-    snapshot = (root / "Qualification/Explain/candidates" / (provider + ".json")).read_bytes()
+    name = candidate_name or provider
+    snapshot = (root / "Qualification/Explain/candidates" / (name + ".json")).read_bytes()
     candidate = json.loads(snapshot)
-    prepared = json.loads((root / ".local/explain-qualification" / provider / "prepared.json").read_bytes())
+    prepared = json.loads((root / ".local/explain-qualification" / name / "prepared.json").read_bytes())
     require(prepared["configuration_sha256"] == digest(snapshot)
             and prepared["fixtures_sha256"] == candidate["fixtures_sha256"]
             and re.fullmatch("[0-9a-f]{64}", candidate["fixtures_sha256"])
             and candidate["provider"] == prepared["provider"] == provider
             and candidate["model"] == prepared["model"] == model, "candidate identity mismatch")
     rows = prepared["requests"]
-    require(isinstance(rows, list) and rows
-            and candidate["request_set_sha256"] == digest(encoded(rows)), "request set identity mismatch")
+    require(isinstance(rows, list) and rows, "expected a nonempty request set")
+    if name != provider:
+        require(isinstance(candidate.get("request_sha256"), dict), "missing frozen individual request hashes")
+    try:
+        CHECK_REQUESTS(candidate, rows)
+    except ValueError as error:
+        raise ValueError(f"request identity mismatch: {error}") from None
     ids = set()
     for row in rows:
         case = row["id"]
@@ -242,7 +251,6 @@ def run(root, provider, max_requests, max_usd, send, case_ids=None):
     bounds = [price_bound(provider, row["body"].encode()) for row in rows]
     require(max_usd.is_finite() and max_usd > 0 and 0 < len(rows) <= max_requests
             and sum(bounds) <= max_usd, "run exceeds authorized request or USD limit")
-    model = candidate["model"]
     identity = {name: prepared[name] for name in ("provider", "model", "configuration_sha256", "fixtures_sha256")}
     identity["request_set_sha256"] = candidate["request_set_sha256"]
     evidence = root / ".local/explain-qualification" / provider / prepared["configuration_sha256"]
@@ -255,7 +263,20 @@ def run(root, provider, max_requests, max_usd, send, case_ids=None):
         raise ValueError("evidence already exists for this candidate") from None
     auth = dict(identity, credential_scope=KEY_VARS[provider], max_requests=max_requests, max_usd=str(max_usd),
                 case_ids=[row["id"] for row in rows], reserved_usd=str(sum(bounds)))
-    (evidence / "authorization.json").write_bytes(encoded(auth))
+    return dispatch(evidence, identity, rows, bounds, auth, send)
+
+
+def durable_json(path, value):
+    with path.open("xb") as handle:
+        handle.write(encoded(value))
+        handle.flush()
+        os.fsync(handle.fileno())
+
+
+def dispatch(evidence, identity, rows, bounds, auth, send):
+    provider, model = identity["provider"], identity["model"]
+    max_requests, max_usd = auth["max_requests"], Decimal(auth["max_usd"])
+    durable_json(evidence / "authorization.json", auth)
     reserved = Decimal(0)
     with (evidence / "answers.jsonl").open("xb") as answers, (evidence / "attempts.jsonl").open("xb") as attempts:
         for number, (row, bound) in enumerate(zip(rows, bounds), 1):
@@ -264,17 +285,252 @@ def run(root, provider, max_requests, max_usd, send, case_ids=None):
             case = row["id"]
             body = row["body"].encode()
             # Persist the reservation first. Timeouts and process termination can leave a billable request.
-            append_record(attempts, {"id": case, "number": number, "reserved_usd": str(reserved)})
+            attempt = {"id": case, "number": number, "reserved_usd": str(reserved)}
+            if "run_sha256" in identity:
+                attempt["request_sha256"] = digest(body)
+            append_record(attempts, attempt)
             try:
                 answer, observed = send(provider, model, body)
+                require(observed == model and isinstance(answer, str) and answer.strip(), "invalid sender result")
             except Exception as error:
                 reason = str(error) if isinstance(error, ProviderError) else "invalid stream, credential or transport"
                 raise ValueError(f"case {case} stopped ({reason})") from None
             append_record(answers, {"id": case, "answer": answer, "answer_sha256": digest(answer.encode()),
                                     "request_sha256": digest(body), "observed_model": observed, "natural_stop": True})
     complete = dict(identity, count=len(rows), answers_sha256=digest((evidence / "answers.jsonl").read_bytes()))
-    (evidence / "complete.json").write_bytes(encoded(complete))
+    durable_json(evidence / "complete.json", complete)
     return evidence
+
+
+# The fresh occurrence and its three possible successors are deliberately finite.
+EXPERIMENT = "recovery-v1"
+ARMS = ("control", "selected", "example", "selected-full", "example-full")
+PILOT_CASES = (
+    "main-email-middle-metaphors", "main-legal-middle-metaphors", "main-minutes-middle-metaphors",
+    "main-textbook-simple-plain", "main-handover-middle-metaphors", "main-document3000-simple-plain",
+)
+PILOT_DIGEST = "1b366b2821e591542701a1eb4676f5889809453e2133241235d787fdf2439ea0"
+
+
+def recovery_candidate_name(arm):
+    require(arm in ARMS, "unknown recovery arm")
+    variant = arm.removesuffix("-full")
+    return "openai" if variant == "control" else "openai-" + variant
+
+
+def recovery_identity(root, arm, config, config_hash, case_ids):
+    require(arm in ARMS, "unknown recovery arm")
+    identity = {k: config[k] for k in ("provider", "model", "fixtures_sha256", "request_set_sha256")}
+    identity.update(experiment=EXPERIMENT, arm=arm, configuration_sha256=config_hash,
+                    subset_sha256=digest(encoded(case_ids)),
+                    guide_sha256=digest((root / "Tests/ExplainQualification/RECOVERY-REVIEW.md").read_bytes()))
+    require(arm.endswith("-full") or identity["subset_sha256"] == PILOT_DIGEST, "wrong pilot cohort")
+    identity["run_sha256"] = digest(encoded(identity))
+    return identity
+
+
+def recovery_context(root, arm):
+    name = recovery_candidate_name(arm)
+    prepared, candidate = load_prepared(root, "openai", name)
+    fixtures = root / "Tests/ExplainQualification"
+    manifest = (fixtures / "manifest.json").read_bytes()
+    require(digest(manifest) == candidate["fixtures_sha256"], "fixture manifest digest mismatch")
+    for file, expected in json.loads(manifest)["files"].items():
+        require(digest((fixtures / file).read_bytes()) == expected, f"{file}: fixture digest mismatch")
+    adult_ids = []
+    for file, suite, count in (("cases.json", "corpus", 70), ("held-out.json", "held-out", 13)):
+        ids = [r["id"] for r in json.loads((fixtures / file).read_bytes()) if r["suite"] == suite]
+        require(len(ids) == count, f"{suite}: unexpected case count")
+        adult_ids.extend(ids)
+    require([r["id"] for r in prepared["requests"]] == adult_ids, "prepared cases differ from frozen adult cohort")
+    rows = selected_requests(root, prepared, None if arm.endswith("-full") else PILOT_CASES)
+    identity = recovery_identity(root, arm, candidate, prepared["configuration_sha256"], [r["id"] for r in rows])
+    return root / ".local/explain-qualification" / EXPERIMENT / arm, identity, rows
+
+
+def recovery_manifest(root):
+    arms = {}
+    for arm in ARMS:
+        _, identity, rows = recovery_context(root, arm)
+        bound = sum(price_bound("openai", row["body"].encode()) for row in rows)
+        cap = "2.40" if arm.endswith("-full") else "0.20"
+        require(bound <= Decimal(cap), f"{arm} exceeds its USD ceiling; request a new decision")
+        arms[arm] = dict(**identity, case_ids=[r["id"] for r in rows], reserved_usd=str(bound),
+                         max_requests=len(rows), max_usd=cap)
+    return dict(experiment=EXPERIMENT, credential_scope=KEY_VARS["openai"],
+                evidence_root=str((root / ".local/explain-qualification" / EXPERIMENT).resolve()),
+                credential_use="existing OpenAI assessment credential for frozen synthetic adult cases",
+                conditions={"example": "selected misses only eligible Middle metaphor length or style checks",
+                            "selected-full": "selected passes all six and paired control review is complete",
+                            "example-full": "selected eligible for example and example passes all six"},
+                pricing={"model": MODELS["openai"], "endpoint": "https://api.openai.com/v1/responses",
+                         "tier": "default", "cache_lifetime": "default 30m", "usd_per_million_input_bound": "1.25",
+                         "usd_per_million_output": "5", "checked": "2026-11-21",
+                         "source": "https://developers.openai.com/api/docs/models/gpt-6.1-terra"},
+                max_requests=101, max_usd="3.00", arms=arms)
+
+
+def read_records(path):
+    rows = []
+    if path.exists():
+        for line in path.read_bytes().splitlines():
+            try:
+                row = json.loads(line)
+            except (ValueError, UnicodeError):
+                return rows, f"{path.name} is incomplete"
+            if not isinstance(row, dict):
+                return rows, f"{path.name} has an invalid record"
+            rows.append(row)
+    return rows, None
+
+
+def records(path):
+    rows, problem = read_records(path)
+    require(problem is None, f"{problem}. Preserve evidence and request a new decision.")
+    return rows
+
+
+def recovery_status(root):
+    base = root / ".local/explain-qualification" / EXPERIMENT
+    path = base / "reservations.jsonl"
+    if not path.exists():
+        return read_recovery_status(root, base)
+    with path.open("rb") as ledger:
+        fcntl.flock(ledger, fcntl.LOCK_SH)
+        return read_recovery_status(root, base)
+
+
+def read_recovery_status(root, base):
+    ledger = records(base / "reservations.jsonl")
+    runs = {}
+    total = Decimal(0)
+    for record in ledger:
+        arm = record["arm"]
+        require(arm in ARMS and arm not in runs, "invalid recovery ledger; preserve evidence for review")
+        path = base / arm
+        complete = path / "complete.json"
+        finished = complete.is_file()
+        attempts, attempt_problem = read_records(path / "attempts.jsonl")
+        answers, answer_problem = read_records(path / "answers.jsonl")
+        status = dict(configuration_sha256=record["configuration_sha256"], run_sha256=record["run_sha256"],
+                      reservation_sha256=digest(encoded(record)), reserved_requests=record["max_requests"],
+                      reserved_usd=record["reserved_usd"], completed_cases=[row.get("id") for row in answers],
+                      last_attempt=attempts[-1].get("id") if attempts else None, state="incomplete")
+        status["recovery"] = "Check for an active sender. If interrupted, preserve evidence and request a new decision."
+        problem = attempt_problem or answer_problem
+        if problem:
+            status["recovery"] = f"{problem}. Preserve evidence and request a new decision."
+        elif finished:
+            try:
+                _, identity, rows = recovery_context(root, arm)
+                completed_answers(path, identity, rows, record)
+            except (KeyError, TypeError, AttributeError, OSError, ValueError, UnicodeError) as error:
+                detail = str(error) if type(error) is ValueError else "run files unavailable or malformed"
+                status["recovery"] = f"Cannot verify complete.json ({detail}). Preserve evidence and request a new decision."
+            else:
+                status["state"] = "complete"
+                del status["recovery"]
+        runs[arm] = status
+        total += Decimal(record["reserved_usd"])
+    for arm in ARMS:
+        require(arm in runs or not (base / arm).exists(), f"{arm}: run data lacks a reservation; preserve evidence")
+    return dict(experiment=EXPERIMENT, reserved_requests=sum(r["reserved_requests"] for r in runs.values()),
+                reserved_usd=str(total), runs=runs)
+
+
+def authorization(manifest, arm):
+    return dict(manifest["arms"][arm], credential_scope=manifest["credential_scope"],
+                approval_sha256=digest(encoded(manifest)))
+
+
+def completed_answers(path, identity, rows, auth):
+    require(json.loads((path / "authorization.json").read_bytes()) == auth,
+            "authorization differs from durable reservation")
+    require(all(auth.get(k) == v for k, v in identity.items()), "reservation differs from frozen identity")
+    ids = [r["id"] for r in rows]
+    require(auth["case_ids"] == ids and auth["max_requests"] == len(rows), "reservation differs from frozen cohort")
+    raw = (path / "answers.jsonl").read_bytes()
+    complete = json.loads((path / "complete.json").read_bytes())
+    require(complete == dict(identity, count=len(rows), answers_sha256=digest(raw)), "completion identity differs")
+    answers = [json.loads(line) for line in raw.splitlines()]
+    attempts = records(path / "attempts.jsonl")
+    require(len(answers) == len(attempts) == len(rows), "attempt or answer ledger count differs")
+    reserved = Decimal(0)
+    for number, (request, attempt, answer) in enumerate(zip(rows, attempts, answers), 1):
+        body = request["body"].encode()
+        req_hash = digest(body)
+        case = request["id"]
+        reserved += price_bound(identity["provider"], body)
+        require(attempt == {"id": case, "number": number, "reserved_usd": str(reserved), "request_sha256": req_hash},
+                f"{case} attempt differs from frozen wire or price")
+        require(answer.get("id") == case and answer.get("request_sha256") == req_hash
+                and isinstance(answer.get("answer"), str) and answer["answer"].strip()
+                and answer.get("answer_sha256") == digest(answer["answer"].encode())
+                and answer.get("observed_model") == identity["model"] and answer.get("natural_stop") is True,
+                f"{case} answer differs from frozen request, digest, model or natural stop")
+    require(str(reserved) == auth["reserved_usd"], "total reserved price differs")
+    return {answer["id"]: answer for answer in answers}
+
+
+def verified_recovery_answers(root, arm, approval=None):
+    directory, identity, rows = recovery_context(root, arm)
+    manifest = recovery_manifest(root) if approval is None else approval
+    expected = authorization(manifest, arm)
+    ledger = records(directory.parent / "reservations.jsonl")
+    require([r for r in ledger if r.get("arm") == arm] == [expected],
+            f"{arm} lacks its exact approved reservation; inspect recovery status")
+    return completed_answers(directory, identity, rows, expected)
+
+
+def recovery_gate(root, arm, prior, manifest):
+    require(arm not in prior, f"{arm} already reserved. Check recovery status.")
+    for old, status in prior.items():
+        require(status["state"] == "complete", f"{old} incomplete. Check recovery status before proceeding.")
+        require(status["reservation_sha256"] == digest(encoded(authorization(manifest, old))),
+                f"{old} reservation differs from the approved manifest")
+    expected = {"control": set(), "selected": {"control"}, "example": {"control", "selected"},
+                "selected-full": {"control", "selected"}, "example-full": {"control", "selected", "example"}}
+    require(set(prior) == expected[arm], f"{arm} not eligible in current sequence; inspect recovery status")
+    if arm in ("control", "selected"):
+        return
+    outcome = runpy.run_path(str(ROOT / "Scripts/explain-qualification-review"))["verified_outcome"]
+    require(outcome(root, "control") in {"pass", "fail", "example-eligible"}, "paired control review missing")
+    selected = outcome(root, "selected")
+    eligible = selected == ("pass" if arm == "selected-full" else "example-eligible")
+    if eligible and arm == "example-full":
+        eligible = outcome(root, "example") == "pass"
+    require(eligible, f"{arm} ineligible under reviewed treatment outcome; return decision to owner")
+
+
+def recovery_run(root, arm, approval, send):
+    require(__debug__, "recovery requires non-optimized Python")
+    manifest = recovery_manifest(root)
+    require(encoded(approval) == encoded(manifest), "missing or stale approval: compare the fresh recovery preview")
+    directory, identity, rows = recovery_context(root, arm)
+    entry = manifest["arms"][arm]
+    require(all(entry[k] == v for k, v in identity.items()), "run changed after approval preview")
+    bounds = [price_bound("openai", row["body"].encode()) for row in rows]
+    require(sum(bounds) == Decimal(entry["reserved_usd"]), "price bound changed after preview")
+    auth = authorization(manifest, arm)
+    base = directory.parent
+    base.mkdir(parents=True, exist_ok=True, mode=0o700)
+    with (base / "reservations.jsonl").open("a+b") as ledger:
+        fcntl.flock(ledger, fcntl.LOCK_EX)
+        status = read_recovery_status(root, base)
+        recovery_gate(root, arm, status["runs"], manifest)
+        require(status["reserved_requests"] + len(rows) <= manifest["max_requests"]
+                and Decimal(status["reserved_usd"]) + sum(bounds) <= Decimal(manifest["max_usd"]),
+                "aggregate recovery allowance exhausted")
+        # This reservation survives process loss even if no run directory or attempt exists yet.
+        append_record(ledger, auth)
+        directory.mkdir(mode=0o700)
+    return dispatch(directory, identity, rows, bounds, auth, send)
+
+
+def preflight_provider(provider):
+    preflight = subprocess.run([ROOT / "Scripts/explain-candidate", "check"], cwd=ROOT)
+    require(preflight.returncode == 0, "frozen candidate preflight failed")
+    require(os.environ.get(KEY_VARS[provider]), "provider credential unavailable")
 
 
 def main():
@@ -285,13 +541,32 @@ def main():
     parser.add_argument("--max-usd", type=Decimal, help="authorized ceiling for provider model usage in USD")
     parser.add_argument("--case", action="append", dest="case_ids", metavar="ID",
                         help="tune on an original corpus case; repeat to select more cases")
+    recovery = parser.add_mutually_exclusive_group()
+    recovery.add_argument("--recovery-preview", action="store_true", help="print the complete proposed approval manifest")
+    recovery.add_argument("--recovery-status", action="store_true", help="show reserved spend and completed case IDs")
+    recovery.add_argument("--recovery-arm", choices=ARMS)
+    parser.add_argument("--approval-file", type=Path, help="owner-authorized exact recovery manifest JSON")
     args = parser.parse_args()
+    if args.recovery_preview or args.recovery_status or args.recovery_arm:
+        require(__debug__, "recovery requires non-optimized Python")
+        require(args.provider == "openai" and not args.case_ids and args.max_usd is None and args.max_requests is None,
+                "recovery uses the frozen OpenAI cohort and manifest ceilings")
+        if args.recovery_arm:
+            require(args.execute and args.approval_file, "use --execute and --approval-file for an approved arm")
+            approval = json.loads(args.approval_file.read_bytes())
+            require(encoded(approval) == encoded(recovery_manifest(ROOT)), "missing or stale approval")
+            preflight_provider(args.provider)
+            print(recovery_run(ROOT, args.recovery_arm, approval, send_request))
+        else:
+            require(not args.execute and args.approval_file is None, "preview and status are read-only")
+            report = recovery_manifest(ROOT) if args.recovery_preview else recovery_status(ROOT)
+            print(json.dumps(report, indent=2, sort_keys=True))
+        return
+    require(args.approval_file is None, "--approval-file requires a recovery arm")
     if args.execute:
         if args.max_requests is None or args.max_usd is None:
             parser.error("--execute requires --max-requests and --max-usd")
-        preflight = subprocess.run([ROOT / "Scripts/explain-candidate", "check"], cwd=ROOT)
-        require(preflight.returncode == 0, "frozen candidate preflight failed")
-        require(os.environ.get(KEY_VARS[args.provider]), "provider credential unavailable")
+        preflight_provider(args.provider)
         print(run(ROOT, args.provider, args.max_requests, args.max_usd, send_request, args.case_ids))
     else:
         prepared, _ = load_prepared(ROOT, args.provider)

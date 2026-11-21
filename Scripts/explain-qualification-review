@@ -141,6 +141,15 @@ def write_reviewed(receipt, provider, output, rejected_dir):
     return run.stdout.strip()
 
 
+RECOVERY = runpy.run_path(str(SCRIPTS / "explain_recovery_review.py"), init_globals={
+    key: globals()[key] for key in ("RUNNER", "SCORER", "canonical", "encoded", "load", "sha", "require", "BINDINGS", "SCORES")
+})
+recovery_packet = RECOVERY["recovery_packet"]
+recovery_receipts = RECOVERY["recovery_receipts"]
+verified_outcome = RECOVERY["verified_outcome"]
+portable_outcomes = RECOVERY["portable_outcomes"]
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="action", required=True)
@@ -151,7 +160,22 @@ def main():
         if action == "receipt":
             command.add_argument("--verdicts", required=True, type=Path, action="append")
             command.add_argument("--output", required=True, type=Path, help="new sanitized receipt path")
+    for action in ("recovery-packet", "recovery-receipt"):
+        command = commands.add_parser(action)
+        command.add_argument("group", choices=RECOVERY["GROUPS"])
+        if action == "recovery-receipt":
+            command.add_argument("--first", type=Path, required=True)
+            command.add_argument("--second", type=Path, required=True)
+            command.add_argument("--adjudications", type=Path)
     args = parser.parse_args()
+    if args.action == "recovery-packet":
+        print(recovery_packet(ROOT, args.group))
+        return
+    if args.action == "recovery-receipt":
+        results = recovery_receipts(ROOT, args.group, args.first, args.second, args.adjudications)
+        for arm in results:
+            print(f"{arm}: {verified_outcome(ROOT, arm)}")
+        return
     review = args.review.resolve()
     require((ROOT / ".local").resolve() in review.parents, "raw packets must stay under this checkout's .local")
     prepared, _ = RUNNER["load_prepared"](ROOT, args.provider)

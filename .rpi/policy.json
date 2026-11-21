@@ -39,6 +39,13 @@
       ]
     },
     {
+      "name": "explain-comparison-rehearsal",
+      "argv": [
+        "python3",
+        "Scripts/tests/rehearse_explain_recovery.py"
+      ]
+    },
+    {
       "name": "core-test-debug",
       "argv": [
         "make",

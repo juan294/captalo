@@ -5,6 +5,7 @@ import argparse
 import hashlib
 import json
 import re
+import runpy
 import sys
 from pathlib import Path
 
@@ -130,6 +131,8 @@ def verify_receipt(receipt, cases, sources, facts, configuration_hash, fixture_h
         if case["depth"] == "middle" and row["answer_words"] >= row["source_words"]:
             misses.append(f"{case_id}: Middle answer must be shorter")
     require(seen == set(expected), f"missing cases: {', '.join(sorted(set(expected) - seen))}")
+    if record_negative is None:
+        return misses
     if record_negative:
         require(bool(misses), "passing quality cannot be filed as a negative result")
     else:
@@ -137,8 +140,8 @@ def verify_receipt(receipt, cases, sources, facts, configuration_hash, fixture_h
     return misses
 
 
-def read_required_facts(facts):
-    required = load(FIXTURES / "required-facts.json")
+def read_required_facts(facts, directory=None):
+    required = load((directory or FIXTURES) / "required-facts.json")
     require(set(required) == set(facts), "required fact sheets do not cover all sources")
     for name, indices in required.items():
         require(isinstance(indices, list) and indices and
@@ -185,7 +188,26 @@ def check_rejections(active, cases, sources, facts, fixture_hash, required):
             continue
         misses = verify_receipt(receipt, cases, sources, facts, identity, fixture_hash,
                                 config["revision"], required, record_negative=True)
-        print(f"REJECTED {config['provider']} {identity[:12]}: {len(misses)} quality misses")
+        print(f"REJECTED {config['provider']} {identity[:12]}: {len(misses)} quality misses, style unmeasured")
+
+
+def check_historical_tuning(cases, sources, facts, fixture_hash, required):
+    corpus = [c for c in cases if c["suite"] == "corpus"]
+    for path in sorted((QUALIFICATION / "tuning").glob("*/*.json")):
+        bundle = load(path)
+        require_fields(bundle, {"subset_sha256", "scope", "receipt"}, "historical tuning record")
+        receipt = bundle["receipt"]
+        ids = [row["id"] for row in receipt["rows"]]
+        subset = [c for c in corpus if c["id"] in ids]
+        subset_hash = sha(json.dumps(ids, separators=(",", ":")).encode())
+        require(bundle["scope"] == "six original-corpus tuning cases" and len(subset) == 6 and
+                [c["id"] for c in subset] == ids and path.stem == bundle["subset_sha256"] == subset_hash
+                == "1b366b2821e591542701a1eb4676f5889809453e2133241235d787fdf2439ea0",
+                "unexpected historical tuning cohort")
+        misses = verify_receipt(receipt, subset, sources, facts, path.parent.name, fixture_hash,
+                                "gpt-6.1-terra", required, record_negative=None)
+        failing = {m.split(":", 1)[0] for m in misses}
+        print(f"Historical pilot {path.parent.name[:12]}: {len(subset)-len(failing)}/6 recorded checks passed, style unmeasured")
 
 
 def main():
@@ -202,17 +224,36 @@ def main():
         parser.error("use --receipt and --config together, or use default discovery with --require")
     cases, sources, facts, fixture_hash = load_fixtures(FIXTURES)
     required = read_required_facts(facts)
+    check_historical_tuning(cases, sources, facts, fixture_hash, required)
     expected_counts = {suite: sum(case["suite"] == suite for case in cases) for suite in ("corpus", "held-out")}
 
     if args.receipt:
+        receipt = load(args.receipt)
+        if receipt.get("schema_version") == 2:
+            review = runpy.run_path(str(ROOT / "Scripts/explain-qualification-review"))
+            arm = receipt["identity"]["arm"]
+            name = review["RUNNER"]["recovery_candidate_name"](arm)
+            require(args.config.read_bytes() == (QUALIFICATION / "candidates" / (name + ".json")).read_bytes(),
+                    "unexpected prospective candidate")
+            outcome, misses, _ = review["RECOVERY"]["verify_portable"](ROOT, arm, receipt)
+            require((outcome != "pass") == args.record_outcome, "receipt and requested disposition differ")
+            print(f"Verified OpenAI recovery {arm} {receipt['identity']['configuration_sha256']}: {outcome}")
+            for miss in misses:
+                print(miss)
+            return
         config_hash, config = check_config(args.config, fixture_hash, allow_archived=args.record_outcome)
-        misses = verify_receipt(load(args.receipt), cases, sources, facts, config_hash, fixture_hash,
+        misses = verify_receipt(receipt, cases, sources, facts, config_hash, fixture_hash,
                                 config["revision"], required, record_negative=args.record_outcome)
         if args.record_outcome:
             print("FAIL quality: " + "; ".join(misses))
         print(f"Verified receipt {args.receipt.name} ({expected_counts['corpus']} corpus, {expected_counts['held-out']} held-out)")
         return
 
+    outcomes = {}
+    if (QUALIFICATION / "recovery").exists():
+        review = runpy.run_path(str(ROOT / "Scripts/explain-qualification-review"))
+        outcomes = review["portable_outcomes"](ROOT)
+    recovered = any(outcomes.get(arm) == "pass" for arm in ("selected-full", "example-full"))
     active = {}
     for provider in PROVIDERS:
         config_path = QUALIFICATION / "candidates" / f"{provider}.json"
@@ -223,10 +264,12 @@ def main():
         if path.exists():
             require(not rejected.exists(), "candidate has both positive and negative receipts")
             verify_receipt(load(path), cases, sources, facts, configuration_hash, fixture_hash, config["revision"], required)
-            print(f"PASS {provider} recorded quality ({expected_counts['corpus']} corpus, {expected_counts['held-out']} held-out)")
+            print(f"Historical {provider} recorded quality ({expected_counts['corpus']} corpus, {expected_counts['held-out']} held-out), style unmeasured")
+            if provider == "openai" and provider in args.require:
+                require(recovered, "a positive full recovery receipt is required")
         else:
-            require(provider not in args.require, f"{provider}: missing required receipt")
-            if not rejected.exists():
+            require(provider not in args.require or (provider == "openai" and recovered), f"{provider}: missing required receipt")
+            if not rejected.exists() and not (provider == "openai" and recovered):
                 print(f"PENDING {provider} quality: no receipt")
     require(all(p.stem in active for p in (QUALIFICATION / "receipts").glob("*.json")),
             "stale or unknown receipt configuration")
