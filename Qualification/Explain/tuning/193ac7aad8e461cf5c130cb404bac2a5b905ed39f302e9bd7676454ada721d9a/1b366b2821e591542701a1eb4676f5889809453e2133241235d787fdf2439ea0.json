@@ -1,0 +1,129 @@
+{
+  "scope": "six original-corpus tuning cases",
+  "subset_sha256": "1b366b2821e591542701a1eb4676f5889809453e2133241235d787fdf2439ea0",
+  "receipt": {
+    "schema_version": 1,
+    "configuration_sha256": "193ac7aad8e461cf5c130cb404bac2a5b905ed39f302e9bd7676454ada721d9a",
+    "fixtures_sha256": "4376d4b02fb5e80627fcf7342e5b9c0658c1c4d0ee8237cb9f52163bf6e480d3",
+    "observed_model": "gpt-6.1-terra",
+    "rows": [
+      {
+        "id": "main-email-middle-metaphors",
+        "configuration_sha256": "193ac7aad8e461cf5c130cb404bac2a5b905ed39f302e9bd7676454ada721d9a",
+        "source_sha256": "c960a977385616ed92bfb77bb2910c6c3b6b54ebefadaaad51a8162372bbcf84",
+        "source_words": 33,
+        "answer_sha256": "19cd890ace6482f4e3051d5d600387a207f70b813ca821dc5f68a1a52d110771",
+        "answer_words": 32,
+        "natural_stop": true,
+        "ambiguous": false,
+        "covered_facts": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "missing_facts": [],
+        "near_verbatim": true,
+        "verdict": "pass"
+      },
+      {
+        "id": "main-legal-middle-metaphors",
+        "configuration_sha256": "193ac7aad8e461cf5c130cb404bac2a5b905ed39f302e9bd7676454ada721d9a",
+        "source_sha256": "e1eb5f11a2786b01dcfe0db62768b0f84fbd4e26e1899b5245c31fe9ee4881e9",
+        "source_words": 40,
+        "answer_sha256": "7be86aa7954e4bd886ead1fa0c9bdf66f6c4eec58b96fe989637395670daaad8",
+        "answer_words": 42,
+        "natural_stop": true,
+        "ambiguous": false,
+        "covered_facts": [
+          0,
+          1,
+          2
+        ],
+        "missing_facts": [],
+        "near_verbatim": true,
+        "verdict": "pass"
+      },
+      {
+        "id": "main-textbook-simple-plain",
+        "configuration_sha256": "193ac7aad8e461cf5c130cb404bac2a5b905ed39f302e9bd7676454ada721d9a",
+        "source_sha256": "3474deab6f9c1f0f6802ca31f311f3611c3269cbf83bf3389e90f59d25112df4",
+        "source_words": 46,
+        "answer_sha256": "9db0434be029225f10caefa9d00317a6016dbd58b363eb75a89f304375221f93",
+        "answer_words": 28,
+        "natural_stop": true,
+        "ambiguous": false,
+        "covered_facts": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "missing_facts": [],
+        "near_verbatim": false,
+        "verdict": "fail"
+      },
+      {
+        "id": "main-minutes-middle-metaphors",
+        "configuration_sha256": "193ac7aad8e461cf5c130cb404bac2a5b905ed39f302e9bd7676454ada721d9a",
+        "source_sha256": "a0bf6c91ef581a6b438811128703c944cbc6a53258457e504e10f9706500dcfe",
+        "source_words": 31,
+        "answer_sha256": "8033bae5858761264228bb397e74af458a4fc56478faa39383a8aaf3b6e1af79",
+        "answer_words": 26,
+        "natural_stop": true,
+        "ambiguous": true,
+        "covered_facts": [
+          1,
+          2,
+          3
+        ],
+        "missing_facts": [
+          0
+        ],
+        "near_verbatim": false,
+        "verdict": "uncertain"
+      },
+      {
+        "id": "main-handover-middle-metaphors",
+        "configuration_sha256": "193ac7aad8e461cf5c130cb404bac2a5b905ed39f302e9bd7676454ada721d9a",
+        "source_sha256": "bcd7b157559fa604e005d377d4cb7de83ce723544169bdb156cd190b692a4da1",
+        "source_words": 32,
+        "answer_sha256": "be0ea1e510ca9a2fcb7d93f289299773094a038604caf664588fc90cc0fec419",
+        "answer_words": 22,
+        "natural_stop": true,
+        "ambiguous": false,
+        "covered_facts": [
+          0,
+          1,
+          2
+        ],
+        "missing_facts": [],
+        "near_verbatim": false,
+        "verdict": "pass"
+      },
+      {
+        "id": "main-document3000-simple-plain",
+        "configuration_sha256": "193ac7aad8e461cf5c130cb404bac2a5b905ed39f302e9bd7676454ada721d9a",
+        "source_sha256": "23dceb2c66d75c83c1ba4287fe55937fb7b82f87ae6194128ed5b6c9168be3c6",
+        "source_words": 3000,
+        "answer_sha256": "13822fa61b7b4e0687b9366629341932d616f8e5e354068f4eb2bf9c3d6d602a",
+        "answer_words": 215,
+        "natural_stop": true,
+        "ambiguous": false,
+        "covered_facts": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "missing_facts": [],
+        "near_verbatim": false,
+        "verdict": "pass"
+      }
+    ]
+  }
+}
