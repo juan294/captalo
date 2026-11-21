@@ -19,7 +19,7 @@ Two independent reviewers read the same nine anonymous items under the frozen ru
 
 > Think of written notice as a key. A group can cancel free if the caretaker receives it at least five days before the booking. A call alone is insufficient. The later fee amount is unspecified.
 
-The initial 26-word minutes reference split the reviewers over “no sign vote.” The more exact phrase is “no vote on changing the sign.” Restoring that scope still fits a 30-word answer against a 31-word source. This is a useful example of compressing background while preserving the object of a claim. The reference answers belong with the evaluators. Product prompts must use examples from different sources.
+The initial 26-word minutes reference split the reviewers over “no sign vote.” The more exact phrase is “no vote on changing the sign.” Restoring that scope yielded a 30-word answer against a 31-word source. Both reviewers then passed it, recognized the gardening comparison and recorded only the incidental omission of the earlier discussion. This is a useful example of compressing background while preserving the object of a claim. The reference answers belong with the evaluators. Product prompts must use examples from different sources.
 
 ## Smallest experiment that could change the decision
 
