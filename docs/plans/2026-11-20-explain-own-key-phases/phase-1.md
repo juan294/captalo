@@ -2,6 +2,8 @@
 
 Start from the [plan and eligibility policy](../2026-11-20-explain-own-key.md). The deliverable is a versioned English instruction, synthetic fixtures, a reproducible offline scorer/manifest, and a dated qualification record per model and audience. A checked-in model identifier alone grants no eligibility. One integration owner accepts the exact revision.
 
+The [proposed qualification recovery amendment](../2026-11-21-explain-qualification-recovery.md) specifies the next OpenAI comparison after the unsuccessful six-case pilots.
+
 ## Work
 
 1. Preserve the original 70 case IDs, source bytes, settings, source facts and verdict rubric. Promote only reviewed synthetic inputs and the rubric to a versioned test-fixture location. Derive product requests from those fields using the same builder the app will use. Do not replay the embedded assessment instruction or overwrite earlier results. Freeze model ID/revision where available, reasoning options, output limit, prompt bytes, fixture digest and observed provider model identity with each run. Invalidate results on a material change or retirement.
