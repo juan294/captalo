@@ -1,0 +1,33 @@
+{
+  "checkpoint": "thinkingmachines/Inkling-2-Mini",
+  "revision": "ed40e7da625f594fc9c4990f5f66be24873c22d7",
+  "runtime": "jundot/mlx-lm@0c4c99192230f1943dd468d297f0b8a64ae7b7c2",
+  "main_tensor": {
+    "file": "model-00001-of-00001.safetensors",
+    "bytes": 19526019168,
+    "sha256": "65e60f51aa1284d4fb022584908c315270334d991828bb774af60584523539d1"
+  },
+  "metadata_sha256": {
+    "chat_template.jinja": "53a9035f3255945704b5857657cfb00c1165090c0641c4f782a0cbf268cc16dc",
+    "config.json": "a7a349601f0984c4abf999c480ef775d8567d21f5f84b4e8a3e035b44f288dc2",
+    "generation_config.json": "a08737c07a65a8fdf69f7cf086576210e5aad4b241437090b26d7b0c4f7905f7",
+    "hf_quant_config.json": "7c656207d3ce37879c7be209a036b0dde43bf01f78159bff06880b868ed57143",
+    "model.safetensors.index.json": "c1631065b7b00787993522dddc66a68b3abee869192977fb3dcb796e63bc5838",
+    "processor_config.json": "d7350adce18c8be4b607f261c8f0f7eabbf720bb7aaf648a43d4f8372bbacc2d",
+    "special_tokens_map.json": "c16f44b3594563d82743ddb0417a2be1bfe3e2000dfad2da4b8f32554593e1a0",
+    "tiktoken/tokenizer.model": "f170372dd655728909228220d77cf6b8104a59f38a91262a7d2c4027906ec0d8",
+    "tokenizer.json": "7f332727f9a3f093dd452a39cc978e6757627e5dad1b0673aa4e75174f236dd6",
+    "tokenizer_config.json": "bf09342d285139fd37ce10c70878af1d52cb390e9901e10248654293a80ee636"
+  },
+  "reasoning_effort": "none",
+  "sampler": "greedy",
+  "max_tokens": 4096,
+  "loop_passes": 3,
+  "input": "text",
+  "processes": 1,
+  "kv_cache": "fresh per case",
+  "quantization": "original",
+  "kernel_selection": "shipped default",
+  "tools": false,
+  "draft_model": false
+}

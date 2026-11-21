@@ -1,0 +1,220 @@
+#!/usr/bin/env python3
+"""Preview the local Inkling experiment or rehearse its decision with synthetic evidence."""
+import argparse
+import hashlib
+import json
+import math
+import re
+import runpy
+from pathlib import Path
+
+SCRIPTS = Path(__file__).resolve().parent
+ROOT = SCRIPTS.parent
+REVIEW = runpy.run_path(str(SCRIPTS / "explain-qualification-review"))
+SCORER, BLIND = REVIEW["SCORER"], REVIEW["RECOVERY"]
+load, sha, canonical, require = (REVIEW[key] for key in ("load", "sha", "canonical", "require"))
+FIXTURES = ROOT / "Tests/ExplainQualification"
+PILOTS = ROOT / "Qualification/Explain/model-pilots"
+SPEC = PILOTS / "inkling-six-spec.json"
+SOL = PILOTS / "sol-selected-six-v1.json"
+SELECTED = ROOT / "Qualification/Explain/candidates/openai-selected.json"
+PREPARED = ROOT / ".local/explain-qualification/openai-selected/prepared.json"
+CONTROL = (ROOT / ".local/archive/explain-own-key-94cfe16/.local/explain-qualification"
+           / "sol-selected-six-v1/run/answers.jsonl")
+CONFIG_HASH = "f36de885b0d86b415ae368406b83612e047a6322570e4e82c89c151a1a742d36"
+SOL_HASH = "8fdf9d0b4cb53354e7c1a26b957ff8c52d331250826ce38b7c34b5450535de46"
+
+
+def check_file(path, expected):
+    message = f"{path}: restore the pinned file with SHA-256 {expected}"
+    require(path.is_file(), message)
+    with path.open("rb") as source:
+        digest = hashlib.sha256()
+        for chunk in iter(lambda: source.read(1024 * 1024), b""):
+            digest.update(chunk)
+    require(digest.hexdigest() == expected, message)
+
+
+def historical():
+    check_file(SOL, SOL_HASH)
+    sol = load(SOL)
+    check_file(SELECTED, CONFIG_HASH)
+    check_file(FIXTURES / "manifest.json", sol["manifest"]["fixtures_sha256"])
+    check_file(FIXTURES / "RECOVERY-REVIEW.md", sol["manifest"]["guide_sha256"])
+    return sol
+
+
+def select_rows(prepared, refs):
+    expected = {ref["id"] for ref in refs}
+    rows = [row for row in prepared if row["id"] in expected]
+    require([r["id"] for r in rows] == [r["id"] for r in refs],
+            f"Wrong pilot IDs/order: {[r['id'] for r in rows]}. Run Scripts/explain-candidate prepare.")
+    for row, ref in zip(rows, refs):
+        require(sha(row["body"].encode()) == ref["base_request_sha256"],
+                f"{row['id']}: restore selected body {ref['base_request_sha256']}")
+    return rows
+
+
+def messages(body):
+    return [{"role": "system", "content": body["instructions"]}, {"role": "user", "content": body["input"]}]
+
+
+def expected_render(body):
+    return ("<|message_system|><|content_text|>" + body["instructions"] + "<|end_message|>"
+            "<|message_system|><|content_text|>Thinking effort level: 0<|end_message|>"
+            "<|message_user|><|content_text|>" + body["input"] + "<|end_message|>")
+
+
+def check_render(body, rendered):
+    require(rendered == expected_render(body), "Incorrect roles, contents or effort in rendered prompt")
+
+
+def preview(tokenizer_dir, control):
+    from tokenizers import Tokenizer
+    from transformers.utils.chat_template_utils import _compile_jinja_template
+
+    sol = historical()
+    spec = load(SPEC)
+    check_file(control, sol["answers_sha256"])
+    SCORER["load_fixtures"](FIXTURES)
+    require(PREPARED.is_file(), "Run Scripts/explain-candidate prepare to create the local input file")
+    prepared = load(PREPARED)
+    require(prepared["configuration_sha256"] == CONFIG_HASH and
+            prepared["fixtures_sha256"] == sol["manifest"]["fixtures_sha256"], "Prepare the frozen selected variant")
+    config = load(SELECTED)
+    require(sha(canonical(prepared["requests"])) == config["request_set_sha256"], "Selected request set changed")
+    for name, digest in spec["metadata_sha256"].items():
+        check_file(tokenizer_dir / name, digest)
+    template = _compile_jinja_template((tokenizer_dir / "chat_template.jinja").read_text())
+    tokenizer = Tokenizer.from_file(str(tokenizer_dir / "tokenizer.json"))
+    model = load(tokenizer_dir / "config.json")["text_config"]
+    rows = []
+    for row in select_rows(prepared["requests"], sol["manifest"]["requests"]):
+        body = json.loads(row["body"])
+        rendered = template.render(messages=messages(body), reasoning_effort=spec["reasoning_effort"],
+                                   add_generation_prompt=True)
+        check_render(body, rendered)
+        ids = tokenizer.encode(rendered, add_special_tokens=False).ids
+        require(tokenizer.decode(ids, skip_special_tokens=False) == rendered, f"{row['id']}: lossy tokenization")
+        require(len(ids) + spec["max_tokens"] <= model["model_max_length"], f"{row['id']}: context exceeded")
+        rows.append(dict(id=row["id"], source_words=len(json.loads(body["input"])["source"].split()),
+                         base_request_sha256=sha(row["body"].encode()), prompt_sha256=sha(rendered.encode()),
+                         tokens=len(ids), token_ids_sha256=sha(canonical(ids))))
+    identity = dict(spec=spec, rows=rows, configuration_sha256=CONFIG_HASH,
+                    fixtures_sha256=sol["manifest"]["fixtures_sha256"], guide_sha256=sol["manifest"]["guide_sha256"],
+                    controls_sha256=sol["answers_sha256"])
+    candidate = sha(canonical(identity))
+    require(candidate == "97447da1a0308c7b6a834f42e4cc39a54c9f1d453f0a0b2d351cd366bf7a290c",
+            "Preview differs from the frozen candidate. Restore pinned metadata, runtime and prepared inputs.")
+    return dict(identity, candidate_sha256=candidate)
+
+
+# Control IDs come from the pinned tokenizer's added_tokens_decoder. Ordinary decoded
+# text, even if it spells a control label, never switches channels.
+MODEL, TEXT, EOS, THINK, END = 200001, 200004, 200006, 200008, 200010
+FIRST_SPECIAL = 199998
+BOUNDARY = re.compile(r"""[.!?]+['"”’)]*(?=\s)""")
+ABBREVIATION = re.compile(r"\b(?:Mr|Mrs|Ms|Dr|Prof|Sr|Jr|e\.g|i\.e|[A-Z])\.$", re.I)
+
+
+def sentence_boundary(text):
+    for match in BOUNDARY.finditer(text):
+        if any(ch.isalnum() for ch in text[:match.start()]) and not ABBREVIATION.search(text[:match.end()]):
+            return True
+    return False
+
+
+def observe(events, stop):
+    """Consume (token ID, incremental decoded text, monotonic timestamp) for generated tokens only."""
+    require(stop in {"eof", "cap", "timeout", "runtime-error"}, "Unverified stop reason; EOS requires its token")
+    state = "start"
+    chunks = []
+    first_sentence = None
+    first_final = None
+    reasoning_tokens = 0
+    status = stop
+    for token, piece, timestamp in events:
+        if state in ("start", "after-thinking") and token == MODEL:
+            state = "channel" if state == "start" else "final-channel"
+        elif state == "channel" and token == THINK:
+            state = "thinking"
+        elif state in ("channel", "final-channel") and token == TEXT:
+            state = "final"
+        elif state == "thinking" and token == END:
+            state = "after-thinking"
+        elif state == "final" and token == END:
+            state = "closed"
+        elif state == "closed" and token == EOS:
+            answer = "".join(chunks)
+            status = "eos" if answer.strip() else "empty"
+            if status == "eos" and first_sentence is None and sentence_boundary(answer + " "):
+                first_sentence = timestamp
+            break
+        elif token < FIRST_SPECIAL and state == "thinking":
+            reasoning_tokens += 1
+        elif token < FIRST_SPECIAL and state == "final":
+            chunks.append(piece)
+            if first_final is None and piece.strip():
+                first_final = timestamp
+            if first_sentence is None and any(c.isspace() for c in piece) and sentence_boundary("".join(chunks)):
+                first_sentence = timestamp
+        else:
+            status = "invalid-channel"
+            break
+    return dict(answer="".join(chunks), status=status, reasoning_tokens=reasoning_tokens,
+                first_final=first_final, first_sentence=first_sentence)
+
+
+def reserve_run(directory, setup, expected_runtime):
+    """Reserve a new measured run only after its independently collected control results pass."""
+    require(setup["runtime"] == expected_runtime, f"Restore pinned runtime {expected_runtime}")
+    require(setup["voice_ready"] is True, "Prepare the local voice and repeat its PCM control")
+    require(setup["local_control"] == 0 and setup["denied_control"] in {-9, 137},
+            "Repair the sandbox and repeat its local and denied network controls")
+    try:
+        directory.mkdir()
+    except FileExistsError as exc:
+        raise ValueError(f"{directory}: inspect the existing run for incomplete attempts before recovery") from exc
+
+
+def performance(observations, load_seconds):
+    words = [row.get("source_words") for row in observations]
+    if words != [33, 40, 46, 31, 32, 3000] or not valid_measure(load_seconds):
+        return "incomplete"
+    times = []
+    for row in observations:
+        if not all(valid_measure(row.get(key)) for key in ("first_sentence_seconds", "rss_peak_bytes", "mlx_peak_bytes")):
+            return "incomplete"
+        if row["source_words"] <= 300:
+            times.append(row["first_sentence_seconds"])
+    times[0] += load_seconds
+    return "latency-hold" if max(times) > 3 else "next-gate"
+
+
+def valid_measure(value):
+    return type(value) in (int, float) and math.isfinite(value) and value >= 0
+
+
+def rehearse(fault=None):
+    # Only fabricated observations enter this path. Real scoring is a later phase.
+    rehearsal = runpy.run_path(str(SCRIPTS / "tests/rehearse_inkling_pilot.py"))
+    return rehearsal["exercise"](globals(), fault)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    modes = parser.add_subparsers(dest="mode", required=True)
+    inputs = modes.add_parser("preview", help="verify prepared inputs and local tokenizer metadata")
+    inputs.add_argument("--tokenizer-dir", type=Path, required=True)
+    inputs.add_argument("--controls", type=Path, default=CONTROL)
+    modes.add_parser("rehearse", help="exercise the pilot decision using fabricated answers")
+    args = parser.parse_args()
+    try:
+        result = preview(args.tokenizer_dir, args.controls) if args.mode == "preview" else rehearse()
+    except (ValueError, OSError, ImportError, KeyError) as error:
+        parser.exit(1, f"Pilot unavailable: {error}\n")
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+
+
+if __name__ == "__main__":
+    main()
