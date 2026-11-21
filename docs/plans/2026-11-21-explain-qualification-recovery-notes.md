@@ -54,3 +54,20 @@ The repeated control passed 2/6 across all criteria. The selected instruction pa
 Two independent blinded readers reviewed the mixed packet. A third independently adjudicated the email. The final email judgment allows the literal wording as supported and marks two required facts omitted. Both original readers rejected the minutes’ shift from approval to an outcome. The handover case illustrates variation under identical control bytes. The three successful repairs on the selected arm (legal, textbook and handover) came alongside the email regression. Neither arm met the six-case entry condition. The selected misses concern fidelity and essential coverage, so the example variant and full 83-case run are ineligible. No held-out or learner case was sent. No model choice, product integration, signed install or trial follows from this result.
 
 Sanitized receipts are in `Qualification/Explain/recovery/control.json` and `Qualification/Explain/recovery/selected.json`. Use `Scripts/explain-qualify` to reproduce the paired results offline. The private run, attempts, answers, votes and bindings remain under the worktree’s ignored experiment evidence. The integration owner retains the worktree at /Users/juan/code/captalo-explain-own-key through the next provider decision. The implementation overlay is absent. The next decision belongs to Juan under the parent Phase 1 failure disposition.
+
+## Six-case model comparison — GPT-6.2 Sol
+
+Juan authorized six requests with the existing OpenAI assessment credential and a maximum model-usage reservation of US$0.319810. The tested product and assessment code was d5f8407. Sol used the six frozen original-corpus passages from the selected Terra pilot with the same instructions, profiles, ordering, streaming mode and output ceiling. The wire changes were the model identifier and reasoning effort. Sol requires a supported effort, so this comparison used low in place of Terra’s none. The approved manifest SHA-256 was a38dcdebacf37b2da20cf48b385a8840d2a35f75aaee553aee8219175533e9ca. All six requests completed naturally on the expected model. The ledger reserved US$0.319810. Actual billing was unmeasured.
+
+| Passage | Source words | Selected Terra | Sol with low reasoning |
+| --- | ---: | --- | --- |
+| Email | 33 | 25 words, missed two required facts | 30 words, pass |
+| Legal agreement | 40 | 35 words, pass | 36 words, pass |
+| Textbook | 46 | 25 words, pass | 26 words, pass |
+| Meeting minutes | 31 | 29 words, turned approval into an outcome | 30 words, pass with the incidental background discussion omitted |
+| Handover | 32 | 22 words, pass | 26 words, omitted that FIRST REVIEW identifies the next stage |
+| Room register | 3,000 | 250 words, pass | 1,370 words, added unsupported advice and used an example in a Plain answer |
+
+Each model passed four of six under the same criteria. All four Sol Middle answers were shorter than their passages. Both independent readers flagged the register’s advice about discussing a card using the room name and symbol. The source instructs the steward to enter those details in the register. The readers agreed that all seven register facts were present and differed on perceived style. A third blinded reader classified the hypothetical blank Oak entry as an example. The frozen rule requires 6/6. This outcome closes the Sol pilot. Six-case results do not establish broader model quality. The full qualification, listening gate and signed install remain pending.
+
+The sanitized diagnostic record is `Qualification/Explain/model-pilots/sol-selected-six-v1.json`. Its manifest binds the six wire requests to their Terra counterparts. Its rows contain counts, hashes, original and final judgments, adjudication, and the source-fact dispositions. It is separate from full provider qualification receipts. In the retained worktree use `python3 .local/explain-qualification/sol-selected-six-v1/preview/score.py score` to recheck the underlying run, private votes and recorded misses offline. The integration owner retains that evidence through the next product decision.

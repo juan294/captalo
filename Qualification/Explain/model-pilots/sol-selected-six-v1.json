@@ -1,0 +1,430 @@
+{
+  "scope": "six-case model pilot",
+  "manifest": {
+    "base_run_sha256": "3cdda8123425838d7fbcd45a250cb963f6c032a3f490ba1f0d27db7cad8752d1",
+    "credential_scope": "OPENAI_API_KEY",
+    "experiment": "sol-selected-six-v1",
+    "fixtures_sha256": "4376d4b02fb5e80627fcf7342e5b9c0658c1c4d0ee8237cb9f52163bf6e480d3",
+    "guide_sha256": "b39c30e448953ccf4cd68c9654b0a04f5722fe9f01aa2ae4e82c08eeead4aec0",
+    "max_requests": 6,
+    "max_usd": "0.3198100",
+    "model": "gpt-6.2-sol",
+    "provider": "openai",
+    "reasoning": "low",
+    "requests": [
+      {
+        "base_request_sha256": "4b22e6c19f0a7cb158fe71c7a5a8ca5485eb7ef142e226a0e4716a477c74716d",
+        "bound_usd": "0.0463125",
+        "id": "main-email-middle-metaphors",
+        "request_sha256": "72e893411c4ffc76ed127d8c31f8fd5298657bd11383f9662f9b0d2b848da4d6"
+      },
+      {
+        "base_request_sha256": "e36c5093359716113ae929fb498e678f93c1da8eadda53508f3333cf01f1b78c",
+        "bound_usd": "0.0464125",
+        "id": "main-legal-middle-metaphors",
+        "request_sha256": "18158b71c26cc4be8e6068189179d0de0cfa8f94aca507135fc20c0fbb3e621e"
+      },
+      {
+        "base_request_sha256": "771afd4ca710d4f7563aa8dc9dc8de74c27db1e94d16aad7f14bd3e59393e878",
+        "bound_usd": "0.04632",
+        "id": "main-textbook-simple-plain",
+        "request_sha256": "b5c09fdc619c7335c376f53ccd13cf6e636d4db91364e7ee93fc4feeefec7d0a"
+      },
+      {
+        "base_request_sha256": "b80d246a235d89e2d0328f86bf365cccd6cfe5bb15f21ed72ff74337b568ec16",
+        "bound_usd": "0.04643",
+        "id": "main-minutes-middle-metaphors",
+        "request_sha256": "8a8495df42869eba47b80f6f94b7fe6e4431ba25a4cbaf007b8dcd8d63d13600"
+      },
+      {
+        "base_request_sha256": "7bfb7e7c53e5f4866cf739085ad77cc05b76d062c561be7bbbf369c9f30ef5cf",
+        "bound_usd": "0.046305",
+        "id": "main-handover-middle-metaphors",
+        "request_sha256": "d37de11ed40035e79142586b3a8dde4d622e8dbdaf502dafac300e29e601c1f2"
+      },
+      {
+        "base_request_sha256": "239f990c451952ecdf38fca96cac2c4838802d14c2613cad416e4c9fdd1400a2",
+        "bound_usd": "0.08803",
+        "id": "main-document3000-simple-plain",
+        "request_sha256": "bf8aea14b829ede1679f500ade9d6c38a16ce2bd3817eb730799ddfb7cd01a1a"
+      }
+    ],
+    "subset_sha256": "1b366b2821e591542701a1eb4676f5889809453e2133241235d787fdf2439ea0"
+  },
+  "manifest_sha256": "a38dcdebacf37b2da20cf48b385a8840d2a35f75aaee553aee8219175533e9ca",
+  "answers_sha256": "c3e795923a5cd095d3c5085309f4ebfa916c06a8940ad73af3b1f355d163c872",
+  "rows": [
+    {
+      "id": "main-email-middle-metaphors",
+      "configuration_sha256": "a38dcdebacf37b2da20cf48b385a8840d2a35f75aaee553aee8219175533e9ca",
+      "source_sha256": "c960a977385616ed92bfb77bb2910c6c3b6b54ebefadaaad51a8162372bbcf84",
+      "source_words": 33,
+      "answer_words": 30,
+      "answer_sha256": "dacce7d49dc72e2f4ade712931090489b2b981b429d8defd96e07c87f6008041",
+      "natural_stop": true,
+      "missing_facts": [],
+      "perceived_style": "metaphors",
+      "verdict": "pass",
+      "near_verbatim": false,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "request_sha256": "72e893411c4ffc76ed127d8c31f8fd5298657bd11383f9662f9b0d2b848da4d6",
+      "adjudication": "agreed",
+      "judgments": [
+        {
+          "missing_facts": [],
+          "perceived_style": "metaphors",
+          "verdict": "pass",
+          "near_verbatim": false,
+          "ambiguous": false,
+          "covered_facts": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "reviewer_sha256": "08243666f926aa4e5b884b8ef1fc3b93d19e191a793581530616bd2e032c4761",
+          "vote_sha256": "b8436e8cc596cb30cff4e129382a824fc6997c312facbf9ac2806fa1d35894ad",
+          "binding_sha256": "81cce8136bfbc48d4d8f36c66cb66f58740a235aa1d43a5c500cdb9fa5240e38"
+        },
+        {
+          "missing_facts": [],
+          "perceived_style": "metaphors",
+          "verdict": "pass",
+          "near_verbatim": false,
+          "ambiguous": false,
+          "covered_facts": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "reviewer_sha256": "29c1b289e7522195b362e44f54e05470b69ad20540ab60a18a05e5bf6951f13d",
+          "vote_sha256": "b8436e8cc596cb30cff4e129382a824fc6997c312facbf9ac2806fa1d35894ad",
+          "binding_sha256": "3646256c536231037823915795eb91b144debbd49bfc137cf3740ea6e7598bf5"
+        }
+      ]
+    },
+    {
+      "id": "main-legal-middle-metaphors",
+      "configuration_sha256": "a38dcdebacf37b2da20cf48b385a8840d2a35f75aaee553aee8219175533e9ca",
+      "source_sha256": "e1eb5f11a2786b01dcfe0db62768b0f84fbd4e26e1899b5245c31fe9ee4881e9",
+      "source_words": 40,
+      "answer_words": 36,
+      "answer_sha256": "c7ab7d3a580b280738ce4a94ecfb1339c05fdd738f9675d0186c0c0c5b3a4e9a",
+      "natural_stop": true,
+      "missing_facts": [],
+      "perceived_style": "metaphors",
+      "verdict": "pass",
+      "near_verbatim": false,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2
+      ],
+      "request_sha256": "18158b71c26cc4be8e6068189179d0de0cfa8f94aca507135fc20c0fbb3e621e",
+      "adjudication": "agreed",
+      "judgments": [
+        {
+          "missing_facts": [],
+          "perceived_style": "metaphors",
+          "verdict": "pass",
+          "near_verbatim": false,
+          "ambiguous": false,
+          "covered_facts": [
+            0,
+            1,
+            2
+          ],
+          "reviewer_sha256": "08243666f926aa4e5b884b8ef1fc3b93d19e191a793581530616bd2e032c4761",
+          "vote_sha256": "6f8b7ed8d199c9b2f2828c0507f5ef796114845d43140bd9faec8e12eba60ce6",
+          "binding_sha256": "046dd4571e1cd2dbb125bbde9370d65c7d7780f6cfac8eabd49d67fbd4ee200d"
+        },
+        {
+          "missing_facts": [],
+          "perceived_style": "metaphors",
+          "verdict": "pass",
+          "near_verbatim": false,
+          "ambiguous": false,
+          "covered_facts": [
+            0,
+            1,
+            2
+          ],
+          "reviewer_sha256": "29c1b289e7522195b362e44f54e05470b69ad20540ab60a18a05e5bf6951f13d",
+          "vote_sha256": "6f8b7ed8d199c9b2f2828c0507f5ef796114845d43140bd9faec8e12eba60ce6",
+          "binding_sha256": "89635db68b9d861d08a42c7414938be1476c15d83943c165ab6e79e2863004c3"
+        }
+      ]
+    },
+    {
+      "id": "main-textbook-simple-plain",
+      "configuration_sha256": "a38dcdebacf37b2da20cf48b385a8840d2a35f75aaee553aee8219175533e9ca",
+      "source_sha256": "3474deab6f9c1f0f6802ca31f311f3611c3269cbf83bf3389e90f59d25112df4",
+      "source_words": 46,
+      "answer_words": 26,
+      "answer_sha256": "b268e48c79f862ee15b90009c4f3d2719b412855390ea28b181b736a0d8c1fcf",
+      "natural_stop": true,
+      "missing_facts": [],
+      "perceived_style": "plain",
+      "verdict": "pass",
+      "near_verbatim": false,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "request_sha256": "b5c09fdc619c7335c376f53ccd13cf6e636d4db91364e7ee93fc4feeefec7d0a",
+      "adjudication": "agreed",
+      "judgments": [
+        {
+          "missing_facts": [],
+          "perceived_style": "plain",
+          "verdict": "pass",
+          "near_verbatim": false,
+          "ambiguous": false,
+          "covered_facts": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ],
+          "reviewer_sha256": "08243666f926aa4e5b884b8ef1fc3b93d19e191a793581530616bd2e032c4761",
+          "vote_sha256": "ebdcf011ea4fc5a4a78eca4695f77430888d4e4ea38447bc73cbab98b87b45ee",
+          "binding_sha256": "c24ed7817830d519c753c0231f66adec82d65518d8a871a24696c2fa206e4722"
+        },
+        {
+          "missing_facts": [],
+          "perceived_style": "plain",
+          "verdict": "pass",
+          "near_verbatim": false,
+          "ambiguous": false,
+          "covered_facts": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ],
+          "reviewer_sha256": "29c1b289e7522195b362e44f54e05470b69ad20540ab60a18a05e5bf6951f13d",
+          "vote_sha256": "ebdcf011ea4fc5a4a78eca4695f77430888d4e4ea38447bc73cbab98b87b45ee",
+          "binding_sha256": "5e1b5c2662d1086315817d736897d54bcc78fa58f264a53f649079a34f401460"
+        }
+      ]
+    },
+    {
+      "id": "main-minutes-middle-metaphors",
+      "configuration_sha256": "a38dcdebacf37b2da20cf48b385a8840d2a35f75aaee553aee8219175533e9ca",
+      "source_sha256": "a0bf6c91ef581a6b438811128703c944cbc6a53258457e504e10f9706500dcfe",
+      "source_words": 31,
+      "answer_words": 30,
+      "answer_sha256": "b4f71da1c3d991130bec83e357e8997668c3c236bf3d84b1312787b0b957fae3",
+      "natural_stop": true,
+      "missing_facts": [
+        0
+      ],
+      "perceived_style": "metaphors",
+      "verdict": "pass",
+      "near_verbatim": false,
+      "ambiguous": false,
+      "covered_facts": [
+        1,
+        2,
+        3
+      ],
+      "request_sha256": "8a8495df42869eba47b80f6f94b7fe6e4431ba25a4cbaf007b8dcd8d63d13600",
+      "adjudication": "agreed",
+      "judgments": [
+        {
+          "missing_facts": [
+            0
+          ],
+          "perceived_style": "metaphors",
+          "verdict": "pass",
+          "near_verbatim": false,
+          "ambiguous": false,
+          "covered_facts": [
+            1,
+            2,
+            3
+          ],
+          "reviewer_sha256": "08243666f926aa4e5b884b8ef1fc3b93d19e191a793581530616bd2e032c4761",
+          "vote_sha256": "40c093e4ed150cf40dccfce6fe464e7423c4bbbbbbde178ad905050709824539",
+          "binding_sha256": "ef8e2e3c19a57b5ac863215d5f49b1b707439cb9783190f382261549277b2525"
+        },
+        {
+          "missing_facts": [
+            0
+          ],
+          "perceived_style": "metaphors",
+          "verdict": "pass",
+          "near_verbatim": false,
+          "ambiguous": false,
+          "covered_facts": [
+            1,
+            2,
+            3
+          ],
+          "reviewer_sha256": "29c1b289e7522195b362e44f54e05470b69ad20540ab60a18a05e5bf6951f13d",
+          "vote_sha256": "40c093e4ed150cf40dccfce6fe464e7423c4bbbbbbde178ad905050709824539",
+          "binding_sha256": "9e1691dbc18e15b4157317f0dc10865057eafdb801e475b270e6552ae9cd7a99"
+        }
+      ]
+    },
+    {
+      "id": "main-handover-middle-metaphors",
+      "configuration_sha256": "a38dcdebacf37b2da20cf48b385a8840d2a35f75aaee553aee8219175533e9ca",
+      "source_sha256": "bcd7b157559fa604e005d377d4cb7de83ce723544169bdb156cd190b692a4da1",
+      "source_words": 32,
+      "answer_words": 26,
+      "answer_sha256": "2da1997106e9a2c47fedac1876dd8ac624b2c2651ee9604ad188290fbca27a97",
+      "natural_stop": true,
+      "missing_facts": [
+        0
+      ],
+      "perceived_style": "metaphors",
+      "verdict": "pass",
+      "near_verbatim": false,
+      "ambiguous": false,
+      "covered_facts": [
+        1,
+        2
+      ],
+      "request_sha256": "d37de11ed40035e79142586b3a8dde4d622e8dbdaf502dafac300e29e601c1f2",
+      "adjudication": "agreed",
+      "judgments": [
+        {
+          "missing_facts": [
+            0
+          ],
+          "perceived_style": "metaphors",
+          "verdict": "pass",
+          "near_verbatim": false,
+          "ambiguous": false,
+          "covered_facts": [
+            1,
+            2
+          ],
+          "reviewer_sha256": "08243666f926aa4e5b884b8ef1fc3b93d19e191a793581530616bd2e032c4761",
+          "vote_sha256": "adb8fbbe61e31f8557a02739822bb3cb61a91b935ab856e878f6775fa88e037e",
+          "binding_sha256": "4e3cf6d453783f5ad3b9f2def1ddcc8b419d7a5277e3579b51b9dbba1532ac91"
+        },
+        {
+          "missing_facts": [
+            0
+          ],
+          "perceived_style": "metaphors",
+          "verdict": "pass",
+          "near_verbatim": false,
+          "ambiguous": false,
+          "covered_facts": [
+            1,
+            2
+          ],
+          "reviewer_sha256": "29c1b289e7522195b362e44f54e05470b69ad20540ab60a18a05e5bf6951f13d",
+          "vote_sha256": "adb8fbbe61e31f8557a02739822bb3cb61a91b935ab856e878f6775fa88e037e",
+          "binding_sha256": "73aa28ded1921f15ebb15bf899205ad91ed32e91c73046b5706a9a5464bdf8be"
+        }
+      ]
+    },
+    {
+      "id": "main-document3000-simple-plain",
+      "configuration_sha256": "a38dcdebacf37b2da20cf48b385a8840d2a35f75aaee553aee8219175533e9ca",
+      "source_sha256": "23dceb2c66d75c83c1ba4287fe55937fb7b82f87ae6194128ed5b6c9168be3c6",
+      "source_words": 3000,
+      "answer_words": 1370,
+      "answer_sha256": "fe5425532630b670718596db69dab1ba312a18631de609556f69ff71e6d66f3c",
+      "natural_stop": true,
+      "missing_facts": [],
+      "perceived_style": "examples",
+      "verdict": "fail",
+      "near_verbatim": false,
+      "ambiguous": false,
+      "covered_facts": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "request_sha256": "bf8aea14b829ede1679f500ade9d6c38a16ce2bd3817eb730799ddfb7cd01a1a",
+      "adjudication": "adjudicated",
+      "judgments": [
+        {
+          "missing_facts": [],
+          "perceived_style": "examples",
+          "verdict": "fail",
+          "near_verbatim": false,
+          "ambiguous": false,
+          "covered_facts": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          "reviewer_sha256": "08243666f926aa4e5b884b8ef1fc3b93d19e191a793581530616bd2e032c4761",
+          "vote_sha256": "cac9b0d48b6265a865af852fe0cb77cc2dbacd9e35932330cff3d1ea0edadd2b",
+          "binding_sha256": "f8cd28028e2a33cc2fee41e222e140ddc6c619470d99aaa7990f73608fee8698"
+        },
+        {
+          "missing_facts": [],
+          "perceived_style": "plain",
+          "verdict": "fail",
+          "near_verbatim": false,
+          "ambiguous": false,
+          "covered_facts": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          "reviewer_sha256": "29c1b289e7522195b362e44f54e05470b69ad20540ab60a18a05e5bf6951f13d",
+          "vote_sha256": "dec84b129368381abfe635634e8b57214d0cb110316f9a68d14e1e7c7a3e168b",
+          "binding_sha256": "d3859041b79e33d692b53d9c973cf85de6cae44104bf8efb1e4ddfe9b98fe47a"
+        },
+        {
+          "missing_facts": [],
+          "perceived_style": "examples",
+          "verdict": "fail",
+          "near_verbatim": false,
+          "ambiguous": false,
+          "covered_facts": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          "reviewer_sha256": "43bb00d0ce7790a53b91256b370c887b24791a5539a6fbfb70c5870e8c91ae5d",
+          "vote_sha256": "962d96356b21d8716249dbc91bc1bd22196479192f5c29ad2d6bc7ec625b2023",
+          "binding_sha256": "34cc30eae574bb02edd613f9c186836667b597f6602c34c0269ff70f5b415c88"
+        }
+      ]
+    }
+  ],
+  "misses": [
+    "main-handover-middle-metaphors: missing facts [0]",
+    "main-document3000-simple-plain: blind verdict fail",
+    "main-document3000-simple-plain: style mismatch"
+  ]
+}
