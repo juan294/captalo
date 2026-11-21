@@ -76,3 +76,9 @@ Juan authorized six OpenAI tuning requests with the existing assessment credenti
 | Long room register, Simple Plain | 3,000 | 184 | 183 | Passed. All required facts and all three distant exceptions were covered. |
 
 Five answers passed blind factual review and three passed all applicable checks. All four Middle answers got shorter than the first run; three were strictly shorter than their sources. The three previous length misses became two passes and one tie on length. This six-case diagnostic has no held-out, listening or product admission result. Both paid authorizations are exhausted. Integration and installation await an accepted Phase 1.
+
+## Next offline instruction candidate
+
+OpenAI candidate `80bd2d2b8a01fffa25c400e9a15a507828625b03f0c14009da0177fc6297020d` directs the model to keep the source wording where a synonym would change a fact, deadline, condition or type of evidence. It asks for compression through removal of repetition and filler, and includes the comparison in the Middle word budget. Its examples contain no case-specific answers. The same six original-corpus cases have a preview bound of US$0.16556. A clean 83-case run at these settings has a preview bound of US$2.152875. A fresh metered authorization is required. The Anthropic snapshot is byte-identical to the preceding offline revision.
+
+For any future multi-run authorization, reserve each run's entire preview before dispatch, deduct prior reservations from the approved total and enforce both request and dollar ceilings on the next invocation. An interrupted attempt keeps its reservation. Admit a full run only after a clean tuning round. Product acceptance still requires a clean full run and the owner's listening verdict. The six-case evidence remains reproducible against its source commit and stored receipt after the tuning candidate changes.
