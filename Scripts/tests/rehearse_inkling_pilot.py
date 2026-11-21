@@ -19,7 +19,7 @@ def exercise(pilot, fault):
         for case in six:
             key = case["id"]
             fixture = case["fixture"]
-            text = f"Fabricated {arm} answer."
+            text = "The report describes a room." if arm == "candidate" else "The report mentions a room."
             if arm == "candidate" and key == ids[0] and fault in ("refusal", "miss-and-missing-time"):
                 text = "I cannot explain this."
             ans = dict(answer=text, answer_sha256=sha(text.encode()))
