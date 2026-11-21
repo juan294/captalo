@@ -35,3 +35,22 @@ To reproduce locally, run `Scripts/explain-candidate prepare`, `python3 Scripts/
 | Full example | 83 | 2.08425375 |
 
 Only one full run can occur. The largest eligible path reserves US$2.56993125 under the proposed ceiling of US$3.00. A clean selected pilot skips the example and reserves up to US$2.39845375 across 95 requests. Raw rehearsal evidence and the previous paid evidence remain in the retained implementation worktree. No application or paid qualification result is implied by this handoff.
+
+## Step 3 — Paid comparison and disposition
+
+Juan approved the frozen conditional comparison after the 18-check offline gate at 204b60f. The integration owner rechecked the exact candidate preparations, price basis, empty ledger and approved manifest digest 2499807dfa45fee0e04ff9d54c66af5e1d241022a07e39fa1548617069a84e8c. The existing OpenAI assessment credential sent six synthetic requests for the control and six for the selected instruction. All 12 terminated naturally on the frozen model. Reservations were US$0.16466750 and US$0.15992750, totaling US$0.32459500. Actual invoiced spend was unmeasured.
+
+The repeated control passed 2/6 across all criteria. The selected instruction passed 4/6. Reviewers recognized all 12 requested styles. All four selected Middle answers were shorter than their respective sources. The full dispositions below include word counts for the three observations. Historical style was unmeasured. The historical column gives the original factual verdict and any separate recorded failure.
+
+| Case (source words) | Historical control | Fresh control | Selected instruction |
+| --- | --- | --- | --- |
+| Email (33) | 32, pass | 32, pass | 25, missing Tuesday exclusivity and the count of Mira’s updates |
+| Legal agreement (40) | 42, factual pass, exceeded length | 44, factual pass, exceeded length | 35, pass |
+| Textbook (46) | 28, unsupported cause | 28, unsupported cause and missing class action | 25, pass |
+| Minutes (31) | 26, uncertain metaphor | 27, uncertain metaphor | 29, asserted the door gets painted when the committee only approved paint |
+| Handover (32) | 22, pass | 20, inferred no review had happened and lost the limit on what the label establishes | 22, pass |
+| Room register (3,000) | 215, pass | 223, pass | 250, pass |
+
+Two independent blinded readers reviewed the mixed packet. A third independently adjudicated the email. The final email judgment allows the literal wording as supported and marks two required facts omitted. Both original readers rejected the minutes’ shift from approval to an outcome. The handover case illustrates variation under identical control bytes. The three successful repairs on the selected arm (legal, textbook and handover) came alongside the email regression. Neither arm met the six-case entry condition. The selected misses concern fidelity and essential coverage, so the example variant and full 83-case run are ineligible. No held-out or learner case was sent. No model choice, product integration, signed install or trial follows from this result.
+
+Sanitized receipts are in `Qualification/Explain/recovery/control.json` and `Qualification/Explain/recovery/selected.json`. Use `Scripts/explain-qualify` to reproduce the paired results offline. The private run, attempts, answers, votes and bindings remain under the worktree’s ignored experiment evidence. The integration owner retains the worktree at /Users/juan/code/captalo-explain-own-key through the next provider decision. The implementation overlay is absent. The next decision belongs to Juan under the parent Phase 1 failure disposition.
