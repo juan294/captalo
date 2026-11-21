@@ -51,3 +51,41 @@ struct ExplainInstructionTests {
         #expect(try ExplainInput(source: limit, depth: .middle, style: .examples, profile: "").source == limit)
     }
 }
+
+extension ExplainInstructionTests {
+    @Test func selectedInstructionsAndBudgets() throws {
+        for depth in [ExplainDepth.simple, .middle, .detailed] {
+            for style in [ExplainStyle.plain, .examples, .metaphors, .picture] {
+                for count in [1, 2, 20, 31, 40, 3000] {
+                    let source = Array(repeating: "untrusted-source", count: count).joined(separator: "\t\n")
+                    let input = try ExplainInput(source: source, depth: depth, style: style, profile: "untrusted-profile")
+                    if depth == .middle && count == 1 {
+                        #expect(throws: ExplainInputError.self) {
+                            try ExplainCandidate.openai.requestBody(input, variant: .selected)
+                        }
+                        continue
+                    }
+                    let bytes = try ExplainCandidate.openai.requestBody(input, variant: .selected)
+                    let example = try ExplainCandidate.openai.requestBody(input, variant: .example)
+                    #expect((bytes == example) == (style != .metaphors))
+                    #expect(try ExplainCandidate.openai.requestBody(input, variant: .selected) == bytes)
+                    let body = try #require(JSONSerialization.jsonObject(with: bytes) as? [String: Any])
+                    let instruction = try #require(body["instructions"] as? String)
+                    #expect(!instruction.contains("untrusted"))
+                    let styles: [ExplainStyle: String] = [.examples: "hypothetical everyday", .plain: "literal language",
+                                                          .picture: "imagine one scene", .metaphors: "signalled likeness"]
+                    let depths: [ExplainDepth: String] = [.simple: "necessary jargon", .middle: "compress background",
+                                                          .detailed: "source-supported relationships"]
+                    for (setting, clause) in styles { #expect(instruction.contains(clause) == (setting == style)) }
+                    for (setting, clause) in depths { #expect(instruction.contains(clause) == (setting == depth)) }
+                    let message = try #require(body["input"] as? String)
+                    let fields = try #require(JSONSerialization.jsonObject(with: Data(message.utf8)) as? [String: Any])
+                    let target = depth == .middle ? min(input.targetWords, count - 1) : input.targetWords
+                    #expect(fields["target_words"] as? Int == target)
+                    #expect(instruction.contains("Aim for \(target) words"))
+                    #expect(instruction.contains("at most \(count - 1) words") == (depth == .middle))
+                }
+            }
+        }
+    }
+}

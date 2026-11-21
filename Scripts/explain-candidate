@@ -20,6 +20,17 @@ def canonical(value):
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()
 
 
+def check_requests(config, requests):
+    if sha(canonical(requests)) != config["request_set_sha256"]:
+        raise ValueError("Frozen request set digest mismatch")
+    if "request_sha256" in config and config["request_sha256"] != wire_hashes(requests):
+        raise ValueError("Frozen request body digest mismatch")
+
+
+def wire_hashes(requests):
+    return {row["id"]: sha(row["body"].encode()) for row in requests}
+
+
 def fixtures():
     def read(name):
         return json.loads((FIXTURES / name).read_bytes())
@@ -45,25 +56,32 @@ def main():
     subprocess.run([*build, "--product", "ExplainQualificationProbe"], env=env, check=True, stdout=subprocess.DEVNULL)
     binary = Path(subprocess.check_output([*build, "--show-bin-path"], env=env, text=True).strip()) / "ExplainQualificationProbe"
 
-    for provider in ["openai", "anthropic"]:
-        requests = json.loads(subprocess.check_output([binary, provider, "requests"], input=canonical(cases)))
-        config = json.loads(subprocess.check_output([binary, provider, "config"]))
+    for provider, variant in [("openai", "control"), ("anthropic", "control"),
+                              ("openai", "selected"), ("openai", "example")]:
+        name = provider if variant == "control" else f"{provider}-{variant}"
+        requests = json.loads(subprocess.check_output([binary, provider, "requests", variant], input=canonical(cases)))
+        config = json.loads(subprocess.check_output([binary, provider, "config", variant]))
         config.update(instruction_sha256=sha(config["instruction"].encode()), fixtures_sha256=fixture_hash,
                       request_set_sha256=sha(canonical(requests)))
+        if variant != "control":
+            config["request_sha256"] = wire_hashes(requests)
         snapshot = (json.dumps(config, ensure_ascii=False, sort_keys=True, indent=2) + "\n").encode()
         config_hash = sha(snapshot)
-        path = CONFIGS / f"{provider}.json"
+        path = CONFIGS / f"{name}.json"
+        if provider == "openai" and variant == "control" and config_hash != "193ac7aad8e461cf5c130cb404bac2a5b905ed39f302e9bd7676454ada721d9a":
+            raise SystemExit("Historical OpenAI control changed. Restore the frozen serializer.")
         if options.mode == "freeze":
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(snapshot)
         elif not path.exists() or path.read_bytes() != snapshot:
             raise SystemExit(f"{provider} candidate differs from its frozen inputs")
         if options.mode == "prepare":
-            target = ROOT / ".local/explain-qualification" / provider / "prepared.json"
+            check_requests(json.loads(path.read_bytes()), requests)
+            target = ROOT / ".local/explain-qualification" / name / "prepared.json"
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(canonical(dict(configuration_sha256=config_hash, fixtures_sha256=fixture_hash,
                                               provider=provider, model=config["model"], requests=requests)))
-        print(f"{provider}: {len(requests)} requests, configuration {config_hash}")
+        print(f"{name}: {len(requests)} requests, configuration {config_hash}")
 
 
 if __name__ == "__main__":

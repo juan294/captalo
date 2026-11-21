@@ -1,6 +1,6 @@
 import Foundation
 
-public enum ExplainDepth: String, Codable, Sendable {
+public enum ExplainDepth: String, CaseIterable, Codable, Sendable {
     case simple, middle, detailed
 
     fileprivate var targetPercent: Int {
@@ -12,12 +12,12 @@ public enum ExplainDepth: String, Codable, Sendable {
     }
 }
 
-public enum ExplainStyle: String, Codable, Sendable {
+public enum ExplainStyle: String, CaseIterable, Codable, Sendable {
     case plain, examples, metaphors, picture
 }
 
 public enum ExplainInputError: Error {
-    case empty, tooManyWords, tooManyBytes, profileTooLong
+    case empty, tooManyWords, tooManyBytes, profileTooLong, oneWordMiddle
 }
 
 /// The untrusted user message. The separate trusted instruction interprets its settings.
@@ -27,7 +27,15 @@ public struct ExplainInput: Encodable, Sendable {
     public let style: ExplainStyle
     public let profile: String
     public let sourceWords: Int
-    public let targetWords: Int
+    public private(set) var targetWords: Int
+
+    func forSelectedInstruction() throws -> Self {
+        guard depth == .middle else { return self }
+        guard sourceWords > 1 else { throw ExplainInputError.oneWordMiddle }
+        var bounded = self
+        bounded.targetWords = min(targetWords, sourceWords - 1)
+        return bounded
+    }
 
     enum CodingKeys: String, CodingKey {
         case source, depth, style, profile

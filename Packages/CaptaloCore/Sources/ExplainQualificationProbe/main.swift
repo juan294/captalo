@@ -10,18 +10,25 @@ struct Fixture: Decodable {
 
 do {
     let args = Array(CommandLine.arguments.dropFirst())
-    guard args.count == 2, let candidate = ExplainCandidate(rawValue: args[0]) else {
+    guard (2...3).contains(args.count),
+          let variant = ExplainInstructionVariant(rawValue: args.count == 3 ? args[2] : "control"),
+          let candidate = ExplainCandidate(rawValue: args[0]) else {
         throw CocoaError(.validationMissingMandatoryProperty)
     }
     let output: Data
     switch args[1] {
     case "config":
-        output = try candidate.configuration()
+        output = try candidate.configuration(variant: variant)
     case "requests":
         let fixtures = try JSONDecoder().decode([Fixture].self, from: FileHandle.standardInput.readDataToEndOfFile())
         let bodies = try fixtures.map { fixture in
             let input = try ExplainInput(source: fixture.source, depth: fixture.depth, style: fixture.style, profile: fixture.profile)
-            return ["id": fixture.id, "body": String(decoding: try candidate.requestBody(input), as: UTF8.self)]
+            do {
+                return ["id": fixture.id, "body": String(decoding: try candidate.requestBody(input, variant: variant), as: UTF8.self)]
+            } catch ExplainInputError.oneWordMiddle {
+                FileHandle.standardError.write(Data("\(fixture.id): Select a longer passage or choose another depth.\n".utf8))
+                throw ExplainInputError.oneWordMiddle
+            }
         }
         output = try JSONEncoder().encode(bodies)
     default:

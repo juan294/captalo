@@ -34,10 +34,11 @@ public enum ExplainCandidate: String, CaseIterable, Sendable {
         }
     }
 
-    public func configuration() throws -> Data {
-        try Self.json([
+    public func configuration(variant: ExplainInstructionVariant = .control) throws -> Data {
+        let fixed = try usesFixedInstruction(variant)
+        return try Self.json([
             "provider": rawValue, "model": model, "revision": model,
-            "instruction": instruction, "max_output_tokens": outputTokens,
+            "instruction": fixed ? instruction : variant.specification, "max_output_tokens": outputTokens,
             "options": options
         ])
     }
@@ -49,7 +50,14 @@ public enum ExplainCandidate: String, CaseIterable, Sendable {
         }
     }
 
-    public func requestBody(_ input: ExplainInput) throws -> Data {
+    private func usesFixedInstruction(_ variant: ExplainInstructionVariant) throws -> Bool {
+        guard self == .openai || variant == .control else { throw CocoaError(.featureUnsupported) }
+        return variant == .control
+    }
+
+    public func requestBody(_ sourceInput: ExplainInput, variant: ExplainInstructionVariant = .control) throws -> Data {
+        let fixed = try usesFixedInstruction(variant)
+        let input = try fixed ? sourceInput : sourceInput.forSelectedInstruction()
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
         let message = String(decoding: try encoder.encode(input), as: UTF8.self)
@@ -57,7 +65,7 @@ public enum ExplainCandidate: String, CaseIterable, Sendable {
         body["model"] = model
         switch self {
         case .openai:
-            body["instructions"] = instruction
+            body["instructions"] = fixed ? instruction : variant.instruction(for: input)
             body["input"] = message
             body["max_output_tokens"] = outputTokens
         case .anthropic:
