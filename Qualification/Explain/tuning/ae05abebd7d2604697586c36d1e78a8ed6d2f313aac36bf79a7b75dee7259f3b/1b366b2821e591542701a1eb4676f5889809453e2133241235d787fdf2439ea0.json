@@ -1,0 +1,128 @@
+{
+  "scope": "six original-corpus tuning cases",
+  "subset_sha256": "1b366b2821e591542701a1eb4676f5889809453e2133241235d787fdf2439ea0",
+  "receipt": {
+    "schema_version": 1,
+    "configuration_sha256": "ae05abebd7d2604697586c36d1e78a8ed6d2f313aac36bf79a7b75dee7259f3b",
+    "fixtures_sha256": "4376d4b02fb5e80627fcf7342e5b9c0658c1c4d0ee8237cb9f52163bf6e480d3",
+    "observed_model": "gpt-6.1-terra",
+    "rows": [
+      {
+        "id": "main-email-middle-metaphors",
+        "configuration_sha256": "ae05abebd7d2604697586c36d1e78a8ed6d2f313aac36bf79a7b75dee7259f3b",
+        "source_sha256": "c960a977385616ed92bfb77bb2910c6c3b6b54ebefadaaad51a8162372bbcf84",
+        "source_words": 33,
+        "answer_sha256": "6805fbb5ed4a6e7434503c3d27d881e40fd60b9546974a8c33724d6cb6f42490",
+        "answer_words": 29,
+        "natural_stop": true,
+        "ambiguous": false,
+        "covered_facts": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "missing_facts": [],
+        "near_verbatim": true,
+        "verdict": "pass"
+      },
+      {
+        "id": "main-legal-middle-metaphors",
+        "configuration_sha256": "ae05abebd7d2604697586c36d1e78a8ed6d2f313aac36bf79a7b75dee7259f3b",
+        "source_sha256": "e1eb5f11a2786b01dcfe0db62768b0f84fbd4e26e1899b5245c31fe9ee4881e9",
+        "source_words": 40,
+        "answer_sha256": "3ba5a5350cbe4e663a39f9dd6c0dec8753f83980061613f61ba721a406293201",
+        "answer_words": 37,
+        "natural_stop": true,
+        "ambiguous": false,
+        "covered_facts": [
+          0,
+          1,
+          2
+        ],
+        "missing_facts": [],
+        "near_verbatim": true,
+        "verdict": "pass"
+      },
+      {
+        "id": "main-textbook-simple-plain",
+        "configuration_sha256": "ae05abebd7d2604697586c36d1e78a8ed6d2f313aac36bf79a7b75dee7259f3b",
+        "source_sha256": "3474deab6f9c1f0f6802ca31f311f3611c3269cbf83bf3389e90f59d25112df4",
+        "source_words": 46,
+        "answer_sha256": "5ea942687081ad2a17b5fb21d13f051a43b6d22068088b68137b4000c5c3ae55",
+        "answer_words": 42,
+        "natural_stop": true,
+        "ambiguous": false,
+        "covered_facts": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "missing_facts": [],
+        "near_verbatim": true,
+        "verdict": "pass"
+      },
+      {
+        "id": "main-minutes-middle-metaphors",
+        "configuration_sha256": "ae05abebd7d2604697586c36d1e78a8ed6d2f313aac36bf79a7b75dee7259f3b",
+        "source_sha256": "a0bf6c91ef581a6b438811128703c944cbc6a53258457e504e10f9706500dcfe",
+        "source_words": 31,
+        "answer_sha256": "cae580a606e773c2901905657b52477e1593d156866c70993a42ebcd71312530",
+        "answer_words": 31,
+        "natural_stop": true,
+        "ambiguous": false,
+        "covered_facts": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "missing_facts": [],
+        "near_verbatim": true,
+        "verdict": "pass"
+      },
+      {
+        "id": "main-handover-middle-metaphors",
+        "configuration_sha256": "ae05abebd7d2604697586c36d1e78a8ed6d2f313aac36bf79a7b75dee7259f3b",
+        "source_sha256": "bcd7b157559fa604e005d377d4cb7de83ce723544169bdb156cd190b692a4da1",
+        "source_words": 32,
+        "answer_sha256": "5c45307dea8977e10a9b6fa490034f0a4a39b0971ea41d4a4a129ef6bc2d55e8",
+        "answer_words": 27,
+        "natural_stop": true,
+        "ambiguous": false,
+        "covered_facts": [
+          0,
+          1,
+          2
+        ],
+        "missing_facts": [],
+        "near_verbatim": false,
+        "verdict": "pass"
+      },
+      {
+        "id": "main-document3000-simple-plain",
+        "configuration_sha256": "ae05abebd7d2604697586c36d1e78a8ed6d2f313aac36bf79a7b75dee7259f3b",
+        "source_sha256": "23dceb2c66d75c83c1ba4287fe55937fb7b82f87ae6194128ed5b6c9168be3c6",
+        "source_words": 3000,
+        "answer_sha256": "ae07503aeea22fd0c03f51cc7055c2dbc611b75f22e0189064574675bbf52ecd",
+        "answer_words": 195,
+        "natural_stop": true,
+        "ambiguous": false,
+        "covered_facts": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "missing_facts": [],
+        "near_verbatim": false,
+        "verdict": "fail"
+      }
+    ]
+  }
+}
