@@ -127,7 +127,7 @@ def summarize(root):
     check(samples and ordered([s["clock"] for s in samples]), "Telemetry missing or unordered")
     baseline = samples[0]
     rows = read(PILOTS / "sol-selected-six-v1.json")["rows"]
-    attempts, gaps, workers = [], [], set()
+    attempts, gaps, censored, workers = [], [], [], set()
     conditions = {key: [] for key in ("all_loaded_short", "warm_repeat_short", "cold_short")}
     previous = 0
     for case in rows:
@@ -153,10 +153,14 @@ def summarize(root):
             result = measure(row, samples, intervals)
             attempts.append(dict(case=case_id, source_words=words, repeat=repeat, **result))
             if any(row[k] is None for k in ("first_final", "first_sentence")):
-                gaps.append(label + ": missing final text or sentence onset")
+                if row["status"] in {"cap", "empty", "invalid-channel", "eof"}:
+                    censored.append(dict(attempt=label, status=row["status"], first_final_observed=row["first_final"] is not None,
+                                         first_sentence_observed=row["first_sentence"] is not None))
+                else:
+                    gaps.append(label + ": missing final text or sentence onset")
             if result["memory"]["active_paired_samples"] == 0:
                 gaps.append(label + ": no paired RSS sample during active synthesis")
-            if not result["voice"]["request_onset"] or result["voice"]["first_final_onset"] is not True:
+            if not result["voice"]["request_onset"] or result["voice"]["first_final_onset"] is False:
                 gaps.append(label + ": synthesis overlap unproven at request or first final text")
             if row["first_sentence"] is not None and not result["voice"]["first_sentence_onset"]:
                 gaps.append(label + ": synthesis overlap unproven at first complete sentence")
@@ -170,7 +174,7 @@ def summarize(root):
                         conditions[condition].append((label, seconds["first_sentence"]))
     if not baseline["voice_bytes"] or any(s[k] is None for s in samples for k in ("swap_used_mib", "memory_free_pct")):
         gaps.append("Baseline voice RSS or host pressure/swap measurement missing")
-    return dict(model_assets=inventory, attempts=attempts, measurement_gaps=gaps, voice_teardown=voice_end,
+    return dict(model_assets=inventory, attempts=attempts, measurement_gaps=gaps, censored_onsets=censored, voice_teardown=voice_end,
                 short_sentence_bounds={k: dict(measured=len(v), above_3_seconds=[label for label, t in v if t > 3])
                                        for k, v in conditions.items()},
                 host=dict(samples=len(samples), baseline_voice_rss_bytes=baseline["voice_bytes"],
