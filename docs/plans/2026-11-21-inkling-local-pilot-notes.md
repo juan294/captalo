@@ -23,3 +23,13 @@ The plan specified one run manifest. Phase 1 stores the static model/runtime spe
 ## Verification and acceptance
 
 All 18 sequential repository checks passed on the code commit above, including 112 script tests. The final review also approved neutral filler text for the fabricated answers so their words give reviewers no hint about the source arm. The final candidate runs the complete gate with that correction. The integration owner retains both receipts and logs under `.local/inkling-phase1/` as `verify-code` and `verify-final`; inspect the final receipt’s Git identity and status when resuming. This handoff stops at the Phase 1 acceptance boundary.
+
+## Phase 2 setup
+
+The integration owner used a dedicated worktree from `757ad8d` and retained evidence in the primary checkout under `.local/inkling-six/`. The protocol amendment is 2026-11-22-inkling-pilot-protocol.md. Commits `93ae93c` and `72081c2` froze it before any candidate answer. The environment lock digest is `875476a01b08cb5575d2a49fa3d7b7ed9b73c1ac635b22c709389295ceb340cf`. The tested Python build was 3.12.14 with MLX and MLX Metal 0.32.4. The wheel came from the MLX-LM source commit in the preview. Independent review found that the launcher initially inspected package versions alone. The repaired launcher checks the worker interpreter, archived source, built wheel, dependency lock, installed runtime code and six token sequences before admission. See `Scripts/inkling_studio_trial.py:26`.
+
+The independent timing review moved reservation I/O outside the request interval and added synchronization on the actual MLX generation stream between attempts. The first sentence clock includes prompt rendering, tokenization, prefill and all decoding through the frozen sentence boundary. The neutral Kokoro control using the installed app's assets synthesized 71,400 PCM frames at 24 kHz inside the outbound-deny sandbox. Its disposable store was released after the helper exited.
+
+### Deviations from the original phase files
+
+The owner-approved amendment supersedes the original single attempt per case, single process across cases and Sol-only review. The revised trial uses a fresh process per passage, three fresh contexts, both archived control arms, byte-level deduplication and a fixed calibration check. The cold observation is process-inclusive with a possibly warm file cache. The product stopwatch starts at the shortcut and ends at the first audible word. Trial timing ends at a complete sentence and supplies a lower bound for the corresponding operating condition.
