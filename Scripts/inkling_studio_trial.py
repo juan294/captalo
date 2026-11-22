@@ -7,8 +7,10 @@ import select
 import subprocess
 import importlib.metadata
 import time
+import sys
+import zipfile
 
-from inkling_measure import FROZEN, PILOT, canonical, require, sha, write_once
+from inkling_measure import FROZEN, PILOT, require, sha, verify_tokens, write_once
 
 HERE = Path(__file__).resolve().parent
 PROFILE = "(version 1)(allow default)(deny network-outbound (with send-signal SIGKILL))"
@@ -18,6 +20,35 @@ def scoped_env(root):
     return {"HOME": str(root / "home"), "TMPDIR": str(root / "tmp") + "/", "PATH": "/usr/bin:/bin",
             "HF_HUB_OFFLINE": "1", "TRANSFORMERS_OFFLINE": "1", "HF_HUB_DISABLE_TELEMETRY": "1",
             "TOKENIZERS_PARALLELISM": "false", "PYTHONDONTWRITEBYTECODE": "1"}
+
+
+def verify_runtime(root, spec, model, preview):
+    from mlx_lm.utils import load_tokenizer
+
+    lock = PILOT["load"](root / "runtime-lock.json")
+    require(lock["runtime_sha"] == spec["runtime"].split("@")[1], "Incorrect runtime source")
+    require(Path(sys.prefix).resolve() == (root / "venv").resolve() and sys.version == lock["python"],
+            "Launcher and worker must use the frozen environment")
+    require(lock["packages"] == sorted([d.metadata["Name"], d.version] for d in importlib.metadata.distributions()),
+            "Installed environment differs from the frozen runtime")
+    wheel, = (root / "wheels").glob("mlx_lm-*.whl")
+    for path, key in [(root / "venv/bin/python", "executable_sha256"), (wheel, "wheel_sha256"),
+                      (root / "runtime.tar.gz", "source_archive_sha256"), (root / "requirements.lock", "dependencies_lock_sha256")]:
+        PILOT["check_file"](path, lock[key])
+    dist = importlib.metadata.distribution("mlx-lm")
+    with zipfile.ZipFile(wheel) as archive:
+        for name in archive.namelist():
+            if name.startswith("mlx_lm/") and not name.endswith("/"):
+                require(dist.locate_file(name).read_bytes() == archive.read(name), f"Installed runtime differs: {name}")
+    tokenizer = load_tokenizer(model, {"local_files_only": True}, PILOT["load"](model / "config.json").get("eos_token_id"))
+    prepared = {r["id"]: json.loads(r["body"]) for r in PILOT["load"](PILOT["PREPARED"])["requests"]}
+    for row in preview["rows"]:
+        body = prepared[row["id"]]
+        rendered = tokenizer.apply_chat_template(PILOT["messages"](body), tokenize=False, reasoning_effort="none",
+                                                 add_generation_prompt=True)
+        PILOT["check_render"](body, rendered)
+        verify_tokens(tokenizer.encode(rendered, add_special_tokens=False), row)
+    return sha((root / "runtime-lock.json").read_bytes())
 
 
 def execute(root, mode, bundle, frozen_preview, controls_path):
@@ -40,12 +71,7 @@ def execute(root, mode, bundle, frozen_preview, controls_path):
     require(local_check.returncode == 0 and deny_check.returncode == -9, "Sandbox control failed")
     setup = dict(runtime=spec["runtime"], local_control=local_check.returncode, denied_control=deny_check.returncode,
                  tensor_bytes=tensor["bytes"], tensor_sha256=tensor["sha256"], preview_sha256=FROZEN)
-    lock = PILOT["load"](root / "runtime-lock.json")
-    require(lock["runtime_sha"] == spec["runtime"].split("@")[1], "Incorrect runtime source")
-    require(lock["packages"] == sorted([d.metadata["Name"], d.version] for d in importlib.metadata.distributions()),
-            "Installed environment differs from the frozen runtime")
-    PILOT["check_file"](root / "requirements.lock", lock["dependencies_lock_sha256"])
-    setup["runtime_lock_sha256"] = sha((root / "runtime-lock.json").read_bytes())
+    setup["runtime_lock_sha256"] = verify_runtime(root, spec, model, preview)
     out = root / mode
 
     def launch(case):
