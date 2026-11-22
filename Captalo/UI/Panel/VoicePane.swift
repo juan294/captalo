@@ -56,10 +56,7 @@ struct VoiceCardView: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Play a sample of \(card.name)")
-            VStack(alignment: .leading, spacing: 2) {
-                Text(card.name).font(.system(size: 14, weight: .semibold))
-                Text(card.id).font(.system(size: 12, design: .monospaced)).foregroundStyle(theme.textSecondary)
-            }
+            Text(card.name).font(.system(size: 14, weight: .semibold))
             Spacer(minLength: 0)
             if card.inUse {
                 PositiveMark(text: "In use")

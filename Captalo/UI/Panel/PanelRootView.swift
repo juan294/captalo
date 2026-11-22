@@ -99,6 +99,9 @@ struct RailView: View {
         .frame(width: PanelMetrics.railWidth - 1)
         .frame(maxHeight: .infinity)
         .background(theme.rail)
+        // The selected tab shows by its fill. A focus ring stays on the first
+        // rail button after a click moves the selection, so the rail draws none.
+        .focusEffectDisabled()
     }
 
     private func item(_ target: PanelTab, _ title: String, _ symbol: String) -> some View {

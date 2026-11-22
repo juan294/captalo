@@ -434,7 +434,7 @@ class PanelRenderCheckTests(unittest.TestCase):
 
     def render(self, directory):
         for name in panel_render_check.expected_names():
-            (Path(directory) / name).write_bytes(self.png(880, 1040))
+            (Path(directory) / name).write_bytes(self.png(880, 1080))
 
     def run_script(self, directory):
         return subprocess.run([sys.executable, str(SCRIPTS / "panel-render-check"), str(directory)],
@@ -445,7 +445,7 @@ class PanelRenderCheckTests(unittest.TestCase):
             self.render(directory)
             result = self.run_script(directory)
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertIn("16 images at 880x1040", result.stdout)
+            self.assertIn("16 images at 880x1080", result.stdout)
 
     def test_missing_image_fails_and_is_named(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -458,10 +458,10 @@ class PanelRenderCheckTests(unittest.TestCase):
     def test_wrong_size_fails(self):
         with tempfile.TemporaryDirectory() as directory:
             self.render(directory)
-            (Path(directory) / "read-ready-dark.png").write_bytes(self.png(440, 520))
+            (Path(directory) / "read-ready-dark.png").write_bytes(self.png(440, 540))
             result = self.run_script(directory)
             self.assertEqual(result.returncode, 1)
-            self.assertIn("read-ready-dark.png is 440x520, expected 880x1040", result.stderr)
+            self.assertIn("read-ready-dark.png is 440x540, expected 880x1080", result.stderr)
 
     def test_file_that_is_not_a_png_fails(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -474,7 +474,7 @@ class PanelRenderCheckTests(unittest.TestCase):
     def test_unexpected_image_fails(self):
         with tempfile.TemporaryDirectory() as directory:
             self.render(directory)
-            (Path(directory) / "old-fixture-dark.png").write_bytes(self.png(880, 1040))
+            (Path(directory) / "old-fixture-dark.png").write_bytes(self.png(880, 1080))
             result = self.run_script(directory)
             self.assertEqual(result.returncode, 1)
             self.assertIn("unexpected old-fixture-dark.png", result.stderr)
