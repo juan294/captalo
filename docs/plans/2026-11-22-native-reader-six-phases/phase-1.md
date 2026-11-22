@@ -1,0 +1,3 @@
+# 1. Capture the selected passage
+
+Test the canonical capture fixture, then clear the selection and press Read Selection in the idle app. Compare whitespace-normalized content with the fixture, check the foreground application before and after, and compare the clipboard without retaining its contents. Keep the installed Release capture outcome and character count alongside any separately executed adapter comparison. Empty capture should produce no new reading. Start in a dedicated Rex pane and give each remaining app a private local fixture. Never issue Copy or Select All to an unidentified window.
