@@ -10,8 +10,9 @@ extension KeyboardShortcuts.Name {
     /// "Read region" (optional, phase 5). Initial shortcut Control-Option-A (owner decision 13).
     static let readRegion = Self("readRegion", initial: .init(.initialReadRegion))
 
-    /// Optional. Stop is also available from the panel.
-    static let stopReading = Self("stopReading")
+    /// Optional. Stop is also available from the panel. Initial shortcut
+    /// Control-Option-X (owner decision 13).
+    static let stopReading = Self("stopReading", initial: .init(.initialStopReading))
 }
 
 private extension KeyboardShortcuts.Shortcut {

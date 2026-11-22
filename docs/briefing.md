@@ -48,7 +48,7 @@ Decisions in force:
 
 - Built-in voices: Kokoro v1.0 through an upgraded FluidAudio, bundled in the app, English only.
 - Own voice: optional, local clone with Qwen3-TTS 1.7B Base 4-bit as a one-time user-initiated download. No cloud voice service.
-- Interface: background app with no Dock icon; one menu-bar icon that opens the settings panel (owner decision 12, 2026-11-19, replacing the earlier settings window); initial shortcuts Control-Option-S (read selection) and Control-Option-A (read region) that the user can change (owner decision 13, 2026-11-22); silence when nothing is selected; Pronunciation and Stats screens removed.
+- Interface: background app with no Dock icon; one menu-bar icon that opens the settings panel (owner decision 12, 2026-11-19, replacing the earlier settings window); initial shortcuts Control-Option-S (read selection), Control-Option-A (read region) and Control-Option-X (stop reading) that the user can change (owner decision 13, 2026-11-22); silence when nothing is selected; Pronunciation and Stats screens removed.
 - Capture: layered Accessibility reader, then the app's own Copy menu item, then synthetic copy as last resort; a per-app probe comes first. Screen-region OCR with ScreenCaptureKit and `RecognizeDocumentsRequest`.
 - Platform and distribution: macOS 26 minimum; direct download from the owner's site, Developer ID signed and notarized; no App Store or TestFlight; not sandboxed.
 - Identity: own name, team and bundle ID. Recommended `com.thecreativetoken.captalo`; the owner has not yet confirmed the exact string.

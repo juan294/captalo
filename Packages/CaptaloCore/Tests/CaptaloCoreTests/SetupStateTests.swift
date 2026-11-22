@@ -66,12 +66,16 @@ import Testing
         #expect(ShortcutValidation.validate(a, others: []) == .accepted)
     }
 
-    /// Owner decision 13: Control-Option-S and Control-Option-A, in Carbon key codes and modifiers.
-    @Test func initialShortcutsAreControlOptionSAndA() {
+    /// Owner decision 13: Control-Option-S, -A and -X, in Carbon key codes and modifiers.
+    @Test func initialShortcutsAreControlOptionSAAndX() {
         let controlOption = 0x1000 | 0x0800
         #expect(ShortcutBinding.initialReadSelection == ShortcutBinding(keyCode: 0x01, modifiers: controlOption))
         #expect(ShortcutBinding.initialReadRegion == ShortcutBinding(keyCode: 0x00, modifiers: controlOption))
-        #expect(ShortcutValidation.validate(.initialReadSelection, others: [.initialReadRegion]) == .accepted)
+        #expect(ShortcutBinding.initialStopReading == ShortcutBinding(keyCode: 0x07, modifiers: controlOption))
+        let initial: [ShortcutBinding] = [.initialReadSelection, .initialReadRegion, .initialStopReading]
+        for binding in initial {
+            #expect(ShortcutValidation.validate(binding, others: initial.filter { $0 != binding }) == .accepted)
+        }
     }
 }
 

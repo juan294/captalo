@@ -19,6 +19,8 @@ public struct ShortcutBinding: Hashable, Sendable {
     public static let initialReadSelection = ShortcutBinding(keyCode: 0x01, modifiers: controlOption)
     /// Control-Option-A (`kVK_ANSI_A`).
     public static let initialReadRegion = ShortcutBinding(keyCode: 0x00, modifiers: controlOption)
+    /// Control-Option-X (`kVK_ANSI_X`).
+    public static let initialStopReading = ShortcutBinding(keyCode: 0x07, modifiers: controlOption)
 }
 
 public enum ShortcutValidation: Equatable, Sendable {
