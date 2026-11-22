@@ -11,6 +11,7 @@ extension CaptaloAppState {
             speed: speed,
             readShortcut: KeyboardShortcuts.getShortcut(for: .readSelection)?.description,
             regionShortcut: KeyboardShortcuts.getShortcut(for: .readRegion)?.description,
+            stopShortcut: KeyboardShortcuts.getShortcut(for: .stopReading)?.description,
             shortcutRejection: shortcutRejection,
             regionNotice: regionFailureNotice,
             voiceError: lastReadingError,
@@ -32,6 +33,7 @@ extension CaptaloAppState {
             setLaunchAtLogin: { [self] in setLaunchAtLogin($0) },
             openLoginItemsSettings: { [self] in openLoginItemsSettings() },
             shortcutChanged: { [self] in shortcutChanged($0, $1) },
+            stopReading: { [self] in stopReading() },
             quit: { [self] in quit() }
         )
     }

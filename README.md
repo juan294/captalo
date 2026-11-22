@@ -8,6 +8,8 @@ Hear visible text and understand it with less effort. Cáptalo is a local macOS 
 
 Select text and use a shortcut to hear it. For text that cannot be selected, the planned second action is a shortcut plus a dragged screen rectangle, recognized locally. Speech and OCR stay on the Mac. No cloud voice service, floating transcript, subscription or paid reader dependency.
 
+To stop a reading, click **Stop** in the menu-bar panel. You can also record a global **Stop reading** shortcut in the **Read** pane and use it from another app, even after you clear the selection.
+
 The existing foundation supplies Accessibility selection capture with a clipboard fallback, local Kokoro speech through FluidAudio, and playback controls. Voice quality, application compatibility and offline behavior still require runtime acceptance testing.
 
 ## Start here

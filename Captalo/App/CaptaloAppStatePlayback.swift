@@ -2,6 +2,12 @@ import CaptaloCore
 import Foundation
 
 extension CaptaloAppState {
+    func stopReading() {
+        let requests = self.requests
+        let ticket = requests.reserveStop()
+        Task { await requests.stopReading(ticket) }
+    }
+
     /// The gate both shortcuts share. A press while the voice is still being
     /// prepared at launch is ignored (not a failure). The shortcut fired, so it
     /// is set: a failed press means the voice or the Accessibility permission.

@@ -50,7 +50,8 @@ extension CaptaloAppState {
     func playSample(_ name: String) {
         setVoice(name)
         let requests = self.requests
+        let ticket = requests.sampleTicket()
         let spokenName = name.replacingOccurrences(of: "_", with: " ")
-        Task { await requests.play(text: "This is the \(spokenName) voice. Select text and press your shortcut to hear it.") }
+        Task { await requests.play(text: "This is the \(spokenName) voice. Select text and press your shortcut to hear it.", ticket: ticket) }
     }
 }

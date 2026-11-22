@@ -20,6 +20,9 @@ final class CaptaloApplicationDelegate: NSObject, NSApplicationDelegate {
         KeyboardShortcuts.onKeyDown(for: .readRegion) {
             CaptaloAppState.shared.readRegion()
         }
+        KeyboardShortcuts.onKeyDown(for: .stopReading) {
+            CaptaloAppState.shared.stopReading()
+        }
         state.refreshAccessibilityPermission()
         state.prepareVoice()
         // Required setup missing (a voice still checking is pending): open the panel at launch.

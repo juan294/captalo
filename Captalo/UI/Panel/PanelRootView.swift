@@ -15,6 +15,7 @@ struct PanelActions {
     var setLaunchAtLogin: (Bool) -> Void = { _ in }
     var openLoginItemsSettings: () -> Void = {}
     var shortcutChanged: (KeyboardShortcuts.Name, KeyboardShortcuts.Shortcut?) -> Void = { _, _ in }
+    var stopReading: () -> Void = {}
     var quit: () -> Void = {}
 }
 
@@ -29,7 +30,7 @@ struct PanelRootView: View {
     var body: some View {
         let theme = PanelTheme.resolve(scheme)
         HStack(spacing: 0) {
-            RailView(attention: model.attention, tab: $tab, quit: actions.quit)
+            RailView(attention: model.attention, tab: $tab, stopReading: actions.stopReading, quit: actions.quit)
             Rectangle().fill(theme.hairline).frame(width: 1)
             VStack(spacing: 0) {
                 PaneHeader(title: title, pill: model.pill(for: tab))
@@ -68,6 +69,7 @@ struct RailView: View {
     @Environment(\.panelTheme) private var theme
     let attention: Set<PanelTab>
     @Binding var tab: PanelTab
+    let stopReading: () -> Void
     let quit: () -> Void
 
     var body: some View {
@@ -84,6 +86,10 @@ struct RailView: View {
             item(.voice, "Voice", "waveform")
             item(.setup, "Setup", "slider.horizontal.3")
             Spacer(minLength: 0)
+            Button(action: stopReading) { RailLabel(title: "Stop", symbol: "stop.fill", active: false) }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Stop reading")
+                .help("Stop reading")
             Button(action: quit) { RailLabel(title: "Quit", symbol: "power", active: false) }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Quit Cáptalo")

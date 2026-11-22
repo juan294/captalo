@@ -35,6 +35,7 @@ public struct PanelInput: Equatable, Sendable {
     /// The shortcuts as the recorder library describes them ("⌥P"); nil when unset.
     public var readShortcut: String?
     public var regionShortcut: String?
+    public var stopShortcut: String?
     /// Shown instead of the usual shortcut hint after a binding was rejected.
     public var shortcutRejection: String?
     public var regionNotice: String?
@@ -46,7 +47,8 @@ public struct PanelInput: Equatable, Sendable {
 
     public init(
         environment: SetupEnvironment, voices: [String], voice: String, speed: Float,
-        readShortcut: String? = nil, regionShortcut: String? = nil, shortcutRejection: String? = nil,
+        readShortcut: String? = nil, regionShortcut: String? = nil, stopShortcut: String? = nil,
+        shortcutRejection: String? = nil,
         regionNotice: String? = nil, voiceError: String? = nil,
         loginItem: LoginItemRow = .make(status: .notRegistered), screenRecordingRequested: Bool = false
     ) {
@@ -56,6 +58,7 @@ public struct PanelInput: Equatable, Sendable {
         self.speed = speed
         self.readShortcut = readShortcut
         self.regionShortcut = regionShortcut
+        self.stopShortcut = stopShortcut
         self.shortcutRejection = shortcutRejection
         self.regionNotice = regionNotice
         self.voiceError = voiceError
@@ -78,6 +81,7 @@ public struct SpeedStep: Equatable, Sendable {
 public struct ReadPaneModel: Equatable, Sendable {
     public let selection: ShortcutSlot
     public let region: ShortcutSlot
+    public let stop: ShortcutSlot
     /// Always shown: the library does not report a shortcut another app took (notes D34).
     public let shortcutNotice: String
     public let voiceError: String?
@@ -184,12 +188,13 @@ public struct PanelModel: Equatable, Sendable {
 
     private static func readPane(_ input: PanelInput) -> ReadPaneModel {
         let notice = input.shortcutRejection ?? (input.environment.readShortcutSet
-            ? "If this shortcut does nothing, another app may use it; choose another."
+            ? "If a shortcut does nothing, another app may use it. Choose another."
             : "Choose a shortcut to read the selected text: click Record, then hold ⌘, ⌥ or ⌃ and press a key.")
         let selected = ReadingPreferences.snap(input.speed)
         return ReadPaneModel(
             selection: ShortcutSlot(keycaps: ShortcutKeycaps.labels(description: input.readShortcut)),
             region: ShortcutSlot(keycaps: ShortcutKeycaps.labels(description: input.regionShortcut)),
+            stop: ShortcutSlot(keycaps: ShortcutKeycaps.labels(description: input.stopShortcut)),
             shortcutNotice: notice,
             voiceError: input.voiceError,
             regionNotice: input.regionNotice,

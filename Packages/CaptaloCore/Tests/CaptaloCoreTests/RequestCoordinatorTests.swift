@@ -144,6 +144,72 @@ import Testing
         #expect(log.events == ["start 1:one", "stop 1:one"])
     }
 
+    @Test(arguments: [InputKind.selection, .region])
+    func stopReadingSilencesBeforePendingInputFinishes(kind: InputKind) async {
+        let log = EventLog()
+        let coordinator = makeCoordinator(log: log)
+        await coordinator.play(text: "Reading.")
+        let entered = Gate()
+        let release = Gate()
+        _ = await coordinator.submit(coordinator.reservePress(), kind: kind, source: sourceA) { _ in
+            await entered.open()
+            await release.wait()
+            if Task.isCancelled { log.append("cleanup") }
+            return kind == .region ? .document([.paragraph("Old")]) : .text("Old", layer: .menuCopy)
+        }
+        await entered.wait()
+        await coordinator.stopReading(coordinator.reserveStop())
+        #expect(log.events == ["start 1:Reading.", "stop 1:Reading."])
+        await release.open()
+        await coordinator.waitForIdle()
+        #expect(log.events == ["start 1:Reading.", "stop 1:Reading.", "cleanup"])
+    }
+
+    @Test func lateStopPreservesOnlyNewerPlayback() async {
+        let log = EventLog()
+        let coordinator = makeCoordinator(log: log)
+        let old = coordinator.reservePress()
+        let stop = coordinator.reserveStop()
+        let newer = await coordinator.beginInput(kind: .selection, source: sourceA)
+        _ = await coordinator.resolve(newer, .text("New", layer: .accessibility))
+        await coordinator.stopReading(stop)
+        _ = await coordinator.submit(old, kind: .region, source: sourceB) { _ in
+            Issue.record("A stopped input ran"); return .cancelled
+        }
+        #expect(log.events == ["start 1:New"])
+        await coordinator.stopReading(coordinator.reserveStop())
+        await coordinator.stopReading(coordinator.reserveStop())
+        #expect(log.events == ["start 1:New", "stop 1:New"])
+    }
+
+    @Test func readSameTextAfterStopRestartsEvenIfStopArrivesLate() async {
+        let log = EventLog()
+        let coordinator = makeCoordinator(log: log)
+        let old = await coordinator.beginInput(kind: .selection, source: sourceA)
+        _ = await coordinator.resolve(old, .text("Same", layer: .accessibility))
+        let stop = coordinator.reserveStop()
+        let newer = await coordinator.beginInput(kind: .selection, source: sourceA)
+        _ = await coordinator.resolve(newer, .text("Same", layer: .accessibility))
+        await coordinator.stopReading(stop)
+        #expect(log.events == ["start 1:Same", "stop 1:Same", "start 2:Same"])
+        #expect(await coordinator.currentSession != nil)
+    }
+
+    @Test func stopRespectsSampleClickOrderAndNewPendingRead() async {
+        let log = EventLog()
+        let coordinator = makeCoordinator(log: log)
+        let oldSample = coordinator.sampleTicket()
+        let stop = coordinator.reserveStop()
+        await coordinator.play(text: "Old sample", ticket: oldSample)
+        await coordinator.play(text: "New sample", ticket: coordinator.sampleTicket())
+        await coordinator.stopReading(stop)
+        let nextStop = coordinator.reserveStop()
+        let newer = await coordinator.beginInput(kind: .selection, source: sourceA)
+        await coordinator.stopReading(nextStop)
+        _ = await coordinator.resolve(newer, .text("New selection", layer: .accessibility))
+        #expect(log.events == ["start 1:New sample", "stop 1:New sample", "start 2:New selection"])
+    }
+
     /// Promote A suspends while the old session stops; promote B wins in the
     /// meantime. A must never start, and B must not be stopped by A.
     @Test func interleavedPromotionsNeverStartAStaleHandle() async {

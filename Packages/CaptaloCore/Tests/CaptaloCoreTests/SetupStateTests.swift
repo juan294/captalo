@@ -61,9 +61,9 @@ import Testing
 @Suite struct ShortcutValidationTests {
     @Test func identicalBindingsRejected() {
         let a = ShortcutBinding(keyCode: 15, modifiers: 256)
-        #expect(ShortcutValidation.validate(a, other: a) == .identicalToOther)
-        #expect(ShortcutValidation.validate(a, other: ShortcutBinding(keyCode: 15, modifiers: 768)) == .accepted)
-        #expect(ShortcutValidation.validate(a, other: nil) == .accepted)
+        #expect(ShortcutValidation.validate(a, others: [ShortcutBinding(keyCode: 14, modifiers: 256), a]) == .identicalToOther)
+        #expect(ShortcutValidation.validate(a, others: [ShortcutBinding(keyCode: 15, modifiers: 768)]) == .accepted)
+        #expect(ShortcutValidation.validate(a, others: []) == .accepted)
     }
 }
 

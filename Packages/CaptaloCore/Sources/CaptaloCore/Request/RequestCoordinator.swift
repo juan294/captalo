@@ -28,6 +28,7 @@ public actor RequestCoordinator {
 
     private struct Playing {
         let token: SessionToken
+        let inputGeneration: UInt64
         let identity: ReadingIdentity
         let handle: any PlaybackSession
     }
@@ -35,7 +36,8 @@ public actor RequestCoordinator {
     private let makeSession: SessionFactory
     /// The newest reserved press. Reserved synchronously when a shortcut
     /// fires, so the order of presses is the order of reservations.
-    private let reserved = Mutex<UInt64>(0)
+    private let presses = Mutex((latest: UInt64(0), lastStop: UInt64(0)))
+    private var lastStopGeneration: UInt64 { presses.withLock { $0.lastStop } }
     private var sessionGeneration: UInt64 = 0
     /// Owned input tasks by generation; the current generation's task is the pending input.
     private var inFlight: [UInt64: Task<Void, Never>] = [:]
@@ -49,7 +51,7 @@ public actor RequestCoordinator {
     public var currentSession: SessionToken? { playing?.token }
 
     public func isCurrent(_ token: InputToken) -> Bool {
-        !isShutDown && token.inputGeneration == reserved.withLock { $0 }
+        !isShutDown && token.inputGeneration == presses.withLock { $0.latest }
     }
 
     public func isCurrent(_ token: SessionToken) -> Bool {
@@ -60,7 +62,24 @@ public actor RequestCoordinator {
     /// shortcut fires, before any source lookup: it supersedes the pending
     /// input at once (`isCurrent` turns false for it).
     public nonisolated func reservePress() -> PressTicket {
-        PressTicket(inputGeneration: reserved.withLock { $0 += 1; return $0 })
+        presses.withLock {
+            $0.latest += 1
+            return PressTicket(inputGeneration: $0.latest)
+        }
+    }
+
+    /// A Stop supersedes capture at the key press, even if actor work runs later.
+    public nonisolated func reserveStop() -> PressTicket {
+        presses.withLock {
+            $0.latest += 1
+            $0.lastStop = $0.latest
+            return PressTicket(inputGeneration: $0.latest)
+        }
+    }
+
+    /// Samples share the current press order without superseding pending capture.
+    public nonisolated func sampleTicket() -> PressTicket {
+        PressTicket(inputGeneration: presses.withLock { $0.latest })
     }
 
     /// Starts a new pending input and cancels the older one. Never touches the session.
@@ -68,8 +87,12 @@ public actor RequestCoordinator {
         begin(reservePress(), kind: kind, source: source)
     }
 
-    private func begin(_ ticket: PressTicket, kind: InputKind, source: InputSource) -> InputToken {
+    private func cancelInputs(before ticket: PressTicket) {
         for (generation, task) in inFlight where generation < ticket.inputGeneration { task.cancel() }
+    }
+
+    private func begin(_ ticket: PressTicket, kind: InputKind, source: InputSource) -> InputToken {
+        cancelInputs(before: ticket)
         return InputToken(inputGeneration: ticket.inputGeneration, kind: kind, source: source, startedAt: .now)
     }
 
@@ -84,7 +107,7 @@ public actor RequestCoordinator {
         source: InputSource,
         capture: @escaping @Sendable (InputToken) async -> CaptureOutcome
     ) -> InputToken? {
-        guard !isShutDown, ticket.inputGeneration == reserved.withLock({ $0 }) else { return nil }
+        guard !isShutDown, ticket.inputGeneration == presses.withLock({ $0.latest }) else { return nil }
         let token = begin(ticket, kind: kind, source: source)
         let task = Task { [weak self] in
             let outcome = await capture(token)
@@ -111,11 +134,11 @@ public actor RequestCoordinator {
         switch (token.kind, outcome) {
         case let (.selection, .text(text, _)):
             let identity = ReadingIdentity(capturedText: text)
-            if let playing, playing.identity == identity {
+            if let playing, playing.inputGeneration >= lastStopGeneration, playing.identity == identity {
                 await stopPlaying()
                 return .stopped
             }
-            return await promote(.text(text), identity: identity)
+            return await promote(.text(text), identity: identity, generation: token.inputGeneration)
         case (.selection, .nothingSelected):
             guard playing != nil else { return .unchanged }
             await stopPlaying()
@@ -123,7 +146,7 @@ public actor RequestCoordinator {
         case let (.region, .document(blocks)):
             // Only a successful recognition replaces the reading; a region press never stops one.
             let content = ReadingContent.document(blocks)
-            return await promote(content, identity: ReadingIdentity(capturedText: content.plainText))
+            return await promote(content, identity: ReadingIdentity(capturedText: content.plainText), generation: token.inputGeneration)
         default:
             return .unchanged
         }
@@ -140,11 +163,22 @@ public actor RequestCoordinator {
     /// Starts a reading of app-provided text (the voice sample). It is not a
     /// capture: it replaces any reading, is never a stop gesture, and leaves
     /// a pending input untouched.
-    public func play(text: String) async {
-        _ = await promote(.text(text), identity: ReadingIdentity(capturedText: text))
+    public func play(text: String, ticket: PressTicket? = nil) async {
+        let ticket = ticket ?? sampleTicket()
+        guard !isShutDown, ticket.inputGeneration >= lastStopGeneration else { return }
+        _ = await promote(.text(text), identity: ReadingIdentity(capturedText: text), generation: ticket.inputGeneration)
     }
 
-    /// An explicit stop (inherited menu control). Pending input is untouched.
+    /// Cancel older capture without waiting for clipboard or OCR cleanup. A
+    /// later press can already be playing when this stop reaches the actor.
+    public func stopReading(_ ticket: PressTicket) async {
+        cancelInputs(before: ticket)
+        if let playing, playing.inputGeneration < ticket.inputGeneration {
+            await stopPlaying()
+        }
+    }
+
+    /// Voice repair stops only playback; its pending input is untouched.
     public func stopSession() async {
         await stopPlaying()
     }
@@ -165,11 +199,11 @@ public actor RequestCoordinator {
         }
     }
 
-    private func promote(_ content: ReadingContent, identity: ReadingIdentity) async -> Resolution {
+    private func promote(_ content: ReadingContent, identity: ReadingIdentity, generation: UInt64) async -> Resolution {
         sessionGeneration += 1
         let token = SessionToken(sessionGeneration: sessionGeneration)
         let handle = makeSession(token, content) { [weak self] in await self?.sessionFinished(token) ?? false }
-        let new = Playing(token: token, identity: identity, handle: handle)
+        let new = Playing(token: token, inputGeneration: generation, identity: identity, handle: handle)
         let old = playing
         playing = new
         await old?.handle.stop()

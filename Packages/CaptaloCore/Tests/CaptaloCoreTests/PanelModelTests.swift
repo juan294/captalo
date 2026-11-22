@@ -2,7 +2,7 @@ import Testing
 @testable import CaptaloCore
 
 @Suite struct PanelModelTests {
-    /// Everything set up: voice ready, both permissions, both shortcuts.
+    /// Ready to read with both capture shortcuts assigned.
     static let ready = PanelInput(
         environment: SetupEnvironment(
             voice: .ready, accessibilityTrusted: true, readShortcutSet: true,
@@ -102,9 +102,16 @@ import Testing
         ])
     }
 
+    @Test func stopShortcutIsOptionalAndReflectsTheSavedBinding() {
+        let unassigned = model()
+        #expect(unassigned.read.stop.keycaps.isEmpty)
+        #expect(unassigned.attention.isEmpty)
+        #expect(model { $0.stopShortcut = "⌃S" }.read.stop.keycaps == ["⌃", "S"])
+    }
+
     @Test func readShortcutNoticeVariants() {
         let set = model()
-        #expect(set.read.shortcutNotice == "If this shortcut does nothing, another app may use it; choose another.")
+        #expect(set.read.shortcutNotice == "If a shortcut does nothing, another app may use it. Choose another.")
         #expect(set.read.selection.keycaps == ["⌥", "P"])
 
         let unset = model { $0.environment.readShortcutSet = false; $0.readShortcut = nil }
@@ -115,7 +122,7 @@ import Testing
         #expect(unset.attention == [.read])
 
         // The app clears a rejected read shortcut, so the rejection arrives with the shortcut unset.
-        let rejection = "That shortcut is already used by Cáptalo's other shortcut; choose another."
+        let rejection = "Cáptalo already uses that shortcut. Choose another."
         let rejected = model {
             $0.environment.readShortcutSet = false
             $0.readShortcut = nil

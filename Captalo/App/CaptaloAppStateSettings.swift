@@ -38,21 +38,20 @@ extension CaptaloAppState {
 
     // MARK: Shortcut
 
-    /// Rejects a binding identical to the other Cáptalo shortcut, for either recorder.
+    /// Rejects bindings already assigned to another Cáptalo action.
     func shortcutChanged(_ name: KeyboardShortcuts.Name, _ shortcut: KeyboardShortcuts.Shortcut?) {
         var rejection: String?
-        if let shortcut, let other = KeyboardShortcuts.getShortcut(for: otherName(than: name)),
-           ShortcutValidation.validate(Self.binding(shortcut), other: Self.binding(other)) == .identicalToOther {
+        let names: [KeyboardShortcuts.Name] = [.readSelection, .readRegion, .stopReading]
+        let others = names.filter { $0 != name }
+            .compactMap { KeyboardShortcuts.getShortcut(for: $0) }
+            .map(Self.binding)
+        if let shortcut, ShortcutValidation.validate(Self.binding(shortcut), others: others) == .identicalToOther {
             KeyboardShortcuts.setShortcut(nil, for: name)
-            rejection = "That shortcut is already used by Cáptalo's other shortcut; choose another."
+            rejection = "Cáptalo already uses that shortcut. Choose another."
         }
         shortcutRejection = rejection
         readShortcutSet = KeyboardShortcuts.getShortcut(for: .readSelection) != nil
         regionShortcutSet = KeyboardShortcuts.getShortcut(for: .readRegion) != nil
-    }
-
-    func otherName(than name: KeyboardShortcuts.Name) -> KeyboardShortcuts.Name {
-        name == .readSelection ? .readRegion : .readSelection
     }
 
     static func binding(_ shortcut: KeyboardShortcuts.Shortcut) -> ShortcutBinding {

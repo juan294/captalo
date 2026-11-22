@@ -8,4 +8,7 @@ extension KeyboardShortcuts.Name {
 extension KeyboardShortcuts.Name {
     /// "Read region" (optional, phase 5). No default.
     static let readRegion = Self("readRegion")
+
+    /// Optional. Stop is also available from the panel.
+    static let stopReading = Self("stopReading")
 }

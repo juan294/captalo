@@ -11,12 +11,12 @@ public struct ShortcutBinding: Hashable, Sendable {
 
 public enum ShortcutValidation: Equatable, Sendable {
     case accepted
-    /// The binding is identical to the other Cáptalo shortcut.
+    /// The binding is already used by another Cáptalo shortcut.
     case identicalToOther
 
     /// The recorder's own checks cover system shortcuts and the app's menu
     /// only; this adds the one rule Cáptalo owns.
-    public static func validate(_ candidate: ShortcutBinding, other: ShortcutBinding?) -> ShortcutValidation {
-        candidate == other ? .identicalToOther : .accepted
+    public static func validate(_ candidate: ShortcutBinding, others: [ShortcutBinding]) -> ShortcutValidation {
+        others.contains(candidate) ? .identicalToOther : .accepted
     }
 }

@@ -13,7 +13,7 @@ struct PanelFixture {
             screenRecordingGranted: true, regionShortcutSet: true
         ),
         voices: ["af_heart", "af_bella"], voice: "af_heart", speed: 1.0,
-        readShortcut: "⌥P", regionShortcut: "⌥O", loginItem: .make(status: .enabled)
+        readShortcut: "⌥P", regionShortcut: "⌥O", stopShortcut: "⌥S", loginItem: .make(status: .enabled)
     )
 
     private static func changed(_ change: (inout PanelInput) -> Void) -> PanelInput {
@@ -36,13 +36,14 @@ struct PanelFixture {
             $0.environment.regionShortcutSet = false
             $0.readShortcut = nil
             $0.regionShortcut = nil
+            $0.stopShortcut = nil
         }),
         // Every notice at once, each with its longest text (stuck states 7 and 10).
         PanelFixture(name: "read-all-notices", tab: .read, input: changed {
             $0.environment.readShortcutSet = false
             $0.environment.lastReadingError = true
             $0.readShortcut = nil
-            $0.shortcutRejection = "That shortcut is already used by Cáptalo's other shortcut; choose another."
+            $0.shortcutRejection = "Cáptalo already uses that shortcut. Choose another."
             $0.voiceError = "The last reading stopped because of a voice error."
             $0.regionNotice = "The screenshot for the last region reading did not arrive. If macOS asks whether Cáptalo may access your screen, answer it first: region presses do nothing until you do. Then press the region shortcut again."
         }),

@@ -2,7 +2,7 @@ import CaptaloCore
 import KeyboardShortcuts
 import SwiftUI
 
-/// The Read pane: both shortcuts, the speed, and the voice in use.
+/// The Read pane: reading shortcuts, the speed, and the voice in use.
 struct ReadPane: View {
     @Environment(\.panelTheme) private var theme
     let model: ReadPaneModel
@@ -20,6 +20,10 @@ struct ReadPane: View {
                 ShortcutCard(
                     symbol: "viewfinder", title: "Read region", caption: "Press, then drag on screen",
                     name: .readRegion, slot: model.region, changed: actions.shortcutChanged
+                )
+                ShortcutCard(
+                    symbol: "stop.fill", title: "Stop reading", caption: "Stop from any app",
+                    name: .stopReading, slot: model.stop, changed: actions.shortcutChanged
                 )
                 if let notice = model.regionNotice { NoticeRow(text: notice) }
                 Text(model.shortcutNotice)
