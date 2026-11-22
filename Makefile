@@ -156,5 +156,5 @@ clipboard-sentinel:
 
 capture-pdf:
 	@mkdir -p .local/fixtures
-	cupsfilter Fixtures/capture-matrix.txt > .local/fixtures/capture-matrix.pdf 2>/dev/null
+	set -o pipefail; fold -s -w 68 Fixtures/capture-matrix.txt | cupsfilter -i text/plain - > .local/fixtures/capture-matrix.pdf 2>/dev/null
 	@echo ".local/fixtures/capture-matrix.pdf"
