@@ -21,15 +21,13 @@ struct SetupPane: View {
                     }
                     .padding(14)
                     .panelCard(border: theme.attentionBorder, lineWidth: 1.5)
-                    PermissionRowView(row: model.screenRecording, primary: actions.requestScreenRecording,
-                                      secondary: actions.quitAndReopen)
+                    PermissionRowView(row: model.screenRecording, primary: actions.requestScreenRecording)
                         .panelCard()
                 } else {
                     VStack(spacing: 0) {
                         PermissionRowView(row: model.accessibility, primary: actions.openAccessibilitySettings)
                         Rectangle().fill(theme.cardBorder).frame(height: 1).padding(.horizontal, 14)
-                        PermissionRowView(row: model.screenRecording, primary: actions.requestScreenRecording,
-                                          secondary: actions.quitAndReopen)
+                        PermissionRowView(row: model.screenRecording, primary: actions.requestScreenRecording)
                     }
                     .panelCard()
                 }
@@ -62,23 +60,17 @@ struct SetupPane: View {
 struct PermissionRowView: View {
     let row: PermissionRow
     let primary: () -> Void
-    var secondary: () -> Void = {}
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 12) {
-                RowText(title: row.title, detail: row.detail)
-                switch row.state {
-                case .allowed:
-                    PositiveMark(text: "Allowed")
-                case let .action(label):
-                    Button(label, action: primary)
-                        .buttonStyle(SecondaryPanelButtonStyle())
-                        .accessibilityLabel("\(label) \(row.title)")
-                }
-            }
-            if let label = row.secondaryAction {
-                Button(label, action: secondary).buttonStyle(SecondaryPanelButtonStyle())
+        HStack(spacing: 12) {
+            RowText(title: row.title, detail: row.detail)
+            switch row.state {
+            case .allowed:
+                PositiveMark(text: "Allowed")
+            case let .action(label):
+                Button(label, action: primary)
+                    .buttonStyle(SecondaryPanelButtonStyle())
+                    .accessibilityLabel("\(label) \(row.title)")
             }
         }
         .padding(.horizontal, 14)

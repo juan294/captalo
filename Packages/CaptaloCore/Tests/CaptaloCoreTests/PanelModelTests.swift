@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import CaptaloCore
 
@@ -132,23 +133,41 @@ import Testing
         #expect(model { $0.shortcutRejection = rejection }.read.shortcutNotice == rejection)
     }
 
-    @Test func screenRecordingRequestedOffersReopen() {
+    @Test func previouslyRequestedRegionAccessDoesNotRedirectSelectionReaders() throws {
+        let domain = "CaptaloTests-" + UUID().uuidString
+        let defaults = try #require(UserDefaults(suiteName: domain))
+        defer { defaults.removePersistentDomain(forName: domain) }
+        var request = ScreenRecordingRequest(defaults: defaults)
+        #expect(request == .never)
+        request.record(in: defaults)
+        #expect(request == .thisLaunch)
+        let restored = ScreenRecordingRequest(defaults: defaults)
+        #expect(restored == .previousLaunch)
+        let reopened = model {
+            $0.environment.screenRecordingGranted = false
+            $0.screenRecordingRequest = restored
+        }
+        #expect(reopened.initialTab == .read)
+        #expect(reopened.attention.isEmpty)
+        #expect(reopened.setup.screenRecording.state == .action(label: "Open Settings"))
+        #expect(reopened.pill(for: .setup) == PanelPill(text: "Region access off", kind: .neutral))
+    }
+
+    @Test func screenRecordingRecoveryOffersSettings() {
         let missing = model { $0.environment.screenRecordingGranted = false }.setup.screenRecording
         #expect(missing.state == .action(label: "Allow"))
-        #expect(missing.secondaryAction == nil)
         #expect(missing.detail == "Optional. Only for Read region")
 
         let requested = model {
             $0.environment.screenRecordingGranted = false
-            $0.screenRecordingRequested = true
+            $0.screenRecordingRequest = .thisLaunch
         }.setup.screenRecording
-        #expect(requested.state == .action(label: "Allow"))
-        #expect(requested.detail == "If you allowed it and region reading still does nothing, macOS needs Cáptalo to reopen.")
-        #expect(requested.secondaryAction == "Quit and reopen")
+        #expect(requested.state == .action(label: "Open Settings"))
+        #expect(requested.detail == "Turn on Cáptalo in Screen & System Audio Recording.")
+        #expect(requested.needsAttention)
 
-        let granted = model { $0.screenRecordingRequested = true }.setup.screenRecording
+        let granted = model { $0.screenRecordingRequest = .thisLaunch }.setup.screenRecording
         #expect(granted.state == .allowed)
-        #expect(granted.secondaryAction == nil)
     }
 
     /// A region press without Screen Recording opens the panel (owner decision 8):
@@ -156,15 +175,15 @@ import Testing
     @Test func requestedScreenRecordingOpensSetup() {
         let requested = model {
             $0.environment.screenRecordingGranted = false
-            $0.screenRecordingRequested = true
+            $0.screenRecordingRequest = .thisLaunch
         }
         #expect(requested.initialTab == .setup)
         #expect(requested.attention == [.setup])
-        // Optional: the reader stays ready and Setup has no step left.
+        // Reading selections remains available while region access needs attention.
         #expect(requested.pill(for: .read) == PanelPill(text: "Ready", kind: .positive))
-        #expect(requested.pill(for: .setup) == PanelPill(text: "All set", kind: .positive))
+        #expect(requested.pill(for: .setup) == PanelPill(text: "1 step left", kind: .neutral))
 
-        let granted = model { $0.screenRecordingRequested = true }
+        let granted = model { $0.screenRecordingRequest = .thisLaunch }
         #expect(granted.initialTab == .read)
         #expect(granted.attention.isEmpty)
 
@@ -172,7 +191,7 @@ import Testing
         let voiceFirst = model {
             $0.environment.voice = .damaged
             $0.environment.screenRecordingGranted = false
-            $0.screenRecordingRequested = true
+            $0.screenRecordingRequest = .thisLaunch
         }
         #expect(voiceFirst.initialTab == .voice)
         #expect(voiceFirst.attention == [.voice, .setup])

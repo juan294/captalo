@@ -16,7 +16,7 @@ extension CaptaloAppState {
             regionNotice: regionFailureNotice,
             voiceError: lastReadingError,
             loginItem: loginItem,
-            screenRecordingRequested: screenRecordingRequested
+            screenRecordingRequest: screenRecordingRequest
         )
     }
 
@@ -29,7 +29,6 @@ extension CaptaloAppState {
             repairVoice: { [self] in reinstallVoice() },
             openAccessibilitySettings: { [self] in openAccessibilitySettings() },
             requestScreenRecording: { [self] in requestScreenRecording() },
-            quitAndReopen: { [self] in quitAndReopen() },
             setLaunchAtLogin: { [self] in setLaunchAtLogin($0) },
             openLoginItemsSettings: { [self] in openLoginItemsSettings() },
             shortcutChanged: { [self] in shortcutChanged($0, $1) },

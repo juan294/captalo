@@ -12,9 +12,11 @@ extension CaptaloAppState {
         refreshScreenRecording()
         if SetupState.regionPressRequirement(setupEnvironment) == .screenRecording {
             // Requested only from a region press or the settings row (owner decision 8).
-            if !screenRecordingRequested { requestScreenRecording() }
-            onSetupRequired?()
-            return
+            requestScreenRecording(openSettingsIfRequested: false)
+            if !screenRecordingGranted {
+                onSetupRequired?()
+                return
+            }
         }
         let reader = regionReader
         let overlay = RegionOverlayController()
@@ -81,21 +83,17 @@ extension CaptaloAppState {
         if granted != screenRecordingGranted { screenRecordingGranted = granted }
     }
 
-    /// The settings row's button.
-    func requestScreenRecording() {
-        screenRecordingRequested = true
-        CGRequestScreenCaptureAccess()
-        refreshScreenRecording()
-    }
-
-    /// macOS may apply a new Screen Recording grant only after a relaunch.
-    func quitAndReopen() {
-        let path = Bundle.main.bundlePath
-        let relaunch = Process()
-        relaunch.executableURL = URL(fileURLWithPath: "/bin/sh")
-        relaunch.arguments = ["-c", "sleep 1; /usr/bin/open \"$0\"", path]
-        try? relaunch.run()
-        quit()
+    func requestScreenRecording(openSettingsIfRequested: Bool = true) {
+        guard !screenRecordingGranted else { return }
+        let firstRequest = screenRecordingRequest == .never
+        screenRecordingRequest.record(in: defaults)
+        if firstRequest {
+            CGRequestScreenCaptureAccess()
+            refreshScreenRecording()
+        } else if openSettingsIfRequested,
+                  let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
+            NSWorkspace.shared.open(url)
+        }
     }
 
     nonisolated static func makeRegionReader(requests: RequestCoordinator) -> RegionReader {

@@ -50,7 +50,7 @@ struct PanelFixture {
         PanelFixture(name: "voice-damaged", tab: .voice, input: changed { $0.environment.voice = .damaged }),
         PanelFixture(name: "setup-recording-requested", tab: .setup, input: changed {
             $0.environment.screenRecordingGranted = false
-            $0.screenRecordingRequested = true
+            $0.screenRecordingRequest = .thisLaunch
             $0.loginItem = .make(status: .requiresApproval)
         }),
     ]

@@ -1,3 +1,21 @@
+import Foundation
+
+/// Request history guides recovery. The actual permission always comes from macOS.
+public enum ScreenRecordingRequest: Equatable, Sendable {
+    case never, previousLaunch, thisLaunch
+
+    private static let key = "screenRecordingRequested"
+
+    public init(defaults: UserDefaults) {
+        self = defaults.bool(forKey: Self.key) ? .previousLaunch : .never
+    }
+
+    public mutating func record(in defaults: UserDefaults) {
+        if self == .never { defaults.set(true, forKey: Self.key) }
+        self = .thisLaunch
+    }
+}
+
 /// Setup items in the settings panel (plan phase 4; owner decision 8).
 public enum SetupItem: String, Sendable, CaseIterable {
     case voice

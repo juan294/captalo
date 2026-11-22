@@ -42,15 +42,15 @@ public struct PanelInput: Equatable, Sendable {
     /// "The last reading stopped because of a voice error." until the next reading.
     public var voiceError: String?
     public var loginItem: LoginItemRow
-    /// Screen Recording was requested once; the row then offers "Quit and reopen".
-    public var screenRecordingRequested: Bool
+    /// Used to offer the right permission action and focus the active request.
+    public var screenRecordingRequest: ScreenRecordingRequest
 
     public init(
         environment: SetupEnvironment, voices: [String], voice: String, speed: Float,
         readShortcut: String? = nil, regionShortcut: String? = nil, stopShortcut: String? = nil,
         shortcutRejection: String? = nil,
         regionNotice: String? = nil, voiceError: String? = nil,
-        loginItem: LoginItemRow = .make(status: .notRegistered), screenRecordingRequested: Bool = false
+        loginItem: LoginItemRow = .make(status: .notRegistered), screenRecordingRequest: ScreenRecordingRequest = .never
     ) {
         self.environment = environment
         self.voices = voices
@@ -63,7 +63,7 @@ public struct PanelInput: Equatable, Sendable {
         self.regionNotice = regionNotice
         self.voiceError = voiceError
         self.loginItem = loginItem
-        self.screenRecordingRequested = screenRecordingRequested
+        self.screenRecordingRequest = screenRecordingRequest
     }
 }
 
@@ -114,8 +114,7 @@ public struct PermissionRow: Equatable, Sendable {
     public let title: String
     public let detail: String
     public let state: State
-    public let secondaryAction: String?
-    /// A required permission is missing: the row is the panel's call to action.
+    /// The permission needs attention in Setup.
     public let needsAttention: Bool
 }
 
@@ -154,8 +153,15 @@ public struct PanelModel: Equatable, Sendable {
         if input.voiceError != nil || input.regionNotice != nil { attention.insert(.read) }
         // A region press without Screen Recording opens the panel (owner
         // decision 8): its row, on Setup, must then be what the user sees.
-        let screenRecordingAsked = input.screenRecordingRequested && !env.screenRecordingGranted
+        let screenRecordingAsked = input.screenRecordingRequest == .thisLaunch && !env.screenRecordingGranted
         if screenRecordingAsked { attention.insert(.setup) }
+        let setupPill: PanelPill = switch (env.accessibilityTrusted, screenRecordingAsked) {
+        case (true, false) where !env.screenRecordingGranted && input.screenRecordingRequest == .previousLaunch:
+            PanelPill(text: "Region access off", kind: .neutral)
+        case (true, false): PanelPill(text: "All set", kind: .positive)
+        case (false, true): PanelPill(text: "2 steps left", kind: .neutral)
+        default: PanelPill(text: "1 step left", kind: .neutral)
+        }
         return PanelModel(
             attention: attention,
             initialTab: missingTabs.first ?? (screenRecordingAsked ? .setup : .read),
@@ -164,8 +170,7 @@ public struct PanelModel: Equatable, Sendable {
             setup: setupPane(input),
             readPill: setup.isReady ? PanelPill(text: "Ready", kind: .positive) : PanelPill(text: "Needs setup", kind: .neutral),
             voicePill: voicePill(env.voice),
-            setupPill: env.accessibilityTrusted
-                ? PanelPill(text: "All set", kind: .positive) : PanelPill(text: "1 step left", kind: .neutral)
+            setupPill: setupPill
         )
     }
 
@@ -219,20 +224,20 @@ public struct PanelModel: Equatable, Sendable {
         let env = input.environment
         let accessibility = env.accessibilityTrusted
             ? PermissionRow(title: "Accessibility", detail: "Lets Cáptalo read the text you select",
-                            state: .allowed, secondaryAction: nil, needsAttention: false)
+                            state: .allowed, needsAttention: false)
             : PermissionRow(title: "Accessibility",
                             detail: "Cáptalo cannot read your selection until you allow this in System Settings.",
-                            state: .action(label: "Open Accessibility Settings"), secondaryAction: nil, needsAttention: true)
+                            state: .action(label: "Open Accessibility Settings"), needsAttention: true)
         let optional = "Optional. Only for Read region"
         let screenRecording: PermissionRow = if env.screenRecordingGranted {
-            PermissionRow(title: "Screen Recording", detail: optional, state: .allowed, secondaryAction: nil, needsAttention: false)
-        } else if input.screenRecordingRequested {
+            PermissionRow(title: "Screen Recording", detail: optional, state: .allowed, needsAttention: false)
+        } else if input.screenRecordingRequest != .never {
             PermissionRow(title: "Screen Recording",
-                          detail: "If you allowed it and region reading still does nothing, macOS needs Cáptalo to reopen.",
-                          state: .action(label: "Allow"), secondaryAction: "Quit and reopen", needsAttention: false)
+                          detail: "Turn on Cáptalo in Screen & System Audio Recording.",
+                          state: .action(label: "Open Settings"), needsAttention: true)
         } else {
             PermissionRow(title: "Screen Recording", detail: optional, state: .action(label: "Allow"),
-                          secondaryAction: nil, needsAttention: false)
+                          needsAttention: false)
         }
         return SetupPaneModel(accessibility: accessibility, screenRecording: screenRecording, loginItem: input.loginItem)
     }

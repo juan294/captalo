@@ -24,8 +24,7 @@ final class CaptaloAppState: ObservableObject {
     @Published var readShortcutSet = KeyboardShortcuts.getShortcut(for: .readSelection) != nil
     @Published var regionShortcutSet = KeyboardShortcuts.getShortcut(for: .readRegion) != nil
     @Published var screenRecordingGranted = CGPreflightScreenCaptureAccess()
-    /// Screen Recording was requested once; after that the row offers "Quit and reopen".
-    @Published var screenRecordingRequested = false
+    @Published var screenRecordingRequest: ScreenRecordingRequest
     @Published var ocrFailures = OcrFailureCounter()
     /// "The last reading stopped because of a voice error." until the next reading.
     @Published var lastReadingError: String?
@@ -93,6 +92,7 @@ final class CaptaloAppState: ObservableObject {
 
     private init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        screenRecordingRequest = ScreenRecordingRequest(defaults: defaults)
         accessibilityPermissionGranted = accessibility.isProcessTrusted()
         let saved = ReadingPreferences.load(from: defaults, voices: speechService.voices)
         speed = saved.speed

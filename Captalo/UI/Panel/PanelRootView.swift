@@ -11,7 +11,6 @@ struct PanelActions {
     var repairVoice: () -> Void = {}
     var openAccessibilitySettings: () -> Void = {}
     var requestScreenRecording: () -> Void = {}
-    var quitAndReopen: () -> Void = {}
     var setLaunchAtLogin: (Bool) -> Void = { _ in }
     var openLoginItemsSettings: () -> Void = {}
     var shortcutChanged: (KeyboardShortcuts.Name, KeyboardShortcuts.Shortcut?) -> Void = { _, _ in }
