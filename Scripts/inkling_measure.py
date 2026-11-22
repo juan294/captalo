@@ -7,7 +7,6 @@ import resource
 import runpy
 import signal
 import time
-import tempfile
 
 PILOT = runpy.run_path(str(Path(__file__).with_name("explain-inkling-pilot")))
 sha, canonical, require = (PILOT[k] for k in ("sha", "canonical", "require"))
@@ -15,13 +14,22 @@ FROZEN = "97447da1a0308c7b6a834f42e4cc39a54c9f1d453f0a0b2d351cd366bf7a290c"
 
 
 def write_once(path, record):
-    with tempfile.NamedTemporaryFile(mode="w", dir=path.parent) as handle:
-        json.dump(record, handle, ensure_ascii=False, allow_nan=False)
-        handle.write("\n")
-        handle.flush()
-        os.fsync(handle.fileno())
-        os.link(handle.name, path)
-
+    pending = path.with_suffix(path.suffix + ".pending")
+    pending.mkdir(mode=0o700)
+    try:
+        if path.exists():
+            raise FileExistsError(path)
+        stage = pending / "record"
+        with stage.open("x") as handle:
+            json.dump(record, handle, ensure_ascii=False, allow_nan=False)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        stage.rename(path)
+    finally:
+        # Preserve a partial write on failure; an interrupted reservation cannot be reused silently.
+        if not any(pending.iterdir()):
+            pending.rmdir()
 
 
 def verify_tokens(ids, row):
