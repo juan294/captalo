@@ -1,0 +1,1427 @@
+{
+  "candidate_sha256": "97447da1a0308c7b6a834f42e4cc39a54c9f1d453f0a0b2d351cd366bf7a290c",
+  "runtime_lock_sha256": "875476a01b08cb5575d2a49fa3d7b7ed9b73c1ac635b22c709389295ceb340cf",
+  "calibration": "passed",
+  "quality_gate": "hold",
+  "per_repeat": {
+    "1": 1,
+    "2": 1,
+    "3": 1
+  },
+  "total_occurrences": 30,
+  "distinct_outputs": 18,
+  "model_assets": {
+    "original_tensor_bytes": 19526019168,
+    "original_tensor_sha256": "65e60f51aa1284d4fb022584908c315270334d991828bb774af60584523539d1",
+    "metadata_bytes": 29766309,
+    "total_model_asset_bytes": 19555785477
+  },
+  "short_sentence_bounds": {
+    "all_loaded_short": {
+      "measured": 15,
+      "above_3_seconds": [
+        "main-email-middle-metaphors.1",
+        "main-email-middle-metaphors.2",
+        "main-email-middle-metaphors.3",
+        "main-legal-middle-metaphors.1",
+        "main-legal-middle-metaphors.2",
+        "main-legal-middle-metaphors.3",
+        "main-textbook-simple-plain.1",
+        "main-textbook-simple-plain.2",
+        "main-textbook-simple-plain.3",
+        "main-minutes-middle-metaphors.1",
+        "main-minutes-middle-metaphors.2",
+        "main-minutes-middle-metaphors.3",
+        "main-handover-middle-metaphors.1",
+        "main-handover-middle-metaphors.2",
+        "main-handover-middle-metaphors.3"
+      ]
+    },
+    "warm_repeat_short": {
+      "measured": 10,
+      "above_3_seconds": [
+        "main-email-middle-metaphors.2",
+        "main-email-middle-metaphors.3",
+        "main-legal-middle-metaphors.2",
+        "main-legal-middle-metaphors.3",
+        "main-textbook-simple-plain.2",
+        "main-textbook-simple-plain.3",
+        "main-minutes-middle-metaphors.2",
+        "main-minutes-middle-metaphors.3",
+        "main-handover-middle-metaphors.2",
+        "main-handover-middle-metaphors.3"
+      ]
+    },
+    "cold_short": {
+      "measured": 5,
+      "above_3_seconds": [
+        "main-email-middle-metaphors.1",
+        "main-legal-middle-metaphors.1",
+        "main-textbook-simple-plain.1",
+        "main-minutes-middle-metaphors.1",
+        "main-handover-middle-metaphors.1"
+      ]
+    }
+  },
+  "host": {
+    "samples": 2379,
+    "baseline_voice_rss_bytes": 1028898816,
+    "baseline_free_pct": 55,
+    "baseline_swap_used_mib": 20637.81,
+    "minimum_free_pct": 29,
+    "maximum_swap_used_mib": 22861.81
+  },
+  "measurement_gaps": [],
+  "methods": {
+    "clocks": "Seconds on the same Mac uptime scale: mach_absolute_time and CLOCK_UPTIME_RAW. Sleep excluded.",
+    "cold": "Process launch to observation on repeat 1 per passage. File cache may be warm.",
+    "loaded": "Request submission to observed decoded final text, complete sentence or terminal. No audible output measured.",
+    "voice": "Overlap with completed synthesis calls that produced sustained PCM. Frames refer to entire utterances.",
+    "memory": "MLX allocator peak resets per attempt. Darwin maxrss is the process lifetime peak in bytes. Active RSS uses one ps call for both PIDs during synthesis. Its timestamp precedes ps. The paired RSS sum may double-count shared pages; it is not unique physical memory.",
+    "assets": "Pinned file sizes, excluding transport overhead, retries and runtime dependencies. Tensor hash was verified by the launcher. Metadata hashes were rechecked."
+  },
+  "control_comparison": [
+    {
+      "arm": "sol",
+      "id": "main-email-middle-metaphors",
+      "answer_sha256": "dacce7d49dc72e2f4ade712931090489b2b981b429d8defd96e07c87f6008041",
+      "saved": {
+        "near_verbatim": false,
+        "missing_facts": [],
+        "perceived_style": "metaphors",
+        "ambiguous": false,
+        "verdict": "pass",
+        "covered_facts": [
+          0,
+          1,
+          2,
+          3
+        ]
+      },
+      "fresh": {
+        "near_verbatim": false,
+        "missing_facts": [],
+        "perceived_style": "metaphors",
+        "ambiguous": false,
+        "verdict": "pass",
+        "covered_facts": [
+          0,
+          1,
+          2,
+          3
+        ]
+      },
+      "changed": []
+    },
+    {
+      "arm": "sol",
+      "id": "main-legal-middle-metaphors",
+      "answer_sha256": "c7ab7d3a580b280738ce4a94ecfb1339c05fdd738f9675d0186c0c0c5b3a4e9a",
+      "saved": {
+        "near_verbatim": false,
+        "missing_facts": [],
+        "perceived_style": "metaphors",
+        "ambiguous": false,
+        "verdict": "pass",
+        "covered_facts": [
+          0,
+          1,
+          2
+        ]
+      },
+      "fresh": {
+        "near_verbatim": false,
+        "missing_facts": [],
+        "perceived_style": "metaphors",
+        "ambiguous": false,
+        "verdict": "pass",
+        "covered_facts": [
+          0,
+          1,
+          2
+        ]
+      },
+      "changed": []
+    },
+    {
+      "arm": "sol",
+      "id": "main-textbook-simple-plain",
+      "answer_sha256": "b268e48c79f862ee15b90009c4f3d2719b412855390ea28b181b736a0d8c1fcf",
+      "saved": {
+        "near_verbatim": false,
+        "missing_facts": [],
+        "perceived_style": "plain",
+        "ambiguous": false,
+        "verdict": "pass",
+        "covered_facts": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "fresh": {
+        "near_verbatim": false,
+        "missing_facts": [],
+        "perceived_style": "plain",
+        "ambiguous": false,
+        "verdict": "pass",
+        "covered_facts": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "changed": []
+    },
+    {
+      "arm": "sol",
+      "id": "main-minutes-middle-metaphors",
+      "answer_sha256": "b4f71da1c3d991130bec83e357e8997668c3c236bf3d84b1312787b0b957fae3",
+      "saved": {
+        "near_verbatim": false,
+        "missing_facts": [
+          0
+        ],
+        "perceived_style": "metaphors",
+        "ambiguous": false,
+        "verdict": "pass",
+        "covered_facts": [
+          1,
+          2,
+          3
+        ]
+      },
+      "fresh": {
+        "near_verbatim": false,
+        "missing_facts": [
+          0
+        ],
+        "perceived_style": "metaphors",
+        "ambiguous": false,
+        "verdict": "pass",
+        "covered_facts": [
+          1,
+          2,
+          3
+        ]
+      },
+      "changed": []
+    },
+    {
+      "arm": "sol",
+      "id": "main-handover-middle-metaphors",
+      "answer_sha256": "2da1997106e9a2c47fedac1876dd8ac624b2c2651ee9604ad188290fbca27a97",
+      "saved": {
+        "near_verbatim": false,
+        "missing_facts": [
+          0
+        ],
+        "perceived_style": "metaphors",
+        "ambiguous": false,
+        "verdict": "pass",
+        "covered_facts": [
+          1,
+          2
+        ]
+      },
+      "fresh": {
+        "near_verbatim": false,
+        "missing_facts": [
+          0
+        ],
+        "perceived_style": "metaphors",
+        "ambiguous": false,
+        "verdict": "pass",
+        "covered_facts": [
+          1,
+          2
+        ]
+      },
+      "changed": []
+    },
+    {
+      "arm": "sol",
+      "id": "main-document3000-simple-plain",
+      "answer_sha256": "fe5425532630b670718596db69dab1ba312a18631de609556f69ff71e6d66f3c",
+      "saved": {
+        "near_verbatim": false,
+        "missing_facts": [],
+        "perceived_style": "examples",
+        "ambiguous": false,
+        "verdict": "fail",
+        "covered_facts": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ]
+      },
+      "fresh": {
+        "near_verbatim": false,
+        "missing_facts": [],
+        "perceived_style": "examples",
+        "ambiguous": false,
+        "verdict": "fail",
+        "covered_facts": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ]
+      },
+      "changed": []
+    },
+    {
+      "arm": "terra",
+      "id": "main-email-middle-metaphors",
+      "answer_sha256": "9b07c57b03ede07223c50d99045ab747e582648e11dfaf11a8faa7c9cacd9720",
+      "saved": {
+        "near_verbatim": false,
+        "missing_facts": [
+          0,
+          2
+        ],
+        "perceived_style": "metaphors",
+        "ambiguous": false,
+        "verdict": "pass",
+        "covered_facts": [
+          1,
+          3
+        ]
+      },
+      "fresh": {
+        "near_verbatim": false,
+        "missing_facts": [
+          0,
+          2
+        ],
+        "perceived_style": "metaphors",
+        "ambiguous": false,
+        "verdict": "pass",
+        "covered_facts": [
+          1,
+          3
+        ]
+      },
+      "changed": []
+    },
+    {
+      "arm": "terra",
+      "id": "main-legal-middle-metaphors",
+      "answer_sha256": "13d1b6a78b790453845c3c02376f2aa47b35217f7f264f12234aa8bce011b078",
+      "saved": {
+        "near_verbatim": false,
+        "missing_facts": [],
+        "perceived_style": "metaphors",
+        "ambiguous": false,
+        "verdict": "pass",
+        "covered_facts": [
+          0,
+          1,
+          2
+        ]
+      },
+      "fresh": {
+        "near_verbatim": false,
+        "missing_facts": [],
+        "perceived_style": "metaphors",
+        "ambiguous": false,
+        "verdict": "pass",
+        "covered_facts": [
+          0,
+          1,
+          2
+        ]
+      },
+      "changed": []
+    },
+    {
+      "arm": "terra",
+      "id": "main-textbook-simple-plain",
+      "answer_sha256": "d6c881fa0dfb4a1056c21c864d6268320ceae17a69bbdbe416c3feaf2ead4e1c",
+      "saved": {
+        "near_verbatim": false,
+        "missing_facts": [],
+        "perceived_style": "plain",
+        "ambiguous": false,
+        "verdict": "pass",
+        "covered_facts": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "fresh": {
+        "near_verbatim": false,
+        "missing_facts": [],
+        "perceived_style": "plain",
+        "ambiguous": false,
+        "verdict": "pass",
+        "covered_facts": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "changed": []
+    },
+    {
+      "arm": "terra",
+      "id": "main-minutes-middle-metaphors",
+      "answer_sha256": "eeed535b576e6611d1886e47cae1c0c97c112312c3d55b7c3bd2cf2bf5848ee6",
+      "saved": {
+        "near_verbatim": false,
+        "missing_facts": [
+          0
+        ],
+        "perceived_style": "metaphors",
+        "ambiguous": false,
+        "verdict": "fail",
+        "covered_facts": [
+          1,
+          2,
+          3
+        ]
+      },
+      "fresh": {
+        "near_verbatim": false,
+        "missing_facts": [
+          0
+        ],
+        "perceived_style": "metaphors",
+        "ambiguous": false,
+        "verdict": "fail",
+        "covered_facts": [
+          1,
+          2,
+          3
+        ]
+      },
+      "changed": []
+    },
+    {
+      "arm": "terra",
+      "id": "main-handover-middle-metaphors",
+      "answer_sha256": "93242e5ff5c8902f3e87b4d5dc6906248b535af949118944348f801683c48654",
+      "saved": {
+        "near_verbatim": false,
+        "missing_facts": [],
+        "perceived_style": "metaphors",
+        "ambiguous": false,
+        "verdict": "pass",
+        "covered_facts": [
+          0,
+          1,
+          2
+        ]
+      },
+      "fresh": {
+        "near_verbatim": false,
+        "missing_facts": [],
+        "perceived_style": "metaphors",
+        "ambiguous": false,
+        "verdict": "pass",
+        "covered_facts": [
+          0,
+          1,
+          2
+        ]
+      },
+      "changed": []
+    },
+    {
+      "arm": "terra",
+      "id": "main-document3000-simple-plain",
+      "answer_sha256": "f77aa7bd5d8a77ead03147003ae7698448be4a2156dd82007096a6324f23840a",
+      "saved": {
+        "near_verbatim": false,
+        "missing_facts": [],
+        "perceived_style": "plain",
+        "ambiguous": false,
+        "verdict": "pass",
+        "covered_facts": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ]
+      },
+      "fresh": {
+        "near_verbatim": false,
+        "missing_facts": [],
+        "perceived_style": "plain",
+        "ambiguous": false,
+        "verdict": "pass",
+        "covered_facts": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ]
+      },
+      "changed": []
+    }
+  ],
+  "attempts": [
+    {
+      "case": "main-email-middle-metaphors",
+      "repeat": 1,
+      "answer_sha256": "c5c1b2a84b69f1802cac4af72b000fcc1b3f357cdfd01c189c7826468a2b2f03",
+      "source_words": 33,
+      "answer_words": 32,
+      "stop": "eos",
+      "generated_tokens": 2772,
+      "reasoning_tokens": 2725,
+      "fidelity": "fail",
+      "ambiguous": false,
+      "near_verbatim": false,
+      "missing_facts": [
+        0,
+        2
+      ],
+      "missing_required_facts": [
+        0,
+        2
+      ],
+      "perceived_style": "metaphors",
+      "style_match": true,
+      "middle_shorter": true,
+      "quality_pass": false,
+      "long_exceptions": null,
+      "loaded_seconds": {
+        "first_final": 108.25036220892798,
+        "first_sentence": 108.89509587490465,
+        "terminal": 109.99966904195026
+      },
+      "cold_seconds": {
+        "first_final": 118.02863079193048,
+        "first_sentence": 118.67336445790716,
+        "terminal": 119.77793762495276
+      },
+      "memory": {
+        "mlx_allocator_peak_bytes": 20407009204,
+        "worker_lifetime_maxrss_bytes": 10782244864,
+        "active_paired_samples": 134,
+        "active_paired_rss_peak_bytes": 3952099328,
+        "active_worker_rss_peak_bytes": 3452256256,
+        "active_voice_rss_peak_bytes": 591429632
+      },
+      "voice": {
+        "overlapping_completed_utterances": 781,
+        "request_onset": true,
+        "first_final_onset": true,
+        "first_sentence_onset": true,
+        "request_end": true,
+        "active_seconds": 109.92061571835075,
+        "active_fraction": 0.9992813312595571,
+        "largest_uncovered_seconds": 0.003463083994574845
+      }
+    },
+    {
+      "case": "main-email-middle-metaphors",
+      "repeat": 2,
+      "answer_sha256": "c5c1b2a84b69f1802cac4af72b000fcc1b3f357cdfd01c189c7826468a2b2f03",
+      "source_words": 33,
+      "answer_words": 32,
+      "stop": "eos",
+      "generated_tokens": 2772,
+      "reasoning_tokens": 2725,
+      "fidelity": "fail",
+      "ambiguous": false,
+      "near_verbatim": false,
+      "missing_facts": [
+        0,
+        2
+      ],
+      "missing_required_facts": [
+        0,
+        2
+      ],
+      "perceived_style": "metaphors",
+      "style_match": true,
+      "middle_shorter": true,
+      "quality_pass": false,
+      "long_exceptions": null,
+      "loaded_seconds": {
+        "first_final": 108.53248570801225,
+        "first_sentence": 109.06838800001424,
+        "terminal": 109.98755075002555
+      },
+      "cold_seconds": null,
+      "memory": {
+        "mlx_allocator_peak_bytes": 20407107804,
+        "worker_lifetime_maxrss_bytes": 10782244864,
+        "active_paired_samples": 135,
+        "active_paired_rss_peak_bytes": 3771121664,
+        "active_worker_rss_peak_bytes": 3186294784,
+        "active_voice_rss_peak_bytes": 585302016
+      },
+      "voice": {
+        "overlapping_completed_utterances": 796,
+        "request_onset": true,
+        "first_final_onset": true,
+        "first_sentence_onset": true,
+        "request_end": true,
+        "active_seconds": 109.9109414673876,
+        "active_fraction": 0.9993034731465922,
+        "largest_uncovered_seconds": 0.0016292089130729437
+      }
+    },
+    {
+      "case": "main-email-middle-metaphors",
+      "repeat": 3,
+      "answer_sha256": "c5c1b2a84b69f1802cac4af72b000fcc1b3f357cdfd01c189c7826468a2b2f03",
+      "source_words": 33,
+      "answer_words": 32,
+      "stop": "eos",
+      "generated_tokens": 2772,
+      "reasoning_tokens": 2725,
+      "fidelity": "fail",
+      "ambiguous": false,
+      "near_verbatim": false,
+      "missing_facts": [
+        0,
+        2
+      ],
+      "missing_required_facts": [
+        0,
+        2
+      ],
+      "perceived_style": "metaphors",
+      "style_match": true,
+      "middle_shorter": true,
+      "quality_pass": false,
+      "long_exceptions": null,
+      "loaded_seconds": {
+        "first_final": 103.43798937508836,
+        "first_sentence": 103.96395716699772,
+        "terminal": 105.05029933305923
+      },
+      "cold_seconds": null,
+      "memory": {
+        "mlx_allocator_peak_bytes": 20407188700,
+        "worker_lifetime_maxrss_bytes": 10782244864,
+        "active_paired_samples": 132,
+        "active_paired_rss_peak_bytes": 3771777024,
+        "active_worker_rss_peak_bytes": 3186802688,
+        "active_voice_rss_peak_bytes": 585416704
+      },
+      "voice": {
+        "overlapping_completed_utterances": 798,
+        "request_onset": true,
+        "first_final_onset": true,
+        "first_sentence_onset": true,
+        "request_end": true,
+        "active_seconds": 104.97699122515041,
+        "active_fraction": 0.9993021618370035,
+        "largest_uncovered_seconds": 0.0009527090005576611
+      }
+    },
+    {
+      "case": "main-legal-middle-metaphors",
+      "repeat": 1,
+      "answer_sha256": "1e710e0ef125a95f964d267cbb89a9b68761e25f839ba61f881c7f376d5811c2",
+      "source_words": 40,
+      "answer_words": 37,
+      "stop": "eos",
+      "generated_tokens": 3220,
+      "reasoning_tokens": 3157,
+      "fidelity": "fail",
+      "ambiguous": true,
+      "near_verbatim": false,
+      "missing_facts": [
+        0,
+        2
+      ],
+      "missing_required_facts": [
+        0,
+        2
+      ],
+      "perceived_style": "metaphors",
+      "style_match": true,
+      "middle_shorter": true,
+      "quality_pass": false,
+      "long_exceptions": null,
+      "loaded_seconds": {
+        "first_final": 118.89412199996877,
+        "first_sentence": 120.20209612499457,
+        "terminal": 120.74593233305495
+      },
+      "cold_seconds": {
+        "first_final": 126.9648111249553,
+        "first_sentence": 128.2727852499811,
+        "terminal": 128.81662145804148
+      },
+      "memory": {
+        "mlx_allocator_peak_bytes": 20439280008,
+        "worker_lifetime_maxrss_bytes": 13119913984,
+        "active_paired_samples": 152,
+        "active_paired_rss_peak_bytes": 2772762624,
+        "active_worker_rss_peak_bytes": 2211168256,
+        "active_voice_rss_peak_bytes": 572964864
+      },
+      "voice": {
+        "overlapping_completed_utterances": 939,
+        "request_onset": true,
+        "first_final_onset": true,
+        "first_sentence_onset": true,
+        "request_end": true,
+        "active_seconds": 120.64814729336649,
+        "active_fraction": 0.9991901587258547,
+        "largest_uncovered_seconds": 0.004677416989579797
+      }
+    },
+    {
+      "case": "main-legal-middle-metaphors",
+      "repeat": 2,
+      "answer_sha256": "1e710e0ef125a95f964d267cbb89a9b68761e25f839ba61f881c7f376d5811c2",
+      "source_words": 40,
+      "answer_words": 37,
+      "stop": "eos",
+      "generated_tokens": 3220,
+      "reasoning_tokens": 3157,
+      "fidelity": "fail",
+      "ambiguous": true,
+      "near_verbatim": false,
+      "missing_facts": [
+        0,
+        2
+      ],
+      "missing_required_facts": [
+        0,
+        2
+      ],
+      "perceived_style": "metaphors",
+      "style_match": true,
+      "middle_shorter": true,
+      "quality_pass": false,
+      "long_exceptions": null,
+      "loaded_seconds": {
+        "first_final": 116.06708304199856,
+        "first_sentence": 117.66827479202766,
+        "terminal": 118.29358525003772
+      },
+      "cold_seconds": null,
+      "memory": {
+        "mlx_allocator_peak_bytes": 20439334144,
+        "worker_lifetime_maxrss_bytes": 13119913984,
+        "active_paired_samples": 149,
+        "active_paired_rss_peak_bytes": 2766979072,
+        "active_worker_rss_peak_bytes": 2180005888,
+        "active_voice_rss_peak_bytes": 587055104
+      },
+      "voice": {
+        "overlapping_completed_utterances": 893,
+        "request_onset": true,
+        "first_final_onset": true,
+        "first_sentence_onset": true,
+        "request_end": true,
+        "active_seconds": 118.21190604695585,
+        "active_fraction": 0.9993095212820777,
+        "largest_uncovered_seconds": 0.001396083040162921
+      }
+    },
+    {
+      "case": "main-legal-middle-metaphors",
+      "repeat": 3,
+      "answer_sha256": "1e710e0ef125a95f964d267cbb89a9b68761e25f839ba61f881c7f376d5811c2",
+      "source_words": 40,
+      "answer_words": 37,
+      "stop": "eos",
+      "generated_tokens": 3220,
+      "reasoning_tokens": 3157,
+      "fidelity": "fail",
+      "ambiguous": true,
+      "near_verbatim": false,
+      "missing_facts": [
+        0,
+        2
+      ],
+      "missing_required_facts": [
+        0,
+        2
+      ],
+      "perceived_style": "metaphors",
+      "style_match": true,
+      "middle_shorter": true,
+      "quality_pass": false,
+      "long_exceptions": null,
+      "loaded_seconds": {
+        "first_final": 110.34477141697425,
+        "first_sentence": 112.20531062502414,
+        "terminal": 112.99684650008567
+      },
+      "cold_seconds": null,
+      "memory": {
+        "mlx_allocator_peak_bytes": 20439350528,
+        "worker_lifetime_maxrss_bytes": 13119913984,
+        "active_paired_samples": 144,
+        "active_paired_rss_peak_bytes": 2772041728,
+        "active_worker_rss_peak_bytes": 2180005888,
+        "active_voice_rss_peak_bytes": 592494592
+      },
+      "voice": {
+        "overlapping_completed_utterances": 874,
+        "request_onset": true,
+        "first_final_onset": true,
+        "first_sentence_onset": true,
+        "request_end": true,
+        "active_seconds": 112.91614695510361,
+        "active_fraction": 0.9992858248041285,
+        "largest_uncovered_seconds": 0.003376374952495098
+      }
+    },
+    {
+      "case": "main-textbook-simple-plain",
+      "repeat": 1,
+      "answer_sha256": "6f84108d857d4de8ca35b4b117c66221499bdeb4b2e3c70f5164f3f76cc9840a",
+      "source_words": 46,
+      "answer_words": 23,
+      "stop": "eos",
+      "generated_tokens": 1870,
+      "reasoning_tokens": 1832,
+      "fidelity": "pass",
+      "ambiguous": false,
+      "near_verbatim": false,
+      "missing_facts": [],
+      "missing_required_facts": [],
+      "perceived_style": "plain",
+      "style_match": true,
+      "middle_shorter": null,
+      "quality_pass": true,
+      "long_exceptions": null,
+      "loaded_seconds": {
+        "first_final": 65.79759345797356,
+        "first_sentence": 66.0858286669245,
+        "terminal": 66.96397279191297
+      },
+      "cold_seconds": {
+        "first_final": 72.78657379106153,
+        "first_sentence": 73.07480900001246,
+        "terminal": 73.95295312500093
+      },
+      "memory": {
+        "mlx_allocator_peak_bytes": 20391295332,
+        "worker_lifetime_maxrss_bytes": 14840856576,
+        "active_paired_samples": 86,
+        "active_paired_rss_peak_bytes": 4275961856,
+        "active_worker_rss_peak_bytes": 3717840896,
+        "active_voice_rss_peak_bytes": 575176704
+      },
+      "voice": {
+        "overlapping_completed_utterances": 526,
+        "request_onset": true,
+        "first_final_onset": true,
+        "first_sentence_onset": true,
+        "request_end": true,
+        "active_seconds": 66.91535567643587,
+        "active_fraction": 0.9992739810162073,
+        "largest_uncovered_seconds": 0.001105083036236465
+      }
+    },
+    {
+      "case": "main-textbook-simple-plain",
+      "repeat": 2,
+      "answer_sha256": "6f84108d857d4de8ca35b4b117c66221499bdeb4b2e3c70f5164f3f76cc9840a",
+      "source_words": 46,
+      "answer_words": 23,
+      "stop": "eos",
+      "generated_tokens": 1870,
+      "reasoning_tokens": 1832,
+      "fidelity": "pass",
+      "ambiguous": false,
+      "near_verbatim": false,
+      "missing_facts": [],
+      "missing_required_facts": [],
+      "perceived_style": "plain",
+      "style_match": true,
+      "middle_shorter": null,
+      "quality_pass": true,
+      "long_exceptions": null,
+      "loaded_seconds": {
+        "first_final": 67.23990599997342,
+        "first_sentence": 67.46640237502288,
+        "terminal": 68.24355579202529
+      },
+      "cold_seconds": null,
+      "memory": {
+        "mlx_allocator_peak_bytes": 20392868044,
+        "worker_lifetime_maxrss_bytes": 14840856576,
+        "active_paired_samples": 86,
+        "active_paired_rss_peak_bytes": 4262903808,
+        "active_worker_rss_peak_bytes": 3675422720,
+        "active_voice_rss_peak_bytes": 588234752
+      },
+      "voice": {
+        "overlapping_completed_utterances": 515,
+        "request_onset": true,
+        "first_final_onset": true,
+        "first_sentence_onset": true,
+        "request_end": true,
+        "active_seconds": 68.19483575993218,
+        "active_fraction": 0.9992860859677126,
+        "largest_uncovered_seconds": 0.0020232079550623894
+      }
+    },
+    {
+      "case": "main-textbook-simple-plain",
+      "repeat": 3,
+      "answer_sha256": "6f84108d857d4de8ca35b4b117c66221499bdeb4b2e3c70f5164f3f76cc9840a",
+      "source_words": 46,
+      "answer_words": 23,
+      "stop": "eos",
+      "generated_tokens": 1870,
+      "reasoning_tokens": 1832,
+      "fidelity": "pass",
+      "ambiguous": false,
+      "near_verbatim": false,
+      "missing_facts": [],
+      "missing_required_facts": [],
+      "perceived_style": "plain",
+      "style_match": true,
+      "middle_shorter": null,
+      "quality_pass": true,
+      "long_exceptions": null,
+      "loaded_seconds": {
+        "first_final": 68.92091916699428,
+        "first_sentence": 69.2127474170411,
+        "terminal": 70.24049320898484
+      },
+      "cold_seconds": null,
+      "memory": {
+        "mlx_allocator_peak_bytes": 20392835276,
+        "worker_lifetime_maxrss_bytes": 14840856576,
+        "active_paired_samples": 87,
+        "active_paired_rss_peak_bytes": 4262543360,
+        "active_worker_rss_peak_bytes": 3675652096,
+        "active_voice_rss_peak_bytes": 587448320
+      },
+      "voice": {
+        "overlapping_completed_utterances": 535,
+        "request_onset": true,
+        "first_final_onset": true,
+        "first_sentence_onset": true,
+        "request_end": true,
+        "active_seconds": 70.19462350581307,
+        "active_fraction": 0.9993469621143561,
+        "largest_uncovered_seconds": 0.00019895797595381737
+      }
+    },
+    {
+      "case": "main-minutes-middle-metaphors",
+      "repeat": 1,
+      "answer_sha256": "42cf8eaa49342b8372fe51ed97ddd26baa132571c557f76d95efa9965b23f924",
+      "source_words": 31,
+      "answer_words": 30,
+      "stop": "eos",
+      "generated_tokens": 3709,
+      "reasoning_tokens": 3661,
+      "fidelity": "fail",
+      "ambiguous": false,
+      "near_verbatim": false,
+      "missing_facts": [
+        1
+      ],
+      "missing_required_facts": [
+        1
+      ],
+      "perceived_style": "metaphors",
+      "style_match": true,
+      "middle_shorter": true,
+      "quality_pass": false,
+      "long_exceptions": null,
+      "loaded_seconds": {
+        "first_final": 143.127027584007,
+        "first_sentence": 143.62693891709205,
+        "terminal": 144.60846375010442
+      },
+      "cold_seconds": {
+        "first_final": 151.80994462501258,
+        "first_sentence": 152.30985595809761,
+        "terminal": 153.29138079111
+      },
+      "memory": {
+        "mlx_allocator_peak_bytes": 20465353588,
+        "worker_lifetime_maxrss_bytes": 13741096960,
+        "active_paired_samples": 179,
+        "active_paired_rss_peak_bytes": 2236350464,
+        "active_worker_rss_peak_bytes": 1664401408,
+        "active_voice_rss_peak_bytes": 572047360
+      },
+      "voice": {
+        "overlapping_completed_utterances": 1098,
+        "request_onset": true,
+        "first_final_onset": true,
+        "first_sentence_onset": true,
+        "request_end": true,
+        "active_seconds": 144.5007569162408,
+        "active_fraction": 0.9992551830572672,
+        "largest_uncovered_seconds": 0.0033346250420436263
+      }
+    },
+    {
+      "case": "main-minutes-middle-metaphors",
+      "repeat": 2,
+      "answer_sha256": "42cf8eaa49342b8372fe51ed97ddd26baa132571c557f76d95efa9965b23f924",
+      "source_words": 31,
+      "answer_words": 30,
+      "stop": "eos",
+      "generated_tokens": 3709,
+      "reasoning_tokens": 3661,
+      "fidelity": "fail",
+      "ambiguous": false,
+      "near_verbatim": false,
+      "missing_facts": [
+        1
+      ],
+      "missing_required_facts": [
+        1
+      ],
+      "perceived_style": "metaphors",
+      "style_match": true,
+      "middle_shorter": true,
+      "quality_pass": false,
+      "long_exceptions": null,
+      "loaded_seconds": {
+        "first_final": 129.49241549998987,
+        "first_sentence": 129.91420050000306,
+        "terminal": 130.92717779101804
+      },
+      "cold_seconds": null,
+      "memory": {
+        "mlx_allocator_peak_bytes": 20465451292,
+        "worker_lifetime_maxrss_bytes": 13741096960,
+        "active_paired_samples": 167,
+        "active_paired_rss_peak_bytes": 2237497344,
+        "active_worker_rss_peak_bytes": 1664745472,
+        "active_voice_rss_peak_bytes": 572751872
+      },
+      "voice": {
+        "overlapping_completed_utterances": 1028,
+        "request_onset": true,
+        "first_final_onset": true,
+        "first_sentence_onset": true,
+        "request_end": true,
+        "active_seconds": 130.81719733471982,
+        "active_fraction": 0.9991599875735978,
+        "largest_uncovered_seconds": 0.006384458974935114
+      }
+    },
+    {
+      "case": "main-minutes-middle-metaphors",
+      "repeat": 3,
+      "answer_sha256": "42cf8eaa49342b8372fe51ed97ddd26baa132571c557f76d95efa9965b23f924",
+      "source_words": 31,
+      "answer_words": 30,
+      "stop": "eos",
+      "generated_tokens": 3709,
+      "reasoning_tokens": 3661,
+      "fidelity": "fail",
+      "ambiguous": false,
+      "near_verbatim": false,
+      "missing_facts": [
+        1
+      ],
+      "missing_required_facts": [
+        1
+      ],
+      "perceived_style": "metaphors",
+      "style_match": true,
+      "middle_shorter": true,
+      "quality_pass": false,
+      "long_exceptions": null,
+      "loaded_seconds": {
+        "first_final": 129.8447328750044,
+        "first_sentence": 130.42169174994342,
+        "terminal": 131.43426349991933
+      },
+      "cold_seconds": null,
+      "memory": {
+        "mlx_allocator_peak_bytes": 20465548572,
+        "worker_lifetime_maxrss_bytes": 13741096960,
+        "active_paired_samples": 167,
+        "active_paired_rss_peak_bytes": 2108293120,
+        "active_worker_rss_peak_bytes": 1533181952,
+        "active_voice_rss_peak_bytes": 575455232
+      },
+      "voice": {
+        "overlapping_completed_utterances": 1017,
+        "request_onset": true,
+        "first_final_onset": true,
+        "first_sentence_onset": true,
+        "request_end": true,
+        "active_seconds": 131.3349024814088,
+        "active_fraction": 0.9992440249911653,
+        "largest_uncovered_seconds": 0.001440958003513515
+      }
+    },
+    {
+      "case": "main-handover-middle-metaphors",
+      "repeat": 1,
+      "answer_sha256": "5be6b2315efa4c0143c00dc8fd3d4106999b84d6637ff79fa5d6cdbd6d394e54",
+      "source_words": 32,
+      "answer_words": 31,
+      "stop": "eos",
+      "generated_tokens": 735,
+      "reasoning_tokens": 682,
+      "fidelity": "fail",
+      "ambiguous": false,
+      "near_verbatim": false,
+      "missing_facts": [
+        1
+      ],
+      "missing_required_facts": [
+        1
+      ],
+      "perceived_style": "metaphors",
+      "style_match": true,
+      "middle_shorter": true,
+      "quality_pass": false,
+      "long_exceptions": null,
+      "loaded_seconds": {
+        "first_final": 26.71413383295294,
+        "first_sentence": 26.997451124945655,
+        "terminal": 28.44614808296319
+      },
+      "cold_seconds": {
+        "first_final": 34.897555249975994,
+        "first_sentence": 35.18087254196871,
+        "terminal": 36.629569499986246
+      },
+      "memory": {
+        "mlx_allocator_peak_bytes": 20412665756,
+        "worker_lifetime_maxrss_bytes": 14379565056,
+        "active_paired_samples": 36,
+        "active_paired_rss_peak_bytes": 2182463488,
+        "active_worker_rss_peak_bytes": 1621180416,
+        "active_voice_rss_peak_bytes": 561610752
+      },
+      "voice": {
+        "overlapping_completed_utterances": 227,
+        "request_onset": true,
+        "first_final_onset": true,
+        "first_sentence_onset": true,
+        "request_end": true,
+        "active_seconds": 28.424655864248052,
+        "active_fraction": 0.999244459437796,
+        "largest_uncovered_seconds": 0.0009433330269530416
+      }
+    },
+    {
+      "case": "main-handover-middle-metaphors",
+      "repeat": 2,
+      "answer_sha256": "5be6b2315efa4c0143c00dc8fd3d4106999b84d6637ff79fa5d6cdbd6d394e54",
+      "source_words": 32,
+      "answer_words": 31,
+      "stop": "eos",
+      "generated_tokens": 735,
+      "reasoning_tokens": 682,
+      "fidelity": "fail",
+      "ambiguous": false,
+      "near_verbatim": false,
+      "missing_facts": [
+        1
+      ],
+      "missing_required_facts": [
+        1
+      ],
+      "perceived_style": "metaphors",
+      "style_match": true,
+      "middle_shorter": true,
+      "quality_pass": false,
+      "long_exceptions": null,
+      "loaded_seconds": {
+        "first_final": 24.60934462491423,
+        "first_sentence": 24.829407791956328,
+        "terminal": 26.174288791953586
+      },
+      "cold_seconds": null,
+      "memory": {
+        "mlx_allocator_peak_bytes": 20412727474,
+        "worker_lifetime_maxrss_bytes": 14379565056,
+        "active_paired_samples": 33,
+        "active_paired_rss_peak_bytes": 2181693440,
+        "active_worker_rss_peak_bytes": 1621360640,
+        "active_voice_rss_peak_bytes": 560431104
+      },
+      "voice": {
+        "overlapping_completed_utterances": 203,
+        "request_onset": true,
+        "first_final_onset": true,
+        "first_sentence_onset": true,
+        "request_end": true,
+        "active_seconds": 26.15476349578239,
+        "active_fraction": 0.9992540276327508,
+        "largest_uncovered_seconds": 0.0013567500282078981
+      }
+    },
+    {
+      "case": "main-handover-middle-metaphors",
+      "repeat": 3,
+      "answer_sha256": "5be6b2315efa4c0143c00dc8fd3d4106999b84d6637ff79fa5d6cdbd6d394e54",
+      "source_words": 32,
+      "answer_words": 31,
+      "stop": "eos",
+      "generated_tokens": 735,
+      "reasoning_tokens": 682,
+      "fidelity": "fail",
+      "ambiguous": false,
+      "near_verbatim": false,
+      "missing_facts": [
+        1
+      ],
+      "missing_required_facts": [
+        1
+      ],
+      "perceived_style": "metaphors",
+      "style_match": true,
+      "middle_shorter": true,
+      "quality_pass": false,
+      "long_exceptions": null,
+      "loaded_seconds": {
+        "first_final": 23.683207875001244,
+        "first_sentence": 23.90189012500923,
+        "terminal": 25.24142750003375
+      },
+      "cold_seconds": null,
+      "memory": {
+        "mlx_allocator_peak_bytes": 20412757401,
+        "worker_lifetime_maxrss_bytes": 14379565056,
+        "active_paired_samples": 32,
+        "active_paired_rss_peak_bytes": 2176974848,
+        "active_worker_rss_peak_bytes": 1621213184,
+        "active_voice_rss_peak_bytes": 555761664
+      },
+      "voice": {
+        "overlapping_completed_utterances": 202,
+        "request_onset": true,
+        "first_final_onset": true,
+        "first_sentence_onset": true,
+        "request_end": true,
+        "active_seconds": 25.22316912910901,
+        "active_fraction": 0.999276650620306,
+        "largest_uncovered_seconds": 0.00023462506942451
+      }
+    },
+    {
+      "case": "main-document3000-simple-plain",
+      "repeat": 1,
+      "answer_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_words": 3000,
+      "answer_words": 0,
+      "stop": "cap",
+      "generated_tokens": 4096,
+      "reasoning_tokens": 4094,
+      "fidelity": "pass",
+      "ambiguous": false,
+      "near_verbatim": false,
+      "missing_facts": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "missing_required_facts": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "perceived_style": "indeterminate",
+      "style_match": false,
+      "middle_shorter": null,
+      "quality_pass": false,
+      "long_exceptions": {
+        "first": false,
+        "middle": false,
+        "last": false
+      },
+      "loaded_seconds": {
+        "first_final": null,
+        "first_sentence": null,
+        "terminal": 155.6658161249943
+      },
+      "cold_seconds": {
+        "first_final": null,
+        "first_sentence": null,
+        "terminal": 162.10610854206607
+      },
+      "memory": {
+        "mlx_allocator_peak_bytes": 24074180552,
+        "worker_lifetime_maxrss_bytes": 13841416192,
+        "active_paired_samples": 197,
+        "active_paired_rss_peak_bytes": 3932028928,
+        "active_worker_rss_peak_bytes": 3435741184,
+        "active_voice_rss_peak_bytes": 579715072
+      },
+      "voice": {
+        "overlapping_completed_utterances": 1190,
+        "request_onset": true,
+        "first_final_onset": null,
+        "first_sentence_onset": null,
+        "request_end": true,
+        "active_seconds": 155.53067556815222,
+        "active_fraction": 0.9991318546344589,
+        "largest_uncovered_seconds": 0.010758624994195998
+      }
+    },
+    {
+      "case": "main-document3000-simple-plain",
+      "repeat": 2,
+      "answer_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_words": 3000,
+      "answer_words": 0,
+      "stop": "cap",
+      "generated_tokens": 4096,
+      "reasoning_tokens": 4094,
+      "fidelity": "pass",
+      "ambiguous": false,
+      "near_verbatim": false,
+      "missing_facts": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "missing_required_facts": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "perceived_style": "indeterminate",
+      "style_match": false,
+      "middle_shorter": null,
+      "quality_pass": false,
+      "long_exceptions": {
+        "first": false,
+        "middle": false,
+        "last": false
+      },
+      "loaded_seconds": {
+        "first_final": null,
+        "first_sentence": null,
+        "terminal": 149.09892529202625
+      },
+      "cold_seconds": null,
+      "memory": {
+        "mlx_allocator_peak_bytes": 24036491228,
+        "worker_lifetime_maxrss_bytes": 13841416192,
+        "active_paired_samples": 189,
+        "active_paired_rss_peak_bytes": 937574400,
+        "active_worker_rss_peak_bytes": 368115712,
+        "active_voice_rss_peak_bytes": 569638912
+      },
+      "voice": {
+        "overlapping_completed_utterances": 1154,
+        "request_onset": true,
+        "first_final_onset": null,
+        "first_sentence_onset": null,
+        "request_end": true,
+        "active_seconds": 148.97960008436348,
+        "active_fraction": 0.9991996910277585,
+        "largest_uncovered_seconds": 0.004995000082999468
+      }
+    },
+    {
+      "case": "main-document3000-simple-plain",
+      "repeat": 3,
+      "answer_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_words": 3000,
+      "answer_words": 0,
+      "stop": "cap",
+      "generated_tokens": 4096,
+      "reasoning_tokens": 4094,
+      "fidelity": "pass",
+      "ambiguous": false,
+      "near_verbatim": false,
+      "missing_facts": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "missing_required_facts": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "perceived_style": "indeterminate",
+      "style_match": false,
+      "middle_shorter": null,
+      "quality_pass": false,
+      "long_exceptions": {
+        "first": false,
+        "middle": false,
+        "last": false
+      },
+      "loaded_seconds": {
+        "first_final": null,
+        "first_sentence": null,
+        "terminal": 170.44517766695935
+      },
+      "cold_seconds": null,
+      "memory": {
+        "mlx_allocator_peak_bytes": 24036491228,
+        "worker_lifetime_maxrss_bytes": 13841416192,
+        "active_paired_samples": 214,
+        "active_paired_rss_peak_bytes": 946143232,
+        "active_worker_rss_peak_bytes": 367738880,
+        "active_voice_rss_peak_bytes": 578420736
+      },
+      "voice": {
+        "overlapping_completed_utterances": 1290,
+        "request_onset": true,
+        "first_final_onset": null,
+        "first_sentence_onset": null,
+        "request_end": true,
+        "active_seconds": 170.3204720739741,
+        "active_fraction": 0.999268353644895,
+        "largest_uncovered_seconds": 0.0011566249886527658
+      }
+    }
+  ],
+  "evidence_sha256": {
+    "review/public/packet.json": "2d84658dc675536fe5542aa56d12f41c76d87c9163014d8da9c51ea090357dc2",
+    "score.json": "ab968764f83e3948ecb8b84e203e44588c74612f277895decdcc2424ecee8224",
+    "metrics.json": "3a697baccde29f770a3038440cd52f6c77645c93fdd8d33ecbde9111daddd749",
+    "measured/setup.json": "54454c934a0cf70528945a600a372a20851ec839002844ef51c4dcaba731c0e8",
+    "voice-summary.json": "24b5cab7151b40af645053ec81ccb972a1e625acd64741cc6fdcd51921344b0a"
+  }
+}
