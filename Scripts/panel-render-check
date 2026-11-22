@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Check the PNG set that `Captalo --render-panel` wrote (make panel-render).
 
-Every fixture must exist in dark and light at 880 x 1040 px (440 x 520 pt at
+Every fixture must exist in dark and light at 880 x 1080 px (440 x 540 pt at
 2x), and no other PNG may be in the directory. A missing file, another size or
 an unreadable file is a failure, never a pass.
 """
@@ -19,7 +19,7 @@ FIXTURES = [
     "voice-damaged",
     "setup-recording-requested",
 ]
-SIZE = (880, 1040)
+SIZE = (880, 1080)
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 

@@ -13,7 +13,7 @@ struct PanelFixture {
             screenRecordingGranted: true, regionShortcutSet: true
         ),
         voices: ["af_heart", "af_bella"], voice: "af_heart", speed: 1.0,
-        readShortcut: "⌥P", regionShortcut: "⌥O", stopShortcut: "⌥S", loginItem: .make(status: .enabled)
+        readShortcut: "⌃⌥S", regionShortcut: "⌃⌥A", stopShortcut: "⌃⌥X", loginItem: .make(status: .enabled)
     )
 
     private static func changed(_ change: (inout PanelInput) -> Void) -> PanelInput {

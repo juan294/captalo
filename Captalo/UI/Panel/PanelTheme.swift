@@ -56,7 +56,7 @@ nonisolated struct PanelTheme: Sendable {
 /// The panel's sizes, from the artboards.
 nonisolated enum PanelMetrics {
     static let width: CGFloat = 440
-    static let height: CGFloat = 520
+    static let height: CGFloat = 540
     static let railWidth: CGFloat = 72
     static let railItemWidth: CGFloat = 56
     static let panePadding: CGFloat = 20

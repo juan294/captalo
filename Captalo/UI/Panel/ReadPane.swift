@@ -82,7 +82,8 @@ struct ShortcutCard: View {
                 .accessibilityHidden(true)
             RowText(title: title, detail: caption)
             if isRender {
-                KeycapsLabel(keycaps: slot.keycaps)
+                // The live recorder's slot height, so a render measures the live card.
+                KeycapsLabel(keycaps: slot.keycaps).frame(minHeight: 44)
             } else {
                 KeycapRecorder(name: name, keycaps: slot.keycaps, title: title) { changed(name, $0) }
             }

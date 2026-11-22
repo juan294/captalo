@@ -119,3 +119,10 @@ Nothing in this plan ran the live popover: opening, the appearance switch, the r
 - Objective and scope: the plan, all three phases, completed locally and merged into `develop` with a merge commit. Nothing was pushed, released or installed, and `.github/workflows` is unchanged.
 - The worktree `/Users/juan/code/captalo-wt-popover` and the branch `feat/monochrome-popover` were removed after the merge. Its 16 renders and three verify logs are kept in the ignored `.local/monochrome-popover-evidence/` of the main checkout.
 - Next action: the owner checks above on a signed install (`make install CONFIG=Release`, integration owner).
+
+## Adjustment, 2026-11-22 (owner request)
+
+- Panel height is 540 pt (was 520 pt); renders are 880 x 1080 px. With the default ⌃⌥ shortcuts the Read pane needs 533.5 pt, so it scrolled at 520 pt. The pane stays a scroll view for longer content: `read-all-notices` needs 614.5 pt.
+- The render's keycaps take the live recorder slot's 44 pt minimum height. Before, each single-line shortcut card was 8 pt shorter in the render than in the live panel, so the renders did not show the overflow. The `ready` fixture uses ⌃⌥S, ⌃⌥A and ⌃⌥X, the current defaults.
+- The rail draws no focus ring. The ring stayed on Read after a click selected another tab; the selected tab shows by its fill.
+- Voice cards show the voice name only, not the voice ID.
