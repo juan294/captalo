@@ -8,6 +8,8 @@ Use the installed Release on the Studio. The three phases cover the six mandator
 
 Separate the app’s own content-free capture and playback events, the production-adapter transcript oracle, the source app’s accessible selection, and a per-process audio measurement. No instrumentation is added to the listener’s app. The loopback signal is evidence of sound delivered to the output route. Physical sound at a listener’s ear would require an acoustic measurement. Inputs, thresholds and source path come from the existing [capture criteria](2026-11-15-captalo-core-reader-phases/phase-2.md#L122) and [speech criteria](2026-11-15-captalo-core-reader-phases/phase-3.md#L171). The user authorized sequential execution of all three steps. No deployment or published change is involved.
 
+All three phases ran on November 22. The [six-app measurement report](../research/2026-11-22-native-capture-matrix.md) records the two unmet stop criteria and the repeat observations.
+
 ## Stuck states and recovery
 
 If focus or file identity is wrong, send no keys. Reopen or refocus the disposable fixture and verify its identity. If a source cannot select the fixture, try its supported document-selection interface and record the failure by app. If macOS denies automation or audio capture, exercise the available authorized route and report remaining measurements as unavailable. If audio cannot distinguish two passages, report only the observed transition. Timeouts, rejected observations and repeats remain visible. The acceptance decision distinguishes a reader defect from a failed test driver.
