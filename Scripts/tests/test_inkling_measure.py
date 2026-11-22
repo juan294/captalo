@@ -8,7 +8,26 @@ import unittest
 M = runpy.run_path(str(Path(__file__).resolve().parents[1] / "inkling_measure.py"))
 
 
+METRICS = runpy.run_path(str(Path(__file__).resolve().parents[1] / "inkling_metrics.py"))
+
+
 class MeasurementTests(unittest.TestCase):
+    def test_cold_clock_and_simultaneous_voice_memory(self):
+        row = dict(process_launch=10, load_start=11, model_ready=15, reserved=16, submitted=17,
+                   first_final=19, first_sentence=20, terminal=21, gpu_drained=22, repeat=1,
+                   pid=44, status="eos", mlx_peak_bytes=100, rss_peak_bytes=75)
+        samples = [dict(worker=44, clock=18, worker_bytes=40, voice_bytes=10),
+                   dict(worker=44, clock=22, worker_bytes=55, voice_bytes=12)]
+        intervals = [dict(started_seconds=16, ended_seconds=19.5),
+                     dict(started_seconds=20.25, ended_seconds=21.5)]
+        result = METRICS["measure"](row, samples, intervals)
+        self.assertEqual(result["loaded_seconds"]["first_sentence"], 3)
+        self.assertEqual(result["cold_seconds"]["first_sentence"], 10)
+        self.assertTrue(result["voice"]["first_final_onset"])
+        self.assertFalse(result["voice"]["first_sentence_onset"])
+        self.assertEqual(result["memory"]["active_paired_rss_peak_bytes"], 50)
+        self.assertIsNone(METRICS["measure"](dict(row, repeat=2), samples, intervals)["cold_seconds"])
+
     def test_eos_and_cap_from_actual_ids(self):
         def sample(ids, limit):
             pieces = {40: "Hello.", 50: "private"}
