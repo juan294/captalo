@@ -1,10 +1,11 @@
 import Foundation
 
-/// The version in the panel footer. The footer shows the marketing version
-/// only; the tooltip adds the commit from `build-info.json`
-/// (Scripts/write-build-info), so a tester can tell two builds of one version apart.
+/// The version in the panel footer: the marketing version, plus "beta N" for a
+/// beta (Scripts/set-version). The tooltip adds the commit from
+/// `build-info.json` (Scripts/write-build-info), so a tester can tell two
+/// builds of one version apart.
 public struct BuildLabel: Equatable, Sendable {
-    /// The footer text: "v1.0".
+    /// The footer text: "v1.0.0" or "v1.0.0 beta 3".
     public let text: String
     /// What VoiceOver says: "Version 1.0".
     public let spoken: String
@@ -24,6 +25,8 @@ public struct BuildLabel: Equatable, Sendable {
         let dirty: Bool?
         let configuration: String?
         let built_at: String?
+        /// "beta.3" for a beta, empty for a production release.
+        let prerelease: String?
     }
 
     /// `version` is the bundle's short version string; `buildInfo` is the
@@ -34,8 +37,9 @@ public struct BuildLabel: Equatable, Sendable {
         let commit = info?.commit.flatMap(shortCommit)
         let dirty = info?.dirty == true
 
-        let text = version.map { "v\($0)" } ?? unknown.text
-        let spoken = version.map { "Version \($0)" } ?? unknown.spoken
+        let beta = info?.prerelease.flatMap(betaNumber).map { " beta \($0)" } ?? ""
+        let text = version.map { "v\($0)\(beta)" } ?? unknown.text
+        let spoken = version.map { "Version \($0)\(beta)" } ?? unknown.spoken
         var detail = [spoken]
         if let commit {
             detail.append(dirty ? "commit \(commit) with uncommitted changes" : "commit \(commit)")
@@ -43,6 +47,12 @@ public struct BuildLabel: Equatable, Sendable {
         if let configuration = info?.configuration?.nonEmpty { detail.append("\(configuration) build") }
         if let built = info?.built_at.flatMap(builtDate) { detail.append("built \(built)") }
         return BuildLabel(text: text, spoken: spoken, detail: detail.joined(separator: ", "))
+    }
+
+    /// "beta.3" is 3; any other shape is nil.
+    private static func betaNumber(_ prerelease: String) -> Int? {
+        guard prerelease.hasPrefix("beta."), let number = Int(prerelease.dropFirst(5)), number > 0 else { return nil }
+        return number
     }
 
     /// The first seven characters of a hexadecimal commit; nil for "unknown".

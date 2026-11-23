@@ -1,0 +1,189 @@
+#!/usr/bin/env python3
+"""Set, show or check the release version in Captalo.xcodeproj.
+
+The project is the single version source. A version is X.Y.Z for a production
+release or X.Y.Z-beta.N for a beta; the release tag is "v" plus the version.
+
+    Scripts/set-version 1.0.0-beta.3    write it into every app configuration
+    Scripts/set-version --show          print "1.0.0-beta.3 (build 3)"
+    Scripts/set-version --check 1.0.0   exit 1 unless the project carries 1.0.0
+    Scripts/set-version --check 1.0.0 --app <Captalo.app>
+                                        and the built bundle carries it too
+
+Writing sets MARKETING_VERSION (X.Y.Z, the bundle's short version),
+CAPTALO_PRERELEASE ("beta.N" or empty; write-build-info records it so the
+panel can say "beta N") and CURRENT_PROJECT_VERSION, the bundle build number,
+which goes up by one for every new version and is never reused. A version older
+than the project's is refused; the same version changes nothing.
+"""
+import json
+import plistlib
+import re
+import sys
+from dataclasses import dataclass
+from pathlib import Path
+
+PROJECT = Path(__file__).resolve().parent.parent / "Captalo.xcodeproj" / "project.pbxproj"
+VERSION = re.compile(r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-beta\.([1-9]\d*))?")
+# Xcode writes a value bare or quoted, depending on its characters.
+SETTING = r'^(?P<indent>[ \t]*){name} = "?(?P<value>[^";]*)"?;$'
+
+
+class VersionError(Exception):
+    pass
+
+
+@dataclass(frozen=True)
+class Version:
+    major: int
+    minor: int
+    patch: int
+    beta: int | None
+
+    def __str__(self):
+        core = f"{self.major}.{self.minor}.{self.patch}"
+        return core if self.beta is None else f"{core}-beta.{self.beta}"
+
+    @property
+    def marketing(self):
+        return f"{self.major}.{self.minor}.{self.patch}"
+
+    @property
+    def prerelease(self):
+        return "" if self.beta is None else f"beta.{self.beta}"
+
+    def order(self):
+        # A beta comes before the release with the same X.Y.Z.
+        return (self.major, self.minor, self.patch, self.beta is None, self.beta or 0)
+
+
+@dataclass(frozen=True)
+class State:
+    """The project's version; None before the project first used this script."""
+    version: Version | None
+    build: int
+
+
+def parse(text):
+    match = VERSION.fullmatch(text)
+    if not match:
+        raise VersionError(f"{text!r} is not a version: use X.Y.Z or X.Y.Z-beta.N")
+    major, minor, patch, beta = match.groups()
+    return Version(int(major), int(minor), int(patch), int(beta) if beta else None)
+
+
+def values(text, name):
+    found = [m.group("value") for m in re.finditer(SETTING.format(name=name), text, re.MULTILINE)]
+    if len(set(found)) > 1:
+        raise VersionError(f"the configurations disagree on {name}: {', '.join(sorted(set(found)))}")
+    return found
+
+
+def read(text):
+    marketing = values(text, "MARKETING_VERSION")
+    if not marketing:
+        raise VersionError("the project has no MARKETING_VERSION")
+    builds = values(text, "CURRENT_PROJECT_VERSION")
+    if len(builds) != len(marketing) or not builds[0].isdigit():
+        raise VersionError("every versioned configuration needs one numeric CURRENT_PROJECT_VERSION")
+    prerelease = values(text, "CAPTALO_PRERELEASE")
+    if not prerelease:
+        return State(None, int(builds[0]))
+    if len(prerelease) != len(marketing):
+        raise VersionError("every versioned configuration needs one CAPTALO_PRERELEASE")
+    full = marketing[0] + (f"-{prerelease[0]}" if prerelease[0] else "")
+    return State(parse(full), int(builds[0]))
+
+
+def apply(text, version):
+    """The project text carrying `version`, and the resulting state."""
+    current = read(text)
+    if current.version == version:
+        return text, current
+    if current.version is not None and version.order() < current.version.order():
+        raise VersionError(f"{version} is older than the project's {current.version}")
+    build = current.build + 1
+
+    def replace(name, value):
+        return lambda m: f'{m.group("indent")}{name} = {value};'
+
+    text = re.sub(SETTING.format(name="MARKETING_VERSION"), replace("MARKETING_VERSION", version.marketing),
+                  text, flags=re.MULTILINE)
+    text = re.sub(SETTING.format(name="CURRENT_PROJECT_VERSION"), replace("CURRENT_PROJECT_VERSION", build),
+                  text, flags=re.MULTILINE)
+    prerelease = f'"{version.prerelease}"'
+    if current.version is None:
+        text = re.sub(SETTING.format(name="MARKETING_VERSION"),
+                      lambda m: f'{m.group(0)}\n{m.group("indent")}CAPTALO_PRERELEASE = {prerelease};',
+                      text, flags=re.MULTILINE)
+    else:
+        text = re.sub(SETTING.format(name="CAPTALO_PRERELEASE"), replace("CAPTALO_PRERELEASE", prerelease),
+                      text, flags=re.MULTILINE)
+    state = read(text)
+    assert state == State(version, build), state
+    return text, state
+
+
+def describe(state):
+    return f"{state.version} (build {state.build})"
+
+
+def bundle_state(app):
+    """What a built Captalo.app says: Info.plist plus the recorded prerelease."""
+    try:
+        with open(app / "Contents" / "Info.plist", "rb") as handle:
+            info = plistlib.load(handle)
+        build_info = json.loads((app / "Contents" / "Resources" / "build-info.json").read_text(encoding="utf-8"))
+        prerelease = build_info.get("prerelease") or ""
+        full = info["CFBundleShortVersionString"] + (f"-{prerelease}" if prerelease else "")
+        return State(parse(full), int(info["CFBundleVersion"]))
+    except (OSError, ValueError, KeyError, plistlib.InvalidFileException) as error:
+        raise VersionError(f"cannot read the version of {app}: {error}") from error
+
+
+def main(argv):
+    args = list(argv)
+    project = PROJECT
+    if "--project" in args:
+        at = args.index("--project")
+        project = Path(args[at + 1])
+        del args[at:at + 2]
+    app = None
+    if "--app" in args:
+        at = args.index("--app")
+        app = Path(args[at + 1])
+        del args[at:at + 2]
+    try:
+        text = project.read_text(encoding="utf-8")
+        if app is not None and (len(args) != 2 or args[0] != "--check"):
+            raise VersionError("--app goes with --check")
+        if args == ["--show"]:
+            state = read(text)
+            print(describe(state) if state.version else f"no release version yet (build {state.build})")
+            return 0
+        if len(args) == 2 and args[0] == "--check":
+            expected, state = parse(args[1]), read(text)
+            if state.version != expected:
+                print(f"set-version: project carries {state.version}, expected {expected}", file=sys.stderr)
+                return 1
+            if app is not None and (built := bundle_state(app)) != state:
+                print(f"set-version: bundle carries {describe(built)}, project {describe(state)}", file=sys.stderr)
+                return 1
+            print(describe(state))
+            return 0
+        if len(args) == 1 and not args[0].startswith("-"):
+            new_text, state = apply(text, parse(args[0]))
+            if new_text != text:
+                project.write_text(new_text, encoding="utf-8")
+            print(describe(state))
+            return 0
+    except VersionError as error:
+        print(f"set-version: {error}", file=sys.stderr)
+        return 2
+    print("usage: set-version <X.Y.Z[-beta.N]> | --show | --check <X.Y.Z[-beta.N]> [--app <Captalo.app>]",
+          file=sys.stderr)
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
