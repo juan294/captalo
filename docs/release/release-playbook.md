@@ -4,7 +4,7 @@ This is the single release procedure for Cáptalo. Native `rpi-release` delegate
 
 ## Present readiness
 
-The project is a public fork with a renamed Cáptalo Xcode target and inherited local speech engine. No Cáptalo binary has been released. Automated tests cover `Packages/CaptaloCore` and `Scripts/` only; there is no app UI test target, signed packaging pipeline, or candidate-bound runtime evidence yet. The setup check/build can pass while release readiness remains **BLOCKED**. Do not manufacture `xcodebuild test` success or a coverage percentage.
+The project is a public fork with a renamed Cáptalo Xcode target and inherited local speech engine. Two betas are published as GitHub pre-releases: `v1.0.0-beta.1` (commit `bb97faa`, build 1) and `v1.0.0-beta.2` (commit `aa8e817`, build 2). Each is a DMG signed with Developer ID and notarized by Apple. Both were packaged by hand; the evidence is in ignored `.local/distribution/`. There is no packaging script yet, and no production release. [CHANGELOG.md](../../CHANGELOG.md) records each release. Automated tests cover `Packages/CaptaloCore` and `Scripts/` only; there is no app UI test target, signed packaging pipeline, or candidate-bound runtime evidence yet. The setup check/build can pass while release readiness remains **BLOCKED**. Do not manufacture `xcodebuild test` success or a coverage percentage.
 
 Machine-readable selection and gaps are recorded in `.rpi/release-profile.json`. Before the first app release, the product plan must supply executable application checks and the evidence analyzer described below. Installing RPI does not implement them.
 
@@ -36,6 +36,24 @@ Machine-readable selection and gaps are recorded in `.rpi/release-profile.json`.
 6. Analyze the exact candidate's evidence with a tested analyzer. It must reject zero passes, missing/failed/skipped required probes, mismatched commit/bundle digest, missing cleanup, and missing required real-Mac or charter evidence. The analyzer is a first-release prerequisite and is not present at bootstrap. A prose checklist cannot substitute for it.
 7. Present source and bundle identity, automated results, runtime evidence, privacy/offline evidence, known issues, signing/distribution status and rollback artifact to Juan. Obtain the authorization required for the concrete publication action.
 8. Promote the verified tree with a merge commit, confirm its identity, then create the release tag last through `rpi-release`. Never tag an unverified merge result. Publish only the authorized artifact/destination and inspect the exact resulting release. No rerun/re-push debugging loop.
+
+## Versions
+
+Owner decision 2026-11-23: every release, beta or production, sets its version automatically through `Scripts/set-version`, and the menu-bar panel footer shows it.
+
+| | Production | Beta |
+| --- | --- | --- |
+| Version | `X.Y.Z` | `X.Y.Z-beta.N` |
+| Tag | `vX.Y.Z` | `vX.Y.Z-beta.N` |
+| Cut from | `main`, after a merge-commit promotion | `develop` |
+| GitHub release | normal | `--prerelease` |
+| Panel footer | `vX.Y.Z` | `vX.Y.Z beta N` |
+
+`Captalo.xcodeproj/project.pbxproj` is the only version source. `Scripts/set-version <version>` writes `MARKETING_VERSION` (`X.Y.Z`, the bundle's short version), `CAPTALO_PRERELEASE` (`beta.N` or empty) and `CURRENT_PROJECT_VERSION` (the build number) into both app configurations. The build number goes up by one for each new version and is never reused, so macOS and testers can order any two builds. The script refuses a malformed version or one older than the project's. `Scripts/write-build-info` records `CAPTALO_PRERELEASE` in `build-info.json`, where the panel reads it.
+
+`Scripts/set-version --check <version> --app <Captalo.app>` is a Wave A gate: the project and the exact candidate bundle must both carry the released version and build number. Cáptalo must not reuse the upstream Sotto tags `v0.1.0` and `v1.0.1` in origin. The step-by-step version procedure for `rpi-release` is `.rpi/project/rpi-release.md`.
+
+Builds between releases carry the last release's version. The footer tooltip shows the commit, so a development build can still be told apart.
 
 ## Evidence and rollback
 
