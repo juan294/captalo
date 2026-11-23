@@ -13,7 +13,9 @@ struct PanelFixture {
             screenRecordingGranted: true, regionShortcutSet: true
         ),
         voices: ["af_heart", "af_bella"], voice: "af_heart", speed: 1.0,
-        readShortcut: "⌃⌥S", regionShortcut: "⌃⌥A", stopShortcut: "⌃⌥X", loginItem: .make(status: .enabled)
+        readShortcut: "⌃⌥S", regionShortcut: "⌃⌥A", stopShortcut: "⌃⌥X", loginItem: .make(status: .enabled),
+        // Fixed, so a render does not change with the commit it was built from.
+        build: BuildLabel(text: "v1.0 · 0a1b2c3", detail: "Version 1.0, commit 0a1b2c3")
     )
 
     private static func changed(_ change: (inout PanelInput) -> Void) -> PanelInput {

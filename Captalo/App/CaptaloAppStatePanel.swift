@@ -1,5 +1,14 @@
 import CaptaloCore
+import Foundation
 import KeyboardShortcuts
+
+/// This bundle's version and the commit `Scripts/write-build-info` recorded, read once.
+private enum InstalledBuild {
+    static let label = BuildLabel.make(
+        version: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String,
+        buildInfo: Bundle.main.url(forResource: "build-info", withExtension: "json").flatMap { try? Data(contentsOf: $0) }
+    )
+}
 
 extension CaptaloAppState {
     /// What the menu-bar panel shows now. `PanelModel.make` decides the rest.
@@ -16,7 +25,8 @@ extension CaptaloAppState {
             regionNotice: regionFailureNotice,
             voiceError: lastReadingError,
             loginItem: loginItem,
-            screenRecordingRequest: screenRecordingRequest
+            screenRecordingRequest: screenRecordingRequest,
+            build: InstalledBuild.label
         )
     }
 

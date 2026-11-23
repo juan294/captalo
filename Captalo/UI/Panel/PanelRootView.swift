@@ -34,7 +34,7 @@ struct PanelRootView: View {
             VStack(spacing: 0) {
                 PaneHeader(title: title, pill: model.pill(for: tab))
                 PaneBody { pane }
-                PanelFooter()
+                PanelFooter(build: model.build)
             }
             // Top-aligned and clipped: content that does not fit a render is cut at the bottom, where it shows.
             .frame(maxWidth: .infinity)
@@ -184,11 +184,18 @@ struct PaneBody<Content: View>: View {
 
 struct PanelFooter: View {
     @Environment(\.panelTheme) private var theme
+    let build: BuildLabel
 
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "lock").font(.system(size: 11, weight: .semibold)).accessibilityHidden(true)
             Text("Speech and OCR run on this Mac").font(.system(size: 12))
+            Spacer(minLength: 8)
+            Text(build.text)
+                .font(.system(size: 11).monospacedDigit())
+                .fixedSize()
+                .help(build.detail)
+                .accessibilityLabel(build.detail)
         }
         .foregroundStyle(theme.textSecondary)
         .padding(.horizontal, PanelMetrics.panePadding)

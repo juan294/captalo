@@ -44,13 +44,16 @@ public struct PanelInput: Equatable, Sendable {
     public var loginItem: LoginItemRow
     /// Used to offer the right permission action and focus the active request.
     public var screenRecordingRequest: ScreenRecordingRequest
+    /// The version in the footer; fixed for the life of the process.
+    public var build: BuildLabel
 
     public init(
         environment: SetupEnvironment, voices: [String], voice: String, speed: Float,
         readShortcut: String? = nil, regionShortcut: String? = nil, stopShortcut: String? = nil,
         shortcutRejection: String? = nil,
         regionNotice: String? = nil, voiceError: String? = nil,
-        loginItem: LoginItemRow = .make(status: .notRegistered), screenRecordingRequest: ScreenRecordingRequest = .never
+        loginItem: LoginItemRow = .make(status: .notRegistered), screenRecordingRequest: ScreenRecordingRequest = .never,
+        build: BuildLabel = .unknown
     ) {
         self.environment = environment
         self.voices = voices
@@ -64,6 +67,7 @@ public struct PanelInput: Equatable, Sendable {
         self.voiceError = voiceError
         self.loginItem = loginItem
         self.screenRecordingRequest = screenRecordingRequest
+        self.build = build
     }
 }
 
@@ -133,6 +137,7 @@ public struct PanelModel: Equatable, Sendable {
     public let read: ReadPaneModel
     public let voice: VoicePaneModel
     public let setup: SetupPaneModel
+    public let build: BuildLabel
     private let readPill: PanelPill
     private let voicePill: PanelPill
     private let setupPill: PanelPill
@@ -168,6 +173,7 @@ public struct PanelModel: Equatable, Sendable {
             read: readPane(input),
             voice: voicePane(input),
             setup: setupPane(input),
+            build: input.build,
             readPill: setup.isReady ? PanelPill(text: "Ready", kind: .positive) : PanelPill(text: "Needs setup", kind: .neutral),
             voicePill: voicePill(env.voice),
             setupPill: setupPill
