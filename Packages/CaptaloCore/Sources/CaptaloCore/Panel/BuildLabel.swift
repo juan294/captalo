@@ -1,20 +1,23 @@
 import Foundation
 
-/// The version in the panel footer, so a tester can tell one installed build
-/// from another. The marketing version alone does not change between builds;
-/// the commit from `build-info.json` (Scripts/write-build-info) does.
+/// The version in the panel footer. The footer shows the marketing version
+/// only; the tooltip adds the commit from `build-info.json`
+/// (Scripts/write-build-info), so a tester can tell two builds of one version apart.
 public struct BuildLabel: Equatable, Sendable {
-    /// The footer text: "v1.0 · aa8e817".
+    /// The footer text: "v1.0".
     public let text: String
-    /// The tooltip and VoiceOver text, with the build type and date.
+    /// What VoiceOver says: "Version 1.0".
+    public let spoken: String
+    /// The tooltip, with the commit, build type and date.
     public let detail: String
 
-    public init(text: String, detail: String) {
+    public init(text: String, spoken: String, detail: String) {
         self.text = text
+        self.spoken = spoken
         self.detail = detail
     }
 
-    public static let unknown = BuildLabel(text: "Version unknown", detail: "Version unknown")
+    public static let unknown = BuildLabel(text: "Version unknown", spoken: "Version unknown", detail: "Version unknown")
 
     private struct Info: Decodable {
         let commit: String?
@@ -31,20 +34,15 @@ public struct BuildLabel: Equatable, Sendable {
         let commit = info?.commit.flatMap(shortCommit)
         let dirty = info?.dirty == true
 
-        var text: [String] = []
-        var detail: [String] = []
-        if let version {
-            text.append("v\(version)")
-            detail.append("Version \(version)")
-        }
+        let text = version.map { "v\($0)" } ?? unknown.text
+        let spoken = version.map { "Version \($0)" } ?? unknown.spoken
+        var detail = [spoken]
         if let commit {
-            text.append(dirty ? "\(commit)+" : commit)
             detail.append(dirty ? "commit \(commit) with uncommitted changes" : "commit \(commit)")
         }
-        guard !text.isEmpty else { return .unknown }
         if let configuration = info?.configuration?.nonEmpty { detail.append("\(configuration) build") }
         if let built = info?.built_at.flatMap(builtDate) { detail.append("built \(built)") }
-        return BuildLabel(text: text.joined(separator: " · "), detail: detail.joined(separator: ", "))
+        return BuildLabel(text: text, spoken: spoken, detail: detail.joined(separator: ", "))
     }
 
     /// The first seven characters of a hexadecimal commit; nil for "unknown".

@@ -195,7 +195,7 @@ struct PanelFooter: View {
                 .font(.system(size: 11).monospacedDigit())
                 .fixedSize()
                 .help(build.detail)
-                .accessibilityLabel(build.detail)
+                .accessibilityLabel(build.spoken)
         }
         .foregroundStyle(theme.textSecondary)
         .padding(.horizontal, PanelMetrics.panePadding)
