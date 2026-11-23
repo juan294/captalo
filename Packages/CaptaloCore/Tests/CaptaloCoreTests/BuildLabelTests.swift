@@ -10,15 +10,17 @@ import Testing
         """.utf8)
     }
 
-    @Test func showsVersionAndShortCommit() {
+    /// The commit means nothing to most people, so it stays in the tooltip.
+    @Test func showsTheVersionWithTheCommitInTheTooltip() {
         let label = BuildLabel.make(version: "1.0", buildInfo: Self.json())
-        #expect(label.text == "v1.0 · aa8e817")
+        #expect(label.text == "v1.0")
+        #expect(label.spoken == "Version 1.0")
         #expect(label.detail == "Version 1.0, commit aa8e817, Release build, built 2026-11-22 19:33 UTC")
     }
 
     @Test func marksABuildWithUncommittedChanges() {
         let label = BuildLabel.make(version: "1.0", buildInfo: Self.json(dirty: "true", configuration: "Debug"))
-        #expect(label.text == "v1.0 · aa8e817+")
+        #expect(label.text == "v1.0")
         #expect(label.detail == "Version 1.0, commit aa8e817 with uncommitted changes, Debug build, built 2026-11-22 19:33 UTC")
     }
 
@@ -30,7 +32,8 @@ import Testing
     }
 
     @Test func missingOrUnreadableBuildInfoShowsTheVersionOnly() {
-        #expect(BuildLabel.make(version: "1.0", buildInfo: nil) == BuildLabel(text: "v1.0", detail: "Version 1.0"))
+        #expect(BuildLabel.make(version: "1.0", buildInfo: nil)
+            == BuildLabel(text: "v1.0", spoken: "Version 1.0", detail: "Version 1.0"))
         #expect(BuildLabel.make(version: "1.0", buildInfo: Data("not json".utf8)).text == "v1.0")
     }
 
@@ -40,16 +43,19 @@ import Testing
     }
 
     @Test func noVersionAndNoCommitSaysUnknown() {
-        #expect(BuildLabel.make(version: nil, buildInfo: nil) == BuildLabel(text: "Version unknown", detail: "Version unknown"))
+        #expect(BuildLabel.make(version: nil, buildInfo: nil) == .unknown)
+        #expect(BuildLabel.unknown.text == "Version unknown")
         #expect(BuildLabel.make(version: "  ", buildInfo: nil).text == "Version unknown")
     }
 
-    @Test func commitWithoutVersionStillShows() {
-        #expect(BuildLabel.make(version: nil, buildInfo: Self.json()).text == "aa8e817")
+    @Test func commitWithoutVersionStaysInTheTooltip() {
+        let label = BuildLabel.make(version: nil, buildInfo: Self.json())
+        #expect(label.text == "Version unknown")
+        #expect(label.detail == "Version unknown, commit aa8e817, Release build, built 2026-11-22 19:33 UTC")
     }
 
     @Test func panelModelCarriesTheBuildLabel() {
-        let build = BuildLabel(text: "v1.0 · aa8e817", detail: "Version 1.0, commit aa8e817")
+        let build = BuildLabel(text: "v1.0", spoken: "Version 1.0", detail: "Version 1.0, commit aa8e817")
         var input = PanelModelTests.ready
         input.build = build
         #expect(PanelModel.make(input).build == build)
