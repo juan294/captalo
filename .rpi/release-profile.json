@@ -31,7 +31,6 @@
   ],
   "current_gaps": [
     "no-application-test-target",
-    "no-release-evidence-analyzer",
     "no-runtime-acceptance-evidence",
     "no-captalo-signing-or-distribution-pipeline"
   ],
