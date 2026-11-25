@@ -1,0 +1,456 @@
+#!/usr/bin/env python3
+"""Decide whether the evidence for one exact release candidate is complete.
+
+    Scripts/release-evidence template --app <Captalo.app>
+        print an evidence file to fill in, bound to this bundle
+    Scripts/release-evidence check --app <Captalo.app> --evidence <file>
+        exit 0 when the evidence is complete, 1 when it is not, 2 when an
+        input cannot be read
+
+Run the check in a clean checkout of the candidate commit, made with the same
+umask as the checkout that ran the suite (the suite's tree identity includes
+file modes), with Python 3.11 or newer. It rejects zero
+passes, a missing, failed or skipped probe, evidence for another commit or
+bundle, a suite that did not run on exactly this source, missing cleanup, and a
+missing charter (release playbook, step 6). It reads files and asks git; it changes neither. It cannot tell
+whether a recorded result is true: the person who ran the probe answers for
+that. It does not check the version, the signature, the model identities or
+that application tests exist; the playbook keeps those as separate gates.
+
+The bundle digest covers every directory, every file's path, content and
+executable bit, and every link's target. It does not cover extended attributes,
+so a copy from a downloaded DMG has the digest of the packaged app.
+"""
+import argparse
+import datetime
+import hashlib
+import importlib.machinery
+import importlib.util
+import json
+import os
+import re
+import stat
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+REQUIRED_PROBES = (
+    "selection-rex", "selection-safari", "selection-chrome", "selection-preview", "selection-textedit",
+    "selection-word", "selection-empty", "selection-failed", "clipboard-preserved", "focus-preserved", "stop-reading",
+    "read-again", "long-passage-complete", "accessibility-denied-then-granted", "screen-recording-denied-then-granted",
+    "first-install", "offline-selection", "offline-region", "region-capture", "region-scanned-pdf",
+    "region-reading-order", "region-escape-focus", "region-full-screen", "second-display",
+    "output-change-recovery", "voice-accepted", "minimum-macos",
+)
+# Depends on hardware that a test Mac may not have.
+MAY_BE_NA = ("second-display",)
+MANEUVERS = (
+    "repeated-actions", "errors-and-recovery", "interruption", "second-app-or-session",
+    "locale-or-device-change", "copy-versus-result", "downstream-state", "should-it-exist",
+)
+# A skipped high-risk area blocks publication, so the rest must run.
+MANEUVERS_MAY_BE_NA = ("downstream-state",)
+CANDIDATE_FIELDS = {"commit": r"[0-9a-f]{40}", "bundle_digest": r"[0-9a-f]{64}"}
+
+
+class EvidenceError(Exception):
+    pass
+
+
+def run_git(repo, *arguments, check=True):
+    return subprocess.run(["git", "--no-optional-locks", *arguments], cwd=repo, check=check, capture_output=True, text=True)
+
+
+def bundle_digest(app):
+    app = Path(app)
+    paths = []
+
+    def refuse(error):
+        raise error
+
+    for folder, folders, files in os.walk(app, onerror=refuse):
+        paths += [Path(folder) / name for name in folders + files]
+    total = hashlib.sha256()
+    count = 0
+    for path in sorted(paths, key=lambda p: p.relative_to(app).as_posix()):
+        name = path.relative_to(app).as_posix()
+        mode = path.lstat().st_mode
+        if stat.S_ISLNK(mode):
+            target = os.readlink(path)
+            if not path.resolve().is_relative_to(app.resolve()):
+                raise EvidenceError(f"{path}: link leaves the bundle")
+            entry = ["link", name, target]
+        elif stat.S_ISREG(mode):
+            entry = ["file", name, bool(mode & 0o100), hashlib.sha256(path.read_bytes()).hexdigest()]
+            count += 1
+        elif stat.S_ISDIR(mode):
+            entry = ["directory", name]
+        else:
+            raise EvidenceError(f"{path}: neither a file, a directory nor a link")
+        total.update(json.dumps(entry).encode() + b"\n")
+    if not count:
+        raise EvidenceError(f"{app}: no files in the bundle")
+    return total.hexdigest()
+
+
+def source_identity(repo):
+    """The tree identity that rpi-verify.py records in its receipt."""
+    path = ROOT / ".rpi" / "scripts" / "rpi-candidate.py"
+    loader = importlib.machinery.SourceFileLoader("rpi_candidate", str(path))
+    spec = importlib.util.spec_from_loader(loader.name, loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    return module.identity(Path(repo))
+
+
+def as_dict(value):
+    return value if isinstance(value, dict) else {}
+
+
+def as_records(value):
+    return [as_dict(item) for item in value] if isinstance(value, list) else []
+
+
+def all_records(value):
+    return isinstance(value, list) and all(isinstance(item, dict) for item in value)
+
+
+def has_text(value):
+    return isinstance(value, str) and bool(value.strip())
+
+
+def parse_time(value):
+    try:
+        time = datetime.datetime.fromisoformat(value)
+    except (TypeError, ValueError):
+        return None
+    return time if time.tzinfo else None
+
+
+def time_within(value, earliest, now):
+    """A time with a zone, not before the build and not in the future."""
+    time = parse_time(value)
+    return time is not None and time <= now and (earliest is None or time >= earliest)
+
+
+def approved_by_now(value, now):
+    try:
+        return datetime.date.fromisoformat(value) <= now.astimezone().date()
+    except (TypeError, ValueError):
+        return False
+
+
+def cleanup_complete(value):
+    value = as_dict(value)
+    if value.get("status") == "retained":
+        return has_text(value.get("owner")) and has_text(value.get("next_action"))
+    return value.get("status") in ("done", "nothing-allocated")
+
+
+def index(records, label, known, problems):
+    """Records by ID. Unknown and repeated IDs are problems, so neither can hide a result."""
+    found = {}
+    for record in records:
+        name = record.get("id")
+        if not isinstance(name, str) or name not in known:
+            problems.append(f"{label} {name}: not a required {label.split()[-1]}")
+        elif name in found:
+            problems.append(f"{label} {name}: recorded more than once")
+        else:
+            found[name] = record
+    return found
+
+
+def wrong_fields(record, candidate):
+    return [field for field in CANDIDATE_FIELDS if record.get(field) != candidate.get(field)]
+
+
+def check_bundle(candidate, app, info):
+    problems = []
+    commit = candidate.get("commit")
+    if not isinstance(commit, str) or not re.fullmatch(CANDIDATE_FIELDS["commit"], commit):
+        problems.append("candidate commit is not a full 40-character commit")
+    if candidate.get("bundle_digest") != bundle_digest(app):
+        problems.append("candidate digest does not match the bundle")
+    if info.get("commit") != commit:
+        problems.append(f"build-info commit is {info.get('commit')}, not the candidate commit")
+    if info.get("dirty") is not False:
+        problems.append("the bundle is not from a clean tree")
+    if info.get("configuration") != "Release":
+        problems.append("the bundle is not a Release build")
+    if parse_time(info.get("built_at")) is None:
+        problems.append("build-info has no build time with a zone")
+    return problems
+
+
+def check_source(commit, repo):
+    problems = []
+    if run_git(repo, "rev-parse", "HEAD").stdout.strip() != commit:
+        problems.append("the checkout is not at the candidate commit")
+    if run_git(repo, "status", "--porcelain", "--untracked-files=all").stdout.strip():
+        problems.append("the checkout is not clean")
+    # Files hidden by .git/info/exclude or a global ignore file are in neither git status nor the tree
+    # identity. Only the committed .gitignore files may hide a file.
+    elif run_git(repo, "ls-files", "--others", "--exclude-per-directory=.gitignore").stdout.strip():
+        problems.append("the checkout has files that only local ignore rules hide")
+    # A lower-case tag is assume-unchanged; S is skip-worktree. Both hide an edit from git status.
+    if any(line[0].islower() or line[0] == "S" for line in run_git(repo, "ls-files", "-v").stdout.splitlines()):
+        problems.append("the checkout hides changes from git")
+    return problems
+
+
+def check_receipt(receipt, repo):
+    problems = []
+    receipt = as_dict(receipt)
+    if receipt.get("passed") is not True or receipt.get("status") != "complete":
+        problems.append("the verification suite did not pass")
+    if receipt.get("suite") != "ci-equivalent":
+        problems.append("the receipt is not the full suite")
+    before = as_dict(receipt.get("identity"))
+    if before != source_identity(repo):
+        problems.append("the verification suite ran on another source tree")
+    if receipt.get("identity_after") != receipt.get("identity") or receipt.get("identity_unchanged") is not True:
+        problems.append("the tree changed during verification")
+    policy = as_dict(parse_json(run_git(repo, "show", "HEAD:.rpi/policy.json").stdout, "the committed policy"))
+    required = as_records(policy.get("verification_checks"))
+    if not required:
+        problems.append("the policy declares no check")
+    commands = {check["name"]: check.get("argv") for check in required if has_text(check.get("name"))}
+    if len(commands) != len(required):
+        problems.append("the policy has a check with no name, or a repeated one")
+    seen = set()
+    for record in as_records(receipt.get("checks")):
+        name, code = record.get("name"), record.get("exit_code")
+        if not isinstance(name, str) or name not in commands:
+            problems.append(f"check {name}: not a required check")
+            continue
+        # False == 0 in Python; only the integer 0 is a pass.
+        if type(code) is not int or code != 0:
+            problems.append(f"check {name}: exit code {code}")
+        if record.get("argv") != commands[name]:
+            problems.append(f"check {name}: ran another command than the policy declares")
+        if name in seen:
+            problems.append(f"check {name}: recorded more than once")
+        seen.add(name)
+    return problems + [f"check {name}: missing" for name in commands if name not in seen]
+
+
+def check_probes(candidate, records, built, now):
+    problems = []
+    probes = index(as_records(records), "probe", REQUIRED_PROBES, problems)
+    if not any(probe.get("status") == "pass" for probe in probes.values()):
+        problems.append("no probe passed")
+    for name in REQUIRED_PROBES:
+        probe = probes.get(name)
+        if probe is None:
+            problems.append(f"probe {name}: missing")
+            continue
+        problems += [f"probe {name}: {field} is not the candidate's" for field in wrong_fields(probe, candidate)]
+        if probe.get("status") == "na" and name in MAY_BE_NA:
+            if not has_text(probe.get("reason")):
+                problems.append(f"probe {name}: N/A needs a reason")
+            continue
+        if probe.get("status") != "pass":
+            problems.append(f"probe {name}: status {probe.get('status')}")
+        problems += [f"probe {name}: {field} is missing" for field in ("environment", "procedure", "outcome")
+                     if not has_text(probe.get(field))]
+        if not time_within(probe.get("time"), built, now):
+            problems.append(f"probe {name}: time has no zone, is before the build or is in the future")
+        if not cleanup_complete(probe.get("cleanup")):
+            problems.append(f"probe {name}: cleanup is missing or incomplete")
+    return problems
+
+
+def check_finding(candidate, finding, moved, built, now):
+    name, severity, disposition = finding.get("id"), finding.get("severity"), finding.get("disposition")
+    problems = []
+    if severity not in ("S1", "S2", "S3", "S4"):
+        problems.append(f"finding {name}: severity is not S1 to S4")
+    if not has_text(finding.get("reason")):
+        problems.append(f"finding {name}: reason is missing")
+    if disposition == "repaired":
+        verified = as_dict(finding.get("verified"))
+        if not moved:
+            problems.append(f"finding {name}: a repair needs a charter on an earlier build")
+        elif (wrong_fields(verified, candidate) or verified.get("status") != "pass"
+                or not has_text(verified.get("procedure")) or not has_text(verified.get("outcome"))
+                or not time_within(verified.get("time"), built, now)):
+            problems.append(f"finding {name}: repair is not verified on this candidate")
+    elif disposition == "known-issue":
+        if severity in ("S1", "S2"):
+            problems.append(f"finding {name}: S1 and S2 cannot be known issues")
+        elif not has_text(finding.get("approved_by")) or not approved_by_now(finding.get("approved_on"), now):
+            problems.append(f"finding {name}: known issue needs approved_by and approved_on (YYYY-MM-DD, not after today)")
+    elif disposition != "rejected":
+        problems.append(f"finding {name}: disposition is not repaired, known-issue or rejected")
+    return problems
+
+
+def check_maneuver(name, maneuver, findings):
+    status = maneuver.get("status")
+    if status == "na" and name in MANEUVERS_MAY_BE_NA:
+        return [] if has_text(maneuver.get("reason")) else [f"charter maneuver {name}: N/A needs a reason"]
+    if status not in ("pass", "fail"):
+        return [f"charter maneuver {name}: status {status}"]
+    problems = []
+    if not has_text(maneuver.get("outcome")):
+        problems.append(f"charter maneuver {name}: outcome is missing")
+    if status == "fail":
+        named = maneuver.get("finding")
+        if not isinstance(named, str) or named not in findings:
+            problems.append(f"charter maneuver {name}: failed and names no recorded finding")
+        elif findings[named].get("disposition") == "rejected":
+            problems.append(f"charter maneuver {name}: failed, but finding {named} is rejected")
+    return problems
+
+
+def earlier_commit_time(candidate, charter, repo):
+    """When the charter's commit was made, or None unless the candidate descends from it."""
+    commits = [charter.get("commit"), candidate.get("commit")]
+    if not all(isinstance(commit, str) and re.fullmatch(CANDIDATE_FIELDS["commit"], commit) for commit in commits):
+        return None
+    if run_git(repo, "merge-base", "--is-ancestor", *commits, check=False).returncode != 0:
+        return None
+    return parse_time(run_git(repo, "show", "-s", "--format=%cI", commits[0]).stdout.strip())
+
+
+def check_charter(candidate, charter, repo, built, now):
+    if not isinstance(charter, dict):
+        return ["charter: missing"]
+    problems = []
+    if charter.get("independent") is not True:
+        problems.append("charter: not independent")
+    problems += [f"charter: {field} is missing" for field in ("author", "environment", "procedure")
+                 if not has_text(charter.get(field))]
+    if not cleanup_complete(charter.get("cleanup")):
+        problems.append("charter: cleanup is missing or incomplete")
+    problems += [f"charter: {field} is missing or malformed" for field, pattern in CANDIDATE_FIELDS.items()
+                 if not isinstance(charter.get(field), str) or not re.fullmatch(pattern, charter[field])]
+    # One charter round per release: after repairs, only the repairs are verified again.
+    moved = charter.get("commit") != candidate.get("commit")
+    if not moved and charter.get("bundle_digest") != candidate.get("bundle_digest"):
+        problems.append("charter: ran on another bundle of the candidate commit")
+    earliest, latest = built, now
+    if moved:
+        earliest, latest = earlier_commit_time(candidate, charter, repo), built or now
+        if earliest is None:
+            problems.append("charter: commit is not an earlier commit of the candidate")
+    if not time_within(charter.get("time"), earliest, latest):
+        problems.append("charter: time has no zone, is before its build or is too late")
+    problems += [f"charter: {field} is not a list of records" for field in ("findings", "maneuvers")
+                 if not all_records(charter.get(field))]
+    findings = {}
+    for finding in charter["findings"] if all_records(charter.get("findings")) else []:
+        name = finding.get("id")
+        if not has_text(name) or name in findings:
+            problems.append(f"finding {name}: ID is missing or recorded more than once")
+        else:
+            findings[name] = finding
+        problems += check_finding(candidate, finding, moved, built, now)
+    if moved and not any(finding.get("disposition") == "repaired" for finding in findings.values()):
+        problems.append("charter: ran on another build, and no repair explains the difference")
+    records = [record for record in charter["maneuvers"] if isinstance(record, dict)] \
+        if isinstance(charter.get("maneuvers"), list) else []
+    maneuvers = index(records, "charter maneuver", MANEUVERS, problems)
+    if not any(maneuver.get("status") == "pass" for maneuver in maneuvers.values()):
+        problems.append("charter: no maneuver passed")
+    for name in MANEUVERS:
+        if name in maneuvers:
+            problems += check_maneuver(name, maneuvers[name], findings)
+        else:
+            problems.append(f"charter maneuver {name}: missing")
+    return problems
+
+
+def analyze(evidence, receipt, repo, app, now):
+    evidence = as_dict(evidence)
+    candidate = as_dict(evidence.get("candidate"))
+    info = as_dict(read_json(Path(app) / "Contents" / "Resources" / "build-info.json"))
+    built = parse_time(info.get("built_at"))
+    version = evidence.get("schema_version")
+    problems = [] if type(version) is int and version == 1 else ["schema_version is not 1"]
+    problems += [f"unknown key {key}" for key in evidence
+                 if key not in ("schema_version", "candidate", "probes", "charter")]
+    return (problems + check_bundle(candidate, app, info) + check_source(candidate.get("commit"), repo)
+            + check_receipt(receipt, repo) + check_probes(candidate, evidence.get("probes"), built, now)
+            + check_charter(candidate, evidence.get("charter"), repo, built, now))
+
+
+def unique_keys(pairs):
+    value = dict(pairs)
+    if len(value) != len(pairs):
+        raise EvidenceError("duplicate key in a JSON object")
+    return value
+
+
+def parse_json(text, label):
+    try:
+        return json.loads(text, object_pairs_hook=unique_keys)
+    except (ValueError, RecursionError, EvidenceError) as error:
+        raise EvidenceError(f"{label}: {error}") from error
+
+
+def read_json(path):
+    try:
+        text = Path(path).read_text()
+    except (OSError, ValueError) as error:
+        raise EvidenceError(f"{path}: {error}") from error
+    return parse_json(text, path)
+
+
+def template(app):
+    info = as_dict(read_json(Path(app) / "Contents" / "Resources" / "build-info.json"))
+    candidate = {"commit": info.get("commit"), "bundle_digest": bundle_digest(app)}
+    probe = {"status": "not-run", **candidate, "environment": "", "time": "", "procedure": "", "outcome": "",
+             "cleanup": {"status": ""}}
+    return {
+        "schema_version": 1,
+        "candidate": candidate,
+        "probes": [{"id": name, **probe} for name in REQUIRED_PROBES],
+        "charter": {
+            **candidate, "time": "", "author": "", "independent": False, "environment": "", "procedure": "",
+            "maneuvers": [{"id": name, "status": "not-run", "outcome": ""} for name in MANEUVERS],
+            "findings": [], "cleanup": {"status": ""},
+        },
+    }
+
+
+def parse(arguments):
+    parser = argparse.ArgumentParser(description="Release evidence gate.")
+    commands = parser.add_subparsers(dest="command", required=True)
+    for name in ("template", "check"):
+        commands.add_parser(name).add_argument("--app", type=Path, required=True)
+    check = commands.choices["check"]
+    check.add_argument("--evidence", type=Path, required=True)
+    check.add_argument("--verification", type=Path, default=ROOT / ".rpi" / "local" / "verification.json")
+    check.add_argument("--repo", type=Path, default=ROOT, help="clean checkout of the candidate commit")
+    return parser.parse_args(arguments)
+
+
+def main(arguments):
+    options = parse(arguments)
+    # Git sets these in hooks; an inherited value would aim the check at another repository.
+    for name in [name for name in os.environ if name.startswith("GIT_")]:
+        del os.environ[name]
+    sys.dont_write_bytecode = True
+    try:
+        if options.command == "template":
+            print(json.dumps(template(options.app), indent=2))
+            return 0
+        problems = analyze(read_json(options.evidence), read_json(options.verification), options.repo, options.app,
+                           datetime.datetime.now(datetime.timezone.utc))
+    except (EvidenceError, OSError, ValueError, subprocess.SubprocessError) as error:
+        print(f"release-evidence: {error}", file=sys.stderr)
+        return 2
+    if problems:
+        print(f"BLOCKED: {len(problems)} problem{'s' if len(problems) != 1 else ''}", file=sys.stderr)
+        for problem in problems:
+            print(f"  {problem}", file=sys.stderr)
+        return 1
+    print(f"PASS: {len(REQUIRED_PROBES)} probes and {len(MANEUVERS)} charter maneuvers on this candidate")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

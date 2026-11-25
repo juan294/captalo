@@ -2,11 +2,11 @@
 
 Hear visible text and understand it with less effort. Cáptalo is a local macOS read-aloud utility derived from [Shreysid/Sotto](https://github.com/Shreysid/Sotto).
 
-**Status:** development fork. Workspace and workflow configuration are installed; no Cáptalo release is available. The app identity is Cáptalo. The core reader (selection reading, the quiet agent-app shell and screen-region OCR) is built on `develop` and passes its automated checks; runtime acceptance on a signed install is still pending, so none of it is a shipped feature.
+**Status:** beta. Two notarized betas are published as [GitHub pre-releases](https://github.com/juan294/captalo/releases) (macOS 26 or later); there is no production release. Selection reading, screen-region OCR, Stop and the menu-bar panel are built and pass the automated checks. Acceptance on a signed install is in progress; the [acceptance inventory](docs/release/2026-11-25-core-reader-acceptance.md) lists what is proven and what is open.
 
 ## Intended experience
 
-Select text and use a shortcut to hear it. For text that cannot be selected, the planned second action is a shortcut plus a dragged screen rectangle, recognized locally. Speech and OCR stay on the Mac. No cloud voice service, floating transcript, subscription or paid reader dependency.
+Select text and use a shortcut to hear it. For text that cannot be selected, the second action is a shortcut plus a dragged screen rectangle, recognized locally. Speech and OCR stay on the Mac. No cloud voice service, floating transcript, subscription or paid reader dependency.
 
 To stop a reading, click **Stop** in the menu-bar panel. You can also press **Control-Option-X** (the initial **Stop reading** shortcut, which you can change in the **Read** pane) from another app, even after you clear the selection. The read shortcuts start as **Control-Option-S** (selection) and **Control-Option-A** (region).
 

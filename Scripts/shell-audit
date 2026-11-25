@@ -2,7 +2,8 @@
 # Phase 4 code search: the inherited shell is gone and the built app is an
 # agent app. Owner decision 12: the menu-bar icon and its panel live only in
 # Captalo/UI/Settings/StatusItemController.swift. Phase 5: no legacy window capture anywhere in the app, and no
-# image write in Captalo/Services/OCR or the CaptaloOCR library. Regex search; a grep error or a
+# image write in Captalo/Services/OCR or the CaptaloOCR library. The app requests no network
+# entitlement: reading, OCR and speech are local. Regex search; a grep error or a
 # missing build product is a failure, never a pass.
 set -u
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
@@ -28,6 +29,10 @@ for pattern in 'MenuBarExtra' 'setActivationPolicy[[:space:]]*\([^)]*regular' 'R
 done
 for pattern in 'NSStatusItem' 'NSStatusBar' 'NSPopover'; do
   forbid "$pattern" "$ROOT/Captalo" StatusItemController.swift
+done
+for pattern in 'ENABLE_(OUTGOING|INCOMING)_NETWORK_CONNECTIONS[^=]*=[ "]*([^N "]|N[^O])' 'com\.apple\.security\.network'; do
+  forbid "$pattern" "$ROOT/Captalo.xcodeproj"
+  forbid "$pattern" "$ROOT/Captalo"
 done
 [ -d "$ROOT/Captalo/Services/OCR" ] || { echo "shell-audit: Captalo/Services/OCR is missing" >&2; status=1; }
 # The capture adapter and the Vision library the app links (the probe may read fixtures).
