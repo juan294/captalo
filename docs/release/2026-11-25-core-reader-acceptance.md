@@ -52,7 +52,7 @@ Evidence labels: **beta 3** means measured on `867634e` or on its DMG. **Live** 
 | --- | --- | --- | --- |
 | A1 | S4 | Both the installed build and the beta 2 DMG carry `com.apple.security.network.client`, from `ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES` in both app configurations. The app is not sandboxed, so the entitlement should have no effect (inferred). It contradicts the local-only promise | Removed by owner decision (2026-11-25): `NO` in both configurations, `Scripts/shell-audit` fails if it returns, and the signed install of `67d1764` carries no network entitlement |
 | A2 | Process | The evidence analyzer required by the playbook did not exist | `Scripts/release-evidence`, with tests in `Scripts/tests/test_release_evidence.py` |
-| A5 | Process | The app has no test target, and `executable-application-tests` is a first-release requirement in `.rpi/release-profile.json` | Open |
+| A5 | Process | The app has no test target, and `executable-application-tests` is a requirement for the first production release in `.rpi/release-profile.json` | Open |
 | A3 | Process | No independent Wave B charter has run on a candidate | Open |
 | A6 | Evidence | The event log does not record a press that Cáptalo refuses for a missing permission, so denial steps need a screenshot or a witness | Accepted as a constraint |
 | A7 | S3 | macOS 26.7.2: Vision reports aligned prose in two columns as a table, so Cáptalo read across the columns (5 of 5 runs). It does not report borderless tables of sentences, so those would be read down their columns. Workaround: select one column | Repaired in `DocumentTranscript`, with measured positions as tests |

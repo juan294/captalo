@@ -9,7 +9,7 @@
   "setup_suite_is_release_evidence": false,
   "waves": {
     "A": "required",
-    "B": "required-for-runtime-releases-only",
+    "B": "required-for-production-runtime-releases-only",
     "C": "not-selected",
     "D": "not-selected",
     "E": "not-selected",
@@ -17,7 +17,7 @@
     "G": "not-selected",
     "H": "not-selected"
   },
-  "required_before_first_app_release": [
+  "required_before_first_production_release": [
     "executable-application-tests",
     "candidate-bound-evidence-analyzer",
     "real-mac-selection-and-playback-evidence",
