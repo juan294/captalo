@@ -4,6 +4,10 @@ All notable changes to Cáptalo are recorded here. The format follows [Keep a Ch
 
 ## [Unreleased]
 
+## [1.0.0-beta.3] - 2026-11-25
+
+Build 3.
+
 ### Added
 
 - The menu-bar panel footer shows the version, for example `v1.0.0 beta 2`. Hover over it to see the commit, build type and build date.
@@ -34,6 +38,7 @@ Build 1, commit `bb97faa`. The build record includes uncommitted changes.
 
 - First Cáptalo beta: reads selected text and text in a screen region aloud on your Mac, on macOS 26 or later.
 
-[Unreleased]: https://github.com/juan294/captalo/compare/v1.0.0-beta.2...develop
+[Unreleased]: https://github.com/juan294/captalo/compare/v1.0.0-beta.3...develop
+[1.0.0-beta.3]: https://github.com/juan294/captalo/compare/v1.0.0-beta.2...v1.0.0-beta.3
 [1.0.0-beta.2]: https://github.com/juan294/captalo/compare/v1.0.0-beta.1...v1.0.0-beta.2
 [1.0.0-beta.1]: https://github.com/juan294/captalo/releases/tag/v1.0.0-beta.1
