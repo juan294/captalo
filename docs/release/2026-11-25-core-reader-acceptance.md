@@ -31,7 +31,7 @@ Evidence labels: **candidate** means measured on `96c2cab`. **Carried** means me
 | 8 | Missed presses in Rex ([#8](https://github.com/juan294/captalo/issues/8)) | Carried. Two presses with no capture event on 2026-11-22, unexplained. Reported 2026-11-23: selection reading stayed silent in one Rex pane while region reading worked; the trace showed that the simulated Copy left the clipboard unchanged | OPEN, known issue |
 | 9 | Stop reading | Carried from `c5066dc`: shortcut and panel Stop in Rex and Preview, 12 to 31 ms, clipboard kept. [Notes](../plans/2026-11-22-stop-reading-notes.md) | OPEN, rerun with Control-Option-X |
 | 10 | Stop with an empty selection | Carried. Rex stops after 1.1 s; in Preview the reading plays to its end. The dedicated Stop covers both | ACCEPTED, S3 known issue (owner, 2026-11-25) |
-| 11 | OCR order, fixtures | Candidate. `ocr-probe`: two-column and table fixtures, 6 blocks each, expected order | PASS |
+| 11 | OCR order, fixtures | `make ocr-probe`: two columns, ruled table, borderless terms, borderless table of sentences, ruled questions and answers. All five pass on macOS 27.2.1 and 26.7.2 with the A7 and A8 repairs. Before the repair the two-column fixture failed on 26.7.2 with the probe at `a799b40`; beta 2 and `96c2cab` have the same OCR sources (inferred for the apps) | PASS after A7 and A8, probe only |
 | 12 | OCR order by ear, scanned PDF, code screenshot | None. Three Vision word substitutions are recorded in [#9](https://github.com/juan294/captalo/issues/9) | OPEN |
 | 13 | Region capture on a notarized build | Reported. Beta 2, macOS 27.3 beta laptop, 2026-11-23: prompt on first press, read on the second press after the grant | PASS, one Mac |
 | 14 | Focus and Esc after region capture, full-screen app, second display | None | OPEN |
@@ -42,7 +42,7 @@ Evidence labels: **candidate** means measured on `96c2cab`. **Carried** means me
 | 19 | Permission survival across `make install` | Not recorded | OPEN |
 | 20 | Shared FluidAudio cache untouched | Candidate. `~/.cache/fluidaudio` absent on 2026-11-25; no open network sockets in the running app; footprint 180 MB | PASS at the time of the check |
 | 21 | Voice quality acceptance | Reported 2026-11-14 on generated samples: the owner confirmed `af_heart` and `af_bella` as "great" ([assessment](../research/2026-11-14-clean-eyes-reevaluation-assessment.md)). None on the installed app | OPEN for the candidate; the sample verdict stands |
-| 22 | macOS 26 | Beta 2 on macOS 26.7.2 (25G332, M4 Pro, 24 GB), 2026-11-25: installs, launches, reads selected text through Accessibility, 170 MB footprint, no network sockets, shared FluidAudio cache absent. Region OCR, Stop, revoke and output change have no recorded event; the owner reported that all worked | PARTLY: repeat the unrecorded steps, and on the exact candidate |
+| 22 | macOS 26 | Supported (owner, 2026-11-25). Beta 2 on macOS 26.7.2 (25G332, M4 Pro, 24 GB): installs, launches, reads selected text through Accessibility, no network sockets, shared FluidAudio cache absent, footprint 170 MB with a 516 MB peak. Probes there: both voices 13 of 13 units, also under a profile that kills the process on an outbound connection (the control kill was seen in the session; its output was not kept); OCR cancel and timeout pass; OCR order needed A7. Region OCR by shortcut, Stop, revoke and output change have no recorded event; the owner reported that all worked | PARTLY: repeat the unrecorded steps on the exact candidate |
 
 ## Findings
 
@@ -53,13 +53,16 @@ Evidence labels: **candidate** means measured on `96c2cab`. **Carried** means me
 | A5 | Process | The app has no test target, and `executable-application-tests` is a first-release requirement in `.rpi/release-profile.json` | Open |
 | A3 | Process | No independent Wave B charter has run on a candidate | Open |
 | A6 | Evidence | The event log does not record a press that Cáptalo refuses for a missing permission, so denial steps need a screenshot or a witness | Accepted as a constraint |
+| A7 | S3 | macOS 26.7.2: Vision reports aligned prose in two columns as a table, so Cáptalo read across the columns (5 of 5 runs). It does not report borderless tables of sentences, so those would be read down their columns. Workaround: select one column | Repaired in `DocumentTranscript`, with measured positions as tests |
+| A8 | S3 | macOS 27.2.1: a definition wider than the table that Vision reports was read twice | Repaired in `DocumentTranscript` |
+| A9 | S4 | Reading order is still decided by thresholds. A table without a header is read by column when every column is mostly cells of 15 or more words (at most one short cell, or one in three); a grid that spans two of three columns separates the third; macOS 26 reports two short lists side by side as a table, read by row; only one borderless table is joined on a page; Vision can merge lines across a narrow column gap | Known limits |
 | A4 | Evidence | Cáptalo's log events are info level. A log query over 2026-11-22 to 2026-11-25 returned none, so past use is not evidence. A live run must record events while it happens | Accepted as a constraint |
 
 ## Owner decisions (2026-11-25)
 
 1. **Evidence analyzer (A2):** build a small one for the first production release. It is `Scripts/release-evidence`. The playbook requirement stays; steps 4 and 6 now name the tool, its limits and that Cáptalo has no pause.
 2. **Stop with an empty selection (row 10):** accepted as an S3 known issue, because the dedicated Stop (panel button or Control-Option-X) works around it. In Preview the reading plays to its end; in Rex it stops after 1.1 s. It belongs in the release notes of the first production release.
-3. **macOS 26 (row 22):** test it on macOS 26, or else raise the minimum version to 27. A Mac with macOS 26 is available (owner, 2026-11-25), so it is tested there with the beta 2 DMG. The exact candidate needs the same check.
+3. **macOS 26 (row 22):** tested on 26.7.2; it found A7. The owner keeps macOS 26 supported and asked for the repair.
 
 ## Release decision
 
