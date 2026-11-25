@@ -171,6 +171,22 @@ class CaptureCollectTests(unittest.TestCase):
         self.assertEqual(collect.parse("x [com.thecreativetoken.captalo:Events] clipboardSnapshot items=2 bytes=40 elapsedMs=3")["bytes"], "40")
         self.assertIsNone(collect.parse("2026-11-15 10:00:01.000 I  Other[1:2] unrelated line"))
 
+    def test_keeps_values_that_contain_an_equals_sign(self):
+        event = collect.parse("x capture a=b=c next=1")
+        self.assertEqual((event["a"], event["next"]), ("b=c", "1"))
+
+    def test_rejects_a_bare_word_and_a_double_space(self):
+        self.assertIsNone(collect.parse("x capture a=1 loose"))
+        self.assertIsNone(collect.parse("x capture a=1  b=2"))
+
+    def test_rejects_a_long_hostile_line_quickly(self):
+        # A subprocess, so a regular expression that backtracks fails by timeout and does not hang the suite.
+        code = ("import runpy, sys; parse = runpy.run_path(sys.argv[1])['parse']; "
+                "sys.exit(parse('probe ' + '0=!' * 5000 + ' !') is not None)")
+        result = subprocess.run([sys.executable, "-c", code, str(SCRIPTS / "capture-matrix-collect")],
+                                timeout=20, check=False)
+        self.assertEqual(result.returncode, 0)
+
 
 class SubsystemTests(unittest.TestCase):
     def test_collector_subsystem_matches_privacy_log(self):
