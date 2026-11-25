@@ -147,7 +147,7 @@ class Bundle(GateCase):
     def test_digest_sees_name_mode_and_link_changes(self):
         base = gate.bundle_digest(self.app)
         binary = self.app / "Contents" / "MacOS" / "Captalo"
-        os.chmod(binary, 0o755)
+        os.chmod(binary, 0o700)
         executable = gate.bundle_digest(self.app)
         binary.rename(binary.with_name("Renamed"))
         renamed = gate.bundle_digest(self.app)
