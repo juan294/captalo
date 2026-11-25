@@ -2,7 +2,7 @@
 
 Hear visible text and understand it with less effort. Cáptalo is a local macOS read-aloud utility derived from [Shreysid/Sotto](https://github.com/Shreysid/Sotto).
 
-**Status:** beta. Two notarized betas are published as [GitHub pre-releases](https://github.com/juan294/captalo/releases) (macOS 26 or later); there is no production release. Selection reading, screen-region OCR, Stop and the menu-bar panel are built and pass the automated checks. Acceptance on a signed install is in progress; the [acceptance inventory](docs/release/2026-11-25-core-reader-acceptance.md) lists what is proven and what is open.
+**Status:** beta. Three notarized betas are published as [GitHub pre-releases](https://github.com/juan294/captalo/releases) (macOS 26 or later); there is no production release. Selection reading, screen-region OCR, Stop and the menu-bar panel are built and pass the automated checks. Acceptance on a signed install is in progress; the [acceptance inventory](docs/release/2026-11-25-core-reader-acceptance.md) lists what is proven and what is open.
 
 ## Intended experience
 
