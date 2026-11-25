@@ -8,7 +8,7 @@ export DEVELOPER_DIR
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 swift build -c release --package-path "$ROOT/Packages/CaptaloOCR" --product captalo-ocr-probe >&2
 PROBE="$(swift build -c release --package-path "$ROOT/Packages/CaptaloOCR" --show-bin-path)/captalo-ocr-probe"
-for fixture in ocr-two-column ocr-table; do
+for fixture in ocr-two-column ocr-table ocr-terms ocr-open-table ocr-questions; do
   "$PROBE" "$ROOT/Fixtures/$fixture.png" "$ROOT/Fixtures/$fixture.json"
 done
 "$PROBE" --cancel "$ROOT/Fixtures/ocr-two-column.png"

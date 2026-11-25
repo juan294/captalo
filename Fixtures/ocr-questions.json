@@ -1,0 +1,16 @@
+{
+  "blocks": [
+    {
+      "kind": "tableRow",
+      "contains": "summer? Yes, if there"
+    },
+    {
+      "kind": "tableRow",
+      "contains": "closed? Pay the crew"
+    },
+    {
+      "kind": "tableRow",
+      "contains": "take? About forty"
+    }
+  ]
+}

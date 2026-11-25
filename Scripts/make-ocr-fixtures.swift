@@ -1,5 +1,6 @@
 // Renders the synthetic OCR fixtures from text written for this project
-// (plan phase 5): Fixtures/ocr-two-column.png and Fixtures/ocr-table.png.
+// (plan phase 5): Fixtures/ocr-two-column.png, ocr-table.png, ocr-terms.png,
+// ocr-open-table.png and ocr-questions.png.
 // Usage: xcrun swift Scripts/make-ocr-fixtures.swift <output directory>
 import CoreGraphics
 import CoreText
@@ -94,4 +95,66 @@ do {
     draw("Tickets are sold at the office beside the quay.", in: CGRect(x: 80, y: 700, width: 1240, height: 80), size: 30,
          context: context, imageHeight: height)
     save(context, "ocr-table.png")
+}
+
+// Terms beside definitions, without rules. Each term is read with its definition.
+do {
+    let width = 1500, height = 700
+    let context = canvas(width, height)
+    let terms = [
+        ("Quay", "The stone edge where the ferry ties up and the carts wait for the crates."),
+        ("Valve", "A glass part of an old radio. It glows when the set is warm."),
+        ("Stall", "A table with a roof, rented by the week from the town."),
+    ]
+    for (index, term) in terms.enumerated() {
+        draw(term.0, in: CGRect(x: 80, y: 80 + index * 180, width: 260, height: 60), size: 30, bold: true, context: context, imageHeight: height)
+        draw(term.1, in: CGRect(x: 400, y: 80 + index * 180, width: 1000, height: 150), size: 30, context: context, imageHeight: height)
+    }
+    save(context, "ocr-terms.png")
+}
+
+// A table with sentences in its cells and no rules. It is read row by row.
+do {
+    let width = 1500, height = 800
+    let context = canvas(width, height)
+    let rows = [
+        ["Ferry", "Times", "Payment"],
+        ["North", "Alpha. Boats leave at six and return at noon with the catch.", "Delta. Bring cash, because the kiosk takes no cards at all."],
+        ["South", "Bravo. Boats leave at nine and carry only passengers and post.", "Echo. Buy the ticket online and show the code at the gate."],
+    ]
+    for (row, cells) in rows.enumerated() {
+        for (column, text) in cells.enumerated() {
+            draw(text, in: CGRect(x: [100, 420, 920][column], y: row == 0 ? 105 : 200 + (row - 1) * 220, width: 450, height: 190),
+                 size: row == 0 ? 32 : 28, bold: row == 0, context: context, imageHeight: height)
+        }
+    }
+    save(context, "ocr-open-table.png")
+}
+
+// A ruled table of questions and answers without a header. Each question is read with its answer.
+do {
+    let width = 1500, height = 800
+    let context = canvas(width, height)
+    let rows = [
+        ["Can I bring a bicycle on the ferry in the summer?", "Yes, if there is room on deck after the cars."],
+        ["Where do I buy a ticket when the kiosk is closed?", "Pay the crew on board, in cash or by card."],
+        ["How long does the crossing to the island usually take?", "About forty minutes, or an hour when the sea is rough."],
+    ]
+    context.setStrokeColor(CGColor(red: 0, green: 0, blue: 0, alpha: 1))
+    context.setLineWidth(3)
+    for y in [80, 280, 480, 680] {
+        context.move(to: CGPoint(x: 80, y: height - y))
+        context.addLine(to: CGPoint(x: 1400, y: height - y))
+    }
+    for x in [80, 740, 1400] {
+        context.move(to: CGPoint(x: x, y: height - 80))
+        context.addLine(to: CGPoint(x: x, y: height - 680))
+    }
+    context.strokePath()
+    for (row, cells) in rows.enumerated() {
+        for (column, text) in cells.enumerated() {
+            draw(text, in: CGRect(x: 110 + column * 660, y: 120 + row * 200, width: 560, height: 140), size: 30, context: context, imageHeight: height)
+        }
+    }
+    save(context, "ocr-questions.png")
 }

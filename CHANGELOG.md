@@ -9,6 +9,15 @@ All notable changes to Cáptalo are recorded here. The format follows [Keep a Ch
 - The menu-bar panel footer shows the version, for example `v1.0.0 beta 2`. Hover over it to see the commit, build type and build date.
 - `Scripts/set-version` sets the version and build number for each release and checks that a built app carries them.
 
+### Fixed
+
+- Reading a screen region on macOS 26: text in two aligned columns is read column by column, and a borderless table of sentences is read row by row.
+- Reading a screen region on macOS 27: a table cell wider than the table that macOS reports is no longer read twice.
+
+### Removed
+
+- The unused network access entitlement. Reading, text recognition and speech stay on the Mac.
+
 ## [1.0.0-beta.2] - 2026-11-23
 
 Build 2, commit `aa8e817`.
