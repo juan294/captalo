@@ -23,7 +23,7 @@ Evidence labels: **beta 3** means measured on `867634e` or on its DMG. **Live** 
 
 | # | Check | Evidence | Status |
 | --- | --- | --- | --- |
-| 1 | Full local gate | Beta 3. `make verify` 2026-11-25: 18 of 18, tree identity unchanged. Core 306 tests (debug and release), speech 23 (debug and release), scripts 228. Hosted CI and CodeQL pass on the same commit | PASS |
+| 1 | Full local gate | Beta 3. `make verify` 2026-11-25: 18 of 18, tree identity unchanged. Core 306 tests (debug and release), speech 23 (debug and release), scripts 228. Hosted CI passes on the same commit. The CodeQL run completed there with seven open alerts (A11) | PASS for the local gate and hosted CI |
 | 2 | Version in the bundle | Beta 3. `Scripts/set-version --check 1.0.0-beta.3 --app` exits 0 on the packaged app; `build-info.json` records `867634e`, not dirty | PASS for beta 3 |
 | 3 | Completeness, structural | Beta 3. Both voices: 13 of 13 units played once, in order. Device change replays one unit. No unit over 35 s (longest 24.6 s) | PASS |
 | 4 | Completeness, by ear | None. The recognition round trip is not run (recognizer download not approved); the plan makes the ten-minute listening audit the gate | OPEN, owner |
@@ -59,6 +59,7 @@ Evidence labels: **beta 3** means measured on `867634e` or on its DMG. **Live** 
 | A8 | S3 | macOS 27.2.1: a definition wider than the table that Vision reports was read twice | Repaired in `DocumentTranscript` |
 | A9 | S4 | Reading order is still decided by thresholds. A table without a header is read by column when every column is mostly cells of 15 or more words (at most one short cell, or one in three); a grid that spans two of three columns separates the third; macOS 26 reports two short lists side by side as a table, read by row; only one borderless table is joined on a page; Vision can merge lines across a narrow column gap | Known limits |
 | A10 | S4 | After the live run (63 readings and 10 region captures in one process) the app used 430 MB, with a peak of 1,269 MB. The earlier process (`96c2cab`, mostly selection readings over 24 h) peaked at 369 MB. Belongs to [#6](https://github.com/juan294/captalo/issues/6) | Open |
+| A11 | S4 | Seven open CodeQL alerts on `develop` at `3ba50bd`, which GitHub rates high. 1: the event expression in `Scripts/capture-matrix-collect` did not finish in 20 s on a hostile line. 7: a test fixture mode. 2 to 6: file modes of 0644 and 0755 in the installed `.rpi` scripts and baselines. None is in the app | 1 and 7 repaired in `65082e0`, not yet analyzed by CodeQL. 2 to 6: reviewed, intended modes for repository files; the source is cc-rpi. Disposition open, owner |
 | A4 | Evidence | Cáptalo's log events are info level. A log query over 2026-11-22 to 2026-11-25 returned none, so past use is not evidence. A live run must record events while it happens | Accepted as a constraint |
 
 ## Owner decisions (2026-11-25)
