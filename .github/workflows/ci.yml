@@ -1,10 +1,11 @@
 name: CI
 
+# Pushes to main and owner-authorized manual runs only (Sutura decision
+# 2026-11-20, trigger addendum 2026-11-28). Local `make verify` gates develop.
 on:
   push:
-    branches: [develop, main]
-  pull_request:
-    branches: [develop, main]
+    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
